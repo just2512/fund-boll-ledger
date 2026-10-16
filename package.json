@@ -4,12 +4,17 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --host 0.0.0.0",
-    "start": "vite --open",
+    "dev": "vite --host 127.0.0.1",
+    "start": "cargo tauri dev",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 0.0.0.0",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "desktop:dev": "cargo tauri dev",
+    "desktop:build": "cargo tauri build",
+    "android:init": "cargo tauri android init --ci",
+    "android:dev": "cargo tauri android dev",
+    "android:build": "cargo tauri android build --apk --target aarch64 --ci"
   },
   "dependencies": {
     "react": "^18.3.1",

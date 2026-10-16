@@ -1,8 +1,8 @@
 # 基金阶梯账本（Fund BOLL Ledger）
 
-一款面向个人使用的场内基金手动记账 PWA。用于 Windows 电脑与 Android 手机，不接入东方财富账户、不拉取行情、不连接券商、不自动下单。
+一款面向个人使用的场内基金手动计算与记账工具，使用 React + TypeScript 前端，通过 Tauri 原生窗口运行于 Windows，并构建为 Android APK。保留浏览器 PWA 作为可选预览，不接入东方财富账户、不拉取行情、不连接券商、不自动下单。
 
-> 本项目当前是供本地拉取和验证的 MVP 起点。账本数据默认保存在当前浏览器的 IndexedDB 中。不同设备的数据不会自动同步；可用 JSON 备份手动迁移。
+> Windows 使用独立桌面窗口启动，不需要先打开浏览器。Android 使用可安装 APK，不需要通过浏览器“添加到主屏幕”。每台设备分别保存本地账本；首版无云同步，跨设备需通过 JSON 备份迁移。
 
 ## 首版交付范围
 
@@ -14,11 +14,13 @@
 - **持仓与盈亏**：加权平均成本法，买入费用纳入持仓成本；卖出费用计入已实现盈亏；展示当前持仓、成本、已实现盈亏、浮动盈亏与费用拆分。
 - **价格历史**：主动保存当日输入的五个基准、当前价、报价单位和备注。
 - **备份**：完整 JSON 导入/导出；交易明细 CSV 导出。
-- **本地优先与 PWA**：支持安装到桌面/主屏幕；Service Worker 提供基础缓存。无账号、无云端数据传输。
+- **原生应用外壳**：Tauri 桌面窗口与 Android APK 共用同一套 React 界面和计算逻辑；PWA 仅作为可选网页预览。无账号、无云端数据传输。
 
-## 发布到 GitHub
+## 原生应用构建
 
-当前交付包尚未推送到远端：本次可用的 GitHub 连接没有创建新仓库的操作。Windows 安装 GitHub CLI 后，先运行 `gh auth login`，再在项目根目录用 PowerShell 执行 `./scripts/publish-to-github.ps1`。脚本会把代码提交到本地 Git，并尝试创建 **私有** 仓库 `just2512/fund-boll-ledger` 后推送 `main`。默认私有是为了避免在未明确选择公开范围前公开发布。
+具体环境要求和设备验收步骤见 [原生应用与折叠屏验证说明](docs/NATIVE_APP_AND_DEVICE_TEST.md)。
+
+Windows 运行 `scripts/build-windows.ps1` 生成独立窗口程序与安装包；Android 运行 `scripts/build-android.ps1` 生成面向 ARM64 的 APK。
 
 ## 本地运行
 
@@ -28,11 +30,26 @@
 npm install
 npm run test          # 单元测试（计算核心 + 边界）
 npm run build         # tsc 类型检查 + Vite 生产构建
-npm run dev           # 本地开发服务器
+npm run dev           # 浏览器预览（可选）
+npm run desktop:dev   # Windows 原生窗口开发模式
+npm run desktop:build # 生成 Windows 桌面安装包
+npm run android:init  # 首次初始化 Android 工程
+npm run android:build # 构建 ARM64 Android APK
 npx playwright test   # 端到端测试（使用系统 Edge，真实交互）
 ```
 
-打开终端中 Vite 提示的本地地址。Windows 与 Android 可分别使用 Edge/Chrome 访问同一部署地址。要在 Android 手机上从电脑访问开发服务器，电脑和手机需位于可互相访问的网络，且要允许相应防火墙端口；PWA 安装/Service Worker 正常工作通常需要 HTTPS，`localhost` 属于本地开发例外。
+普通网页预览仍可使用 `npm run dev`，但日常启动请使用 Tauri 原生应用；Android 请构建并安装 APK。
+
+## 本地原生应用开发依赖
+
+需要 Node.js 20+、Rust stable、Tauri CLI 2.11.4。Windows 桌面还需要 Visual Studio C++ Build Tools 和 WebView2；Android 需要 Android Studio、JDK 21、SDK Platform 36、Build Tools、NDK 与 Rust `aarch64-linux-android` target。首次安装 Tauri CLI：
+
+```powershell
+cargo install tauri-cli --version 2.11.4 --locked
+cargo tauri icon public/icon.svg
+```
+
+双击 `启动基金阶梯账本.bat` 会优先运行已构建的独立程序；未构建时会尝试启动 Tauri 原生开发窗口，不会回退打开浏览器。Windows 安装包位于 `src-tauri/target/release/bundle/nsis/`。Android APK 由 `cargo tauri android build --apk --target aarch64 --ci` 生成。
 
 ## 使用流程
 
@@ -65,7 +82,7 @@ npx playwright test   # 端到端测试（使用系统 Edge，真实交互）
 - 不连接东方财富账户、行情接口、券商 API 或自动交易。
 - 不承诺当前输入价是真正实时行情；价格需用户从自己使用的行情来源手动查看后录入。
 - 不自动判断某类基金适用的佣金、最低佣金、印花税减免或交易所费用规则。
-- 无云同步、多设备冲突解决、账号系统、云端备份或服务端数据。
+- 无云同步、多设备冲突解决、账号系统、云端备份或服务端数据。Windows 与 Android 的本地数据库相互独立，需要 JSON 手动迁移。
 - 当前账本的持仓与盈亏是根据用户已录入交易推算的结果；漏记、错记、交易时间错误都会影响结果。
 
 ## 文档

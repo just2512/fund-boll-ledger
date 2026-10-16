@@ -1,0 +1,44 @@
+/* Native desktop and mobile safe-area refinements. */
+html, body, #root { width: 100%; min-height: 100%; }
+body { min-height: 100dvh; }
+.app-shell { min-height: 100dvh; padding-bottom: env(safe-area-inset-bottom, 0px); }
+.topbar {
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+@media (min-width: 821px) and (max-width: 1000px) {
+  .workspace { grid-template-columns: 180px minmax(0, 1fr); }
+  .main-content { padding: 20px 16px; }
+  .reference-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .comparison-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .comparison-card:last-child { grid-column: 1 / -1; }
+  .comparison-card:last-child .comparison-foot { justify-content: flex-start; gap: 16px; }
+}
+@media (max-width: 600px) {
+  .topbar { padding-left: max(10px, env(safe-area-inset-left, 0px)); padding-right: max(10px, env(safe-area-inset-right, 0px)); }
+  .page-heading p, .section-title-row p { font-size: 12px; }
+  .price-input > span, .field > span { font-size: 12px; }
+  .field small { font-size: 11px; }
+  .comparison-card > span { font-size: 11px; }
+  .comparison-foot { font-size: 10px; }
+  .comparison-card > small { font-size: 10px; }
+  .ladder-status .status-label, .next-target { font-size: 11px; }
+  .ladder-table th, .ladder-table td { font-size: 11px; }
+  .level-chip, .state-pill { font-size: 10px; }
+  .metric-label { font-size: 11px; }
+  .metric small { font-size: 10px; }
+  .snapshot-values > span { font-size: 10px; }
+  .snapshot-values strong { font-size: 13px; }
+  .fee-verification label { font-size: 11px; }
+  .top-export { font-size: 10px; }
+}
+@media (orientation: landscape) and (max-height: 520px) {
+  .topbar { height: 54px; }
+  .workspace { min-height: calc(100dvh - 54px); }
+  .sidebar { top: 54px; height: calc(100dvh - 54px); }
+  .main-content { padding-top: 12px; padding-bottom: 12px; }
+  .page-heading { margin-bottom: 12px; }
+  .panel { padding-top: 12px; padding-bottom: 12px; }
+  .modal-backdrop { max-height: 100dvh; overflow-y: auto; }
+  .modal { max-height: calc(100dvh - 18px); }
+}

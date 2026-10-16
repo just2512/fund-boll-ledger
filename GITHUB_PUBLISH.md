@@ -1,36 +1,42 @@
-# 发布到 GitHub
+# 原生桌面版和 Android App 构建
 
-当前交付包包含完整项目源代码，但由于当前执行环境的 GitHub 连接没有“创建新仓库”的操作，本次无法替你创建远端仓库。项目已提供 Windows PowerShell 发布脚本。
+本仓库已存在。此文档用于构建 Windows 桌面程序和 Android APK。
 
-## 一次性准备
+## Windows 桌面应用
 
-1. 安装 Git for Windows 与 GitHub CLI（`gh`）。
-2. 在 PowerShell 登录 GitHub：
+依赖：Node.js 20+、Rust stable/MSVC toolchain、Visual Studio C++ Build Tools、WebView2 Runtime。
 
-   ```powershell
-   gh auth login
-   ```
+    npm install
+    cargo install tauri-cli --version 2.11.4 --locked
+    cargo tauri icon public/icon.svg
+    npm run desktop:dev
+    npm run desktop:build
 
-3. 解压项目包，切换到 `fund-boll-ledger` 项目根目录。
+构建后：
+- 安装程序：src-tauri/target/release/bundle/nsis/
+- 可执行文件：src-tauri/target/release/fund-boll-ledger.exe
 
-## 创建仓库并推送
+双击根目录的 启动基金阶梯账本.bat。它优先启动已构建的 exe，否则在原生构建工具链齐备时启动 Tauri 独立窗口；不会使用 vite --open 打开浏览器。
 
-```powershell
-Set-ExecutionPolicy -Scope Process Bypass
-.\scripts\publish-to-github.ps1
-```
+## Android APK（OPPO Find N2 使用 ARM64）
 
-脚本默认尝试创建 `just2512/fund-boll-ledger` **私有仓库**，初始化本地 Git、创建首个提交并推送 `main`。如果同名仓库已存在，脚本会尝试推送到该仓库。
+依赖：Android Studio、JDK 21、Android SDK Platform 36、SDK Build Tools、NDK、Rust Android target。
 
-若希望代码公开，先打开 `scripts/publish-to-github.ps1`，把 `gh repo create` 命令中的 `--private` 改为 `--public`。不要将个人交易数据或真实账本备份提交到代码仓库；本项目默认不会把 IndexedDB 内容写入文件。
+    npm install
+    cargo install tauri-cli --version 2.11.4 --locked
+    cargo tauri icon public/icon.svg
+    cargo tauri android init --ci
+    cargo tauri android build --apk --target aarch64 --ci
 
-## 推送后克隆
+APK 在 src-tauri/gen/android/app/build/outputs/apk/ 下的架构目录中。PUG110 对应 ARM64（aarch64）构建。
 
-```powershell
-git clone https://github.com/just2512/fund-boll-ledger.git
-cd fund-boll-ledger
-npm install
-npm run test
-npm run build
-npm run dev
-```
+## 可选 GitHub Actions
+
+.github/workflows/native-build.yml 是手动触发工作流，不会因每次 push 自动消耗 Actions 用量。成功后可从 Actions 运行页下载 Windows 安装包与 Android APK artifact。
+
+## 注意事项
+
+- 本项目只手动记账，不连接东方财富或券商。
+- Windows 与 Android 的本地数据库不是自动同步的。跨设备使用时通过 JSON 备份/恢复。
+- 原生安装包需实机验收。浏览器视口测试不等于已在 OPPO Find N2 或 Android 16 实机验证。
+- 不要将实际交易账本和备份文件提交到仓库。

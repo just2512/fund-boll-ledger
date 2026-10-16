@@ -8,3 +8,7 @@ playwright-report/
 Thumbs.db
 *.zip
 *.tar.gz
+
+# Native Tauri build output and generated Android Studio project
+src-tauri/target/
+src-tauri/gen/

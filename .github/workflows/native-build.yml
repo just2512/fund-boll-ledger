@@ -1,0 +1,78 @@
+name: Native App Build (manual)
+
+on:
+  workflow_dispatch:
+  # Deliberately manual to avoid consuming Actions minutes on every push.
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: Windows desktop installer
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install frontend dependencies
+        run: npm install
+      - name: Install pinned Tauri CLI
+        run: cargo install tauri-cli --version 2.11.4 --locked
+      - name: Generate app icons
+        run: cargo tauri icon public/icon.svg
+      - name: Test and build
+        run: |
+          npm run test
+          npm run desktop:build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fund-boll-ledger-windows-x64
+          path: |
+            src-tauri/target/release/bundle/nsis/*-setup.exe
+            src-tauri/target/release/fund-boll-ledger.exe
+          if-no-files-found: error
+          retention-days: 14
+
+  android:
+    name: Android 16 ARM64 APK
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: android-actions/setup-android@v3
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+      - name: Install Android SDK components
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses
+          sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;28.2.13676358" "cmake;3.22.1"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/28.2.13676358" >> "$GITHUB_ENV"
+      - name: Install frontend dependencies
+        run: npm install
+      - name: Install pinned Tauri CLI
+        run: cargo install tauri-cli --version 2.11.4 --locked
+      - name: Generate app icons
+        run: cargo tauri icon public/icon.svg
+      - name: Initialize Android project
+        run: cargo tauri android init --ci
+      - name: Build ARM64 APK
+        run: cargo tauri android build --apk --target aarch64 --ci
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fund-boll-ledger-android-arm64
+          path: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+          if-no-files-found: error
+          retention-days: 14
