@@ -2,12 +2,14 @@ name: Native App Build (manual)
 
 on:
   workflow_dispatch:
-  # Deliberately manual to avoid consuming Actions minutes on every push.
+    # Deliberately manual to avoid consuming Actions minutes on every push.
 
 permissions:
   contents: read
 
 jobs:
+  # Windows installer on GitHub-hosted runner. The project can also be built
+  # locally with scripts/build-windows.ps1; this job is the cloud fallback.
   windows:
     name: Windows desktop installer
     runs-on: windows-latest
@@ -37,41 +39,31 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  # Android ARM64 APK on the user's WSL self-hosted runner (already provisioned:
+  # JDK 17, Android SDK platform-36/build-tools 36.0.0/NDK 28.2.13676358,
+  # Rust stable + aarch64-linux-android target, tauri-cli 2.11.4).
   android:
-    name: Android 16 ARM64 APK
-    runs-on: ubuntu-24.04
+    name: Android ARM64 APK (self-hosted WSL)
+    runs-on: [self-hosted, Linux, X64, wsl]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 21
-      - uses: android-actions/setup-android@v3
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-linux-android
-      - name: Install Android SDK components
-        shell: bash
+      - name: Set up toolchain environment
         run: |
-          yes | sdkmanager --licenses
-          sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;28.2.13676358" "cmake;3.22.1"
-          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/28.2.13676358" >> "$GITHUB_ENV"
-          echo "NDK_HOME=$ANDROID_HOME/ndk/28.2.13676358" >> "$GITHUB_ENV"
-      - name: Verify Android SDK and NDK environment
-        shell: bash
+          echo "ANDROID_HOME=$HOME/android-sdk" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_HOME=$HOME/android-sdk/ndk/28.2.13676358" >> "$GITHUB_ENV"
+          echo "NDK_HOME=$HOME/android-sdk/ndk/28.2.13676358" >> "$GITHUB_ENV"
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+      - name: Verify Android SDK and NDK
         run: |
           test -d "$ANDROID_HOME/platforms/android-36"
-          test -d "$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64"
-          echo "Android SDK: $ANDROID_HOME"
-          echo "Android NDK: $NDK_HOME"
+          test -d "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64"
+          test -x "$HOME/.cargo/bin/cargo-tauri"
+          java -version
+          rustc --version
+          cargo tauri --version
       - name: Install frontend dependencies
         run: npm install
-      - name: Install pinned Tauri CLI
-        run: cargo install tauri-cli --version 2.11.4 --locked
       - name: Generate app icons
         run: cargo tauri icon public/icon.svg
       - name: Initialize Android project
