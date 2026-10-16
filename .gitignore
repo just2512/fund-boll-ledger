@@ -12,3 +12,12 @@ Thumbs.db
 # Native Tauri build output and generated Android Studio project
 src-tauri/target/
 src-tauri/gen/
+
+# Android SDK 组件误装到仓库根目录（应装 WSL/独立目录），防止误提交
+/build-logs/
+/build-tools/
+/cmake/
+/licenses/
+/ndk/
+/platform-tools/
+/platforms/
