@@ -1,0 +1,49 @@
+# 数据模型与计算公式
+
+## 价格百分比
+
+给定当前价格 `C`、基准价 `B`：
+
+- 涨跌额：`C − B`
+- 涨跌幅：`(C − B) / B × 100%`（仅当 B > 0）
+- BOLL 上轨、中轨、下轨、昨日收盘价和上一次成交价是五个独立基准。
+
+## 阶梯价格
+
+给定基准 `B`、方向 `d`、刻度 `n`：
+
+- `d = up`：`B × (100+n)/100`
+- `d = down`：`B × (100−n)/100`
+- `n = 1..10`
+- 最后舍入到 `tickSize` 的整数倍。默认 tick 为 0.001 元，按基金规则可改。
+
+档位定位：上涨档在 `currentPrice >= stepPrice` 时标记已越过；下跌档在 `currentPrice <= stepPrice` 时标记已越过。第一档未越过的项目显示为下一档。
+
+## 成交金额与费用
+
+- `grossCents = round(price × quantity × 100)`
+- `feeCents = commission + transferFee + stampDuty + otherFee`（各字段已用分存储）
+- `feesChecked` 记录用户是否对照实际成交记录核对费用；未核对并不自动阻止记账，但必须在 UI 明确展示。
+- 买入现金支出：`grossCents + feeCents`
+- 卖出现金净收入：`grossCents − feeCents`
+
+费用估算示例：费率字段输入 `0.025` 表示 `0.025%`，初步佣金估算 `gross × rate / 100`，若启用最低佣金，则取估算佣金和最低值中的较大值。佣金估算不能替代实际交易费用。
+
+## 加权平均成本
+
+- 买入：`positionQty += buyQty`；`costBasis += buyGross + buyFees`
+- 卖出前成本分摊：`allocatedCost = costBasis × sellQty / positionQty`，按分四舍五入；若全部卖出，分摊全部剩余成本。
+- 卖出已实现盈亏：`sellGross − sellFees − allocatedCost`
+- 卖出后：`positionQty -= sellQty`；`costBasis -= allocatedCost`
+- 当前参考市值：`currentPrice × positionQty`
+- 浮动盈亏：`currentMarketValue − remainingCostBasis`
+
+首版不考虑红利、拆分、合并、基金份额转换、申赎、非交易过户、转托管及不同会计方法。若持有份额因这些事件发生变化，需要在后续版本中设计独立事件模型，不能伪装成普通买卖。
+
+## 输入规则
+
+- 价格 > 0 才允许生成有效计算/成交。
+- 数量必须为正整数份。
+- 手续费非负。
+- 缺失价格使用空字符串，不能用 0 代表“未知”。
+- 交易按成交时间升序重算；任一卖出在该时点超过持仓，则拒绝保存。
