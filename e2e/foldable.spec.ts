@@ -6,7 +6,7 @@ async function createFund(page: Page) {
   await page.getByPlaceholder('例如：宽基 ETF').fill('折叠屏测试基金');
   await page.getByPlaceholder('例如：510300').fill('510300');
   await page.getByRole('button', { name: '保存档案' }).click();
-  await expect(page.locator('.fund-list-item', { hasText: '折叠屏测试基金' })).toBeVisible();
+  await expect(page.getByLabel('当前基金')).toContainText('折叠屏测试基金');
 }
 
 test('折叠屏外屏、内屏、横屏和桌面视口无页面级横向溢出', async ({ page }) => {

@@ -1,59 +1,41 @@
 @echo off
 chcp 65001 >nul
 setlocal
-title 基金阶梯账本（原生桌面版）
+title 基金阶梯账本
 cd /d "%~dp0"
 
 set "APP_EXE=%~dp0src-tauri\target\release\fund-boll-ledger.exe"
 
-rem 优先启动已经构建好的 Windows 独立应用，不启动浏览器。
+rem 1) 优先启动已经构建好的原生桌面程序（独立窗口，不打开浏览器）。
 if exist "%APP_EXE%" (
     start "" "%APP_EXE%"
     exit /b 0
 )
 
+rem 2) 原生程序未构建时，退回网页版（只需 Node.js，不需要 Rust）。
 where node >nul 2>nul
 if errorlevel 1 (
     echo [缺少 Node.js]
-    echo 请安装 Node.js 20 或更高版本。
-    echo 下载地址：https://nodejs.org/
-    pause
-    exit /b 1
-)
-
-where cargo >nul 2>nul
-if errorlevel 1 (
-    echo [缺少 Rust 原生构建环境]
-    echo 推荐使用构建完成的 Windows 安装包。
-    echo 本脚本不会退回浏览器模式。
-    echo 开发环境需安装 Rust、Visual Studio C++ Build Tools 和 WebView2。
-    pause
-    exit /b 1
-)
-
-cargo tauri --version >nul 2>nul
-if errorlevel 1 (
-    echo [缺少 Tauri CLI]
-    echo 请在 PowerShell 执行：
-    echo cargo install tauri-cli --version 2.11.4 --locked
+    echo 原生桌面程序尚未构建，网页版启动也需要 Node.js。
+    echo 请先安装 Node.js LTS：https://nodejs.org/
+    echo 装完重新双击本文件，即可用网页版打开。
     pause
     exit /b 1
 )
 
 if not exist "node_modules" (
-    echo 首次运行：正在安装前端依赖……
+    echo 首次运行：正在安装前端依赖（需联网约 1-2 分钟，请勿关闭）...
     call npm install
     if errorlevel 1 (
-        echo 依赖安装失败，请检查网络后重试。
+        echo 依赖安装失败，请检查网络后重新双击本文件。
         pause
         exit /b 1
     )
 )
 
-echo 正在启动基金阶梯账本原生窗口……
-call cargo tauri dev
-if errorlevel 1 (
-    echo 原生窗口启动失败。请检查 Node.js、Rust、C++ Build Tools 和 WebView2 环境。
-    pause
-    exit /b 1
-)
+echo 未检测到原生桌面程序，已改用网页版打开（通过浏览器窗口）。
+echo 想要真正的独立窗口：
+echo   1^) 在 GitHub 仓库 Actions 里手动运行 Native App Build，下载安装包；或
+echo   2^) 本机安装 Rust + Visual Studio C++ Build Tools 后，执行 .\scripts\build-windows.ps1
+echo.
+call npm run start:web
