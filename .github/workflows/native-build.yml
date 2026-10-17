@@ -59,6 +59,7 @@ jobs:
           test -d "$ANDROID_HOME/platforms/android-36"
           test -d "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64"
           test -x "$HOME/.cargo/bin/cargo-tauri"
+          which npm | grep -v /mnt/c || export PATH="/usr/bin:$PATH"
           java -version
           rustc --version
           cargo tauri --version
@@ -70,9 +71,25 @@ jobs:
         run: cargo tauri android init --ci
       - name: Build ARM64 APK
         run: cargo tauri android build --apk --target aarch64 --ci
+      - name: Sign ARM64 APK with debug keystore
+        run: |
+          set -e
+          BT="$ANDROID_HOME/build-tools/36.0.0"
+          KS="$RUNNER_TEMP/android-debug.keystore"
+          keytool -genkeypair -keystore "$KS" -alias androiddebugkey \
+            -keyalg RSA -keysize 2048 -validity 10000 -storepass android \
+            -keypass android -dname "CN=Android Debug,O=Android,C=US"
+          APK=$(find src-tauri/gen/android/app/build/outputs -name "*universal-release-unsigned.apk" | head -1)
+          "$BT/zipalign" -f -p 4 "$APK" "$RUNNER_TEMP/aligned.apk"
+          "$BT/apksigner" sign --ks "$KS" --ks-key-alias androiddebugkey \
+            --ks-pass pass:android --key-pass pass:android \
+            --out "$RUNNER_TEMP/signed.apk" "$RUNNER_TEMP/aligned.apk"
+          "$BT/apksigner" verify "$RUNNER_TEMP/signed.apk"
+          mkdir -p artifacts
+          cp "$RUNNER_TEMP/signed.apk" "artifacts/基金阶梯账本-${{ github.ref_name }}-arm64-signed.apk"
       - uses: actions/upload-artifact@v4
         with:
           name: fund-boll-ledger-android-arm64
-          path: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+          path: artifacts/*.apk
           if-no-files-found: error
           retention-days: 14

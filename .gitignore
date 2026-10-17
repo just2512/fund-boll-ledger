@@ -21,3 +21,7 @@ src-tauri/gen/
 /ndk/
 /platform-tools/
 /platforms/
+
+dist-android/
+/android-debug.keystore
+/src-tauri/gen/android/key.properties
