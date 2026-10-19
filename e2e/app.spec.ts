@@ -43,6 +43,7 @@ test('五个基准 + 当前价生成正确涨跌幅和十档阶梯', async ({ pa
 
   await expect(page.locator('.comparison-card', { hasText: 'BOLL 中轨' }).locator('strong')).toHaveText('+9.50%');
   await expect(page.locator('.comparison-card', { hasText: '昨日收盘价' }).locator('strong')).toHaveText('+4.29%');
+  await expect(page.locator('.comparison-card', { hasText: 'BOLL 区间位置' }).locator('strong')).toHaveText('109.38%');
 
   // 默认基准 = 上次成交价 10.5：+4% 已越过，+5% 下一档
   await expect(page.getByText('下一档：+5% · 11.025 元')).toBeVisible();
@@ -66,7 +67,7 @@ test('交易记账计算持仓与盈亏，并拒绝超卖', async ({ page }) => 
   await page.getByRole('button', { name: '新增交易' }).first().click();
   await page.getByLabel('成交价格（元/份）').fill('10');
   await page.getByPlaceholder('例如 1000').fill('100');
-  await page.getByLabel('佣金（0.025%）').fill('1');
+  await page.getByLabel('佣金（0.015%）').fill('1');
   await page.getByRole('button', { name: '保存交易' }).click();
   await expect(page.getByText('交易明细已保存')).toBeVisible();
   await expect(page.locator('.metric', { hasText: '当前持仓' }).locator('strong')).toHaveText('100 份');
@@ -101,12 +102,12 @@ test('统一固定费率自动估算佣金和其他费用，并按分四舍五�
   await page.getByRole('button', { name: '新增交易' }).first().click();
   await page.getByLabel('成交价格（元/份）').fill('10');
   await page.getByPlaceholder('例如 1000').fill('100');
-  await expect(page.getByLabel('佣金（0.025%）')).toHaveValue('0.25');
+  await expect(page.getByLabel('佣金（0.015%）')).toHaveValue('0.15');
   await expect(page.getByLabel('其他费用（0.004%）')).toHaveValue('0.04');
 
   await page.getByLabel('成交价格（元/份）').fill('20');
   await page.getByPlaceholder('例如 1000').fill('1');
-  await expect(page.getByLabel('佣金（0.025%）')).toHaveValue('0.01');
+  await expect(page.getByLabel('佣金（0.015%）')).toHaveValue('0.00');
 
   await page.getByLabel('成交价格（元/份）').fill('125');
   await expect(page.getByLabel('其他费用（0.004%）')).toHaveValue('0.01');
@@ -370,4 +371,38 @@ test('刷新写入的现价、昨收和 BOLL 轨道仍可手动改写', async ({
   await expect(page.getByLabel('BOLL 中轨')).toHaveValue('4.100');
   await expect(page.getByLabel('BOLL 下轨')).toHaveValue('3.700');
   await expect(page.getByText(/价格字段已手动修改/)).toBeVisible();
+});
+
+
+test('各 ETF 独立保存阶梯基准和方向，切换及重载后不串用', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await createFund(page, 'ETF A', '510300');
+  await page.getByLabel('选择计算基准').selectOption('lower');
+  await page.getByRole('button', { name: '下跌 1%—10%' }).click();
+
+  await page.locator('.page-fund-tools').getByRole('button', { name: '＋ 新增' }).click();
+  await page.getByPlaceholder('例如：宽基 ETF').fill('ETF B');
+  await page.getByPlaceholder('例如：510300').fill('512170');
+  await page.getByRole('button', { name: '保存档案' }).click();
+  await expect(page.getByLabel('选择计算基准')).toHaveValue('lastTradePrice');
+  await expect(page.getByRole('button', { name: '上涨 1%—10%' })).toHaveClass(/active/);
+
+  await page.getByLabel('选择计算基准').selectOption('middle');
+  await page.getByRole('button', { name: '上一只基金' }).click();
+  await expect(page.getByLabel('选择计算基准')).toHaveValue('lower');
+  await expect(page.getByRole('button', { name: '下跌 1%—10%' })).toHaveClass(/active/);
+  await expect(page.getByRole('button', { name: '上涨 1%—10%' })).not.toHaveClass(/active/);
+
+  await page.getByRole('button', { name: '下一只基金' }).click();
+  await expect(page.getByLabel('选择计算基准')).toHaveValue('middle');
+  await expect(page.getByRole('button', { name: '上涨 1%—10%' })).toHaveClass(/active/);
+  await expect(page.locator('.save-state')).toHaveText('已保存到本机');
+  await page.reload();
+
+  // Startup selects the first ETF, but its own saved preferences must be restored.
+  await expect(page.getByLabel('选择计算基准')).toHaveValue('lower');
+  await expect(page.getByRole('button', { name: '下跌 1%—10%' })).toHaveClass(/active/);
+  await page.getByRole('button', { name: '下一只基金' }).click();
+  await expect(page.getByLabel('选择计算基准')).toHaveValue('middle');
+  await expect(page.getByRole('button', { name: '上涨 1%—10%' })).toHaveClass(/active/);
 });
