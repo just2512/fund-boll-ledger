@@ -14,14 +14,13 @@ jobs:
     runs-on: [self-hosted, Linux, X64, wsl]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
       - name: Verify Linux toolchain
         shell: bash
         run: |
           set -e
+          export PATH="/usr/bin:$PATH"
+          command -v node
+          command -v npm
           node --version
           npm --version
           case "$(command -v npm)" in

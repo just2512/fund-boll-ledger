@@ -217,3 +217,76 @@ test('页头上一只和下一只基金按钮切换当前 ETF', async ({ page })
   await page.getByRole('button', { name: '下一只基金' }).click();
   await expect(page.getByLabel('当前基金')).toContainText('第二只ETF');
 });
+
+
+function currentMarketTimestamp(): string {
+  const now = new Date();
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return String(now.getFullYear()) + pad(now.getMonth() + 1) + pad(now.getDate())
+    + pad(now.getHours()) + pad(now.getMinutes()) + pad(now.getSeconds());
+}
+
+function mockTencentQuote(code = '510300'): string {
+  const fields = Array.from({ length: 50 }, () => '');
+  fields[0] = '1';
+  fields[1] = '沪深300ETF';
+  fields[2] = code;
+  fields[3] = '4.125';
+  fields[4] = '4.000';
+  fields[30] = currentMarketTimestamp();
+  fields[32] = '3.13';
+  return 'v_sh' + code + '="' + fields.join('~') + '";';
+}
+
+test('行情仅在手动点击时请求，东方财富成功后更新当前价与当日涨跌幅', async ({ page }) => {
+  await createFund(page, '行情测试 ETF', '510300');
+  let eastmoneyCalls = 0;
+  let tencentCalls = 0;
+  await page.route('https://push2.eastmoney.com/**', async (route) => {
+    eastmoneyCalls += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      headers: { 'access-control-allow-origin': '*' },
+      body: JSON.stringify({ data: { f57: '510300', f58: '沪深300ETF', f43: '4.125', f60: '4.000', f86: currentMarketTimestamp() } }),
+    });
+  });
+  await page.route('https://qt.gtimg.cn/**', async (route) => {
+    tencentCalls += 1;
+    await route.fulfill({ status: 200, contentType: 'text/plain', headers: { 'access-control-allow-origin': '*' }, body: mockTencentQuote() });
+  });
+
+  expect(eastmoneyCalls).toBe(0);
+  expect(tencentCalls).toBe(0);
+  await page.getByRole('button', { name: '刷新行情' }).click();
+  await expect(page.getByPlaceholder('输入你看到的最新价格')).toHaveValue('4.125');
+  await expect(page.getByText('日涨跌 +3.13%', { exact: true })).toBeVisible();
+  await expect(page.getByText(/来源：东方财富/)).toBeVisible();
+  expect(eastmoneyCalls).toBe(1);
+  expect(tencentCalls).toBe(0);
+});
+
+test('东方财富失败时腾讯自动兜底，双源都失败时保留手动价格', async ({ page }) => {
+  await createFund(page, '双源测试 ETF', '510300');
+  await page.route('https://push2.eastmoney.com/**', async (route) => {
+    await route.fulfill({ status: 503, headers: { 'access-control-allow-origin': '*' }, body: 'unavailable' });
+  });
+  await page.route('https://qt.gtimg.cn/**', async (route) => {
+    await route.fulfill({ status: 200, contentType: 'text/plain', headers: { 'access-control-allow-origin': '*' }, body: mockTencentQuote() });
+  });
+
+  await page.getByRole('button', { name: '刷新行情' }).click();
+  await expect(page.getByPlaceholder('输入你看到的最新价格')).toHaveValue('4.125');
+  await expect(page.getByText(/来源：腾讯行情/)).toBeVisible();
+
+  await page.getByPlaceholder('输入你看到的最新价格').fill('3.500');
+  await page.route('https://push2.eastmoney.com/**', async (route) => {
+    await route.fulfill({ status: 503, headers: { 'access-control-allow-origin': '*' }, body: 'unavailable' });
+  });
+  await page.route('https://qt.gtimg.cn/**', async (route) => {
+    await route.fulfill({ status: 503, headers: { 'access-control-allow-origin': '*' }, body: 'unavailable' });
+  });
+  await page.getByRole('button', { name: '刷新行情' }).click();
+  await expect(page.getByPlaceholder('输入你看到的最新价格')).toHaveValue('3.500');
+  await expect(page.getByText(/保留上次成功报价|未覆盖当前价格/)).toBeVisible();
+});

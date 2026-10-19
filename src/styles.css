@@ -53,3 +53,13 @@
  .fund-navigation{gap:3px}
  .fund-nav-button{width:30px;height:34px}
 }
+
+
+/* Compact on-demand market quote refresh */
+.quote-refresh-row{display:flex;align-items:flex-start;gap:10px;margin-top:8px;min-width:0}
+.quote-refresh-button{flex:0 0 auto;min-height:34px;padding:7px 11px;font-size:12px;white-space:nowrap}
+.quote-refresh-meta{display:flex;flex-direction:column;gap:4px;min-width:0;line-height:1.45}
+.quote-refresh-meta small{font-size:11px;color:var(--muted);overflow-wrap:anywhere}
+.quote-refresh-meta strong{font-size:13px}
+.quote-refresh-meta .quote-error{color:var(--warning)}
+@media(max-width:480px){.quote-refresh-row{gap:7px;align-items:flex-start}.quote-refresh-button{padding:7px 8px;font-size:11px}.quote-refresh-meta small{font-size:10px}}
