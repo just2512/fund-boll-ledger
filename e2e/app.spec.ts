@@ -254,14 +254,34 @@ test('行情仅在手动点击时请求，东方财富成功后更新当前价�
     tencentCalls += 1;
     await route.fulfill({ status: 200, contentType: 'text/plain', headers: { 'access-control-allow-origin': '*' }, body: mockTencentQuote() });
   });
+  await page.route('https://push2his.eastmoney.com/**', async (route) => {
+    const today = new Date();
+    const pad = (value: number) => String(value).padStart(2, '0');
+    const lines = Array.from({ length: 25 }, (_, index) => {
+      const date = new Date(today);
+      date.setDate(today.getDate() - (24 - index));
+      const dateText = date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate());
+      return dateText + ',' + (4 + index * 0.001).toFixed(3);
+    });
+    await route.fulfill({
+      status: 200, contentType: 'application/json',
+      headers: { 'access-control-allow-origin': '*' },
+      body: JSON.stringify({ data: { code: '510300', klines: lines } }),
+    });
+  });
   await createFund(page, '行情测试 ETF', '510300');
 
   expect(eastmoneyCalls).toBe(0);
   expect(tencentCalls).toBe(0);
   await page.getByRole('button', { name: '刷新行情' }).click();
   await expect(page.getByPlaceholder('输入你看到的最新价格')).toHaveValue('4.125');
+  await expect(page.getByLabel('昨日收盘价')).toHaveValue('4');
+  await expect(page.getByLabel('BOLL 上轨')).not.toHaveValue('');
+  await expect(page.getByLabel('BOLL 中轨')).not.toHaveValue('');
+  await expect(page.getByLabel('BOLL 下轨')).not.toHaveValue('');
   await expect(page.getByText('日涨跌 +3.13%', { exact: true })).toBeVisible();
   await expect(page.getByText(/来源：东方财富/)).toBeVisible();
+  await expect(page.getByText(/BOLL\(20,2\)/)).toBeVisible();
   expect(eastmoneyCalls).toBe(1);
   expect(tencentCalls).toBe(0);
 });
@@ -274,10 +294,27 @@ test('东方财富失败时腾讯自动兜底，双源都失败时保留手动�
   await page.route('https://qt.gtimg.cn/**', async (route) => {
     await route.fulfill({ status: 200, contentType: 'text/plain', headers: { 'access-control-allow-origin': '*' }, body: mockTencentQuote() });
   });
+  await page.route('https://push2his.eastmoney.com/**', async (route) => {
+    const today = new Date();
+    const pad = (value: number) => String(value).padStart(2, '0');
+    const lines = Array.from({ length: 25 }, (_, index) => {
+      const date = new Date(today);
+      date.setDate(today.getDate() - (24 - index));
+      const dateText = date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate());
+      return dateText + ',' + (4 + index * 0.001).toFixed(3);
+    });
+    await route.fulfill({
+      status: 200, contentType: 'application/json',
+      headers: { 'access-control-allow-origin': '*' },
+      body: JSON.stringify({ data: { code: '510300', klines: lines } }),
+    });
+  });
 
   await page.getByRole('button', { name: '刷新行情' }).click();
   await expect(page.getByPlaceholder('输入你看到的最新价格')).toHaveValue('4.125');
   await expect(page.getByText(/来源：腾讯行情/)).toBeVisible();
+  await expect(page.getByLabel('昨日收盘价')).toHaveValue('4');
+  await expect(page.getByLabel('BOLL 中轨')).not.toHaveValue('');
 
   await page.getByPlaceholder('输入你看到的最新价格').fill('3.500');
   await page.route('https://push2.eastmoney.com/**', async (route) => {
@@ -289,4 +326,45 @@ test('东方财富失败时腾讯自动兜底，双源都失败时保留手动�
   await page.getByRole('button', { name: '刷新行情' }).click();
   await expect(page.getByPlaceholder('输入你看到的最新价格')).toHaveValue('3.500');
   await expect(page.getByText(/保留上次成功报价|未覆盖当前价格/)).toBeVisible();
+});
+
+
+test('刷新写入的现价、昨收和 BOLL 轨道仍可手动改写', async ({ page }) => {
+  await page.route('https://push2.eastmoney.com/**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      headers: { 'access-control-allow-origin': '*' },
+      body: JSON.stringify({ data: { f57: '510300', f58: '沪深300ETF', f43: '4.125', f60: '4.000', f86: currentMarketTimestamp() } }),
+    });
+  });
+  await page.route('https://push2his.eastmoney.com/**', async (route) => {
+    const today = new Date();
+    const pad = (value: number) => String(value).padStart(2, '0');
+    const lines = Array.from({ length: 25 }, (_, index) => {
+      const date = new Date(today);
+      date.setDate(today.getDate() - (24 - index));
+      const dateText = date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate());
+      return dateText + ',' + (4 + index * 0.001).toFixed(3);
+    });
+    await route.fulfill({
+      status: 200, contentType: 'application/json',
+      headers: { 'access-control-allow-origin': '*' },
+      body: JSON.stringify({ data: { code: '510300', klines: lines } }),
+    });
+  });
+  await createFund(page, '可编辑价格 ETF', '510300');
+  await page.getByRole('button', { name: '刷新行情' }).click();
+  await expect(page.getByLabel('昨日收盘价')).toHaveValue('4');
+  await page.getByLabel('当前价格').fill('4.200');
+  await page.getByLabel('昨日收盘价').fill('3.900');
+  await page.getByLabel('BOLL 上轨').fill('4.500');
+  await page.getByLabel('BOLL 中轨').fill('4.100');
+  await page.getByLabel('BOLL 下轨').fill('3.700');
+  await expect(page.getByLabel('当前价格')).toHaveValue('4.200');
+  await expect(page.getByLabel('昨日收盘价')).toHaveValue('3.900');
+  await expect(page.getByLabel('BOLL 上轨')).toHaveValue('4.500');
+  await expect(page.getByLabel('BOLL 中轨')).toHaveValue('4.100');
+  await expect(page.getByLabel('BOLL 下轨')).toHaveValue('3.700');
+  await expect(page.getByText(/价格字段已手动修改/)).toBeVisible();
 });
