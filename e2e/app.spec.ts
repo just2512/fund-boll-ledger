@@ -78,7 +78,7 @@ test('交易记账计算持仓与盈亏，并拒绝超卖', async ({ page }) => 
   await page.getByRole('button', { name: '卖出' }).click();
   await page.getByLabel('成交价格（元/份）').fill('13');
   await page.getByPlaceholder('例如 1000').fill('40');
-  await page.getByLabel('实际佣金').fill('1');
+  await page.getByRole('spinbutton', { name: '佣金（0.015%）' }).fill('1');
   await page.getByRole('button', { name: '保存交易' }).click();
   await expect(page.getByText('交易明细已保存')).toBeVisible();
   await expect(page.locator('.metric', { hasText: '当前持仓' }).locator('strong')).toHaveText('60 份');
@@ -226,6 +226,10 @@ function currentMarketTimestamp(): string {
   return String(now.getFullYear()) + pad(now.getMonth() + 1) + pad(now.getDate())
     + pad(now.getHours()) + pad(now.getMinutes()) + pad(now.getSeconds());
 }
+// Real Eastmoney f86 is a Unix-seconds epoch (10 digits), as observed live on 2026-10-19.
+function currentMarketEpoch(): number {
+  return Math.floor(Date.now() / 1000);
+}
 
 function mockTencentQuote(code = '510300'): string {
   const fields = Array.from({ length: 50 }, () => '');
@@ -248,7 +252,7 @@ test('行情仅在手动点击时请求，东方财富成功后更新当前价�
       status: 200,
       contentType: 'application/json',
       headers: { 'access-control-allow-origin': '*' },
-      body: JSON.stringify({ data: { f57: '510300', f58: '沪深300ETF', f43: '4.125', f60: '4.000', f86: currentMarketTimestamp() } }),
+      body: JSON.stringify({ data: { f57: '510300', f58: '沪深300ETF', f43: '4.125', f60: '4.000', f86: currentMarketEpoch() } }),
     });
   });
   await page.route('https://qt.gtimg.cn/**', async (route) => {
@@ -277,13 +281,13 @@ test('行情仅在手动点击时请求，东方财富成功后更新当前价�
   expect(tencentCalls).toBe(0);
   await page.getByRole('button', { name: '刷新行情' }).click();
   await expect(page.getByPlaceholder('输入你看到的最新价格')).toHaveValue('4.125');
-  await expect(page.getByLabel('昨日收盘价')).toHaveValue('4');
-  await expect(page.getByLabel('BOLL 上轨')).not.toHaveValue('');
-  await expect(page.getByLabel('BOLL 中轨')).not.toHaveValue('');
-  await expect(page.getByLabel('BOLL 下轨')).not.toHaveValue('');
+  await expect(page.getByRole('spinbutton', { name: '昨日收盘价' })).toHaveValue('4');
+  await expect(page.getByRole('spinbutton', { name: 'BOLL 上轨' })).not.toHaveValue('');
+  await expect(page.getByRole('spinbutton', { name: 'BOLL 中轨' })).not.toHaveValue('');
+  await expect(page.getByRole('spinbutton', { name: 'BOLL 下轨' })).not.toHaveValue('');
   await expect(page.getByText('日涨跌 +3.13%', { exact: true })).toBeVisible();
   await expect(page.getByText(/来源：东方财富/)).toBeVisible();
-  await expect(page.getByText(/BOLL\(20,2\)/)).toBeVisible();
+  await expect(page.locator('.quote-refresh-meta').getByText(/BOLL\(20,2\)/)).toBeVisible();
   expect(eastmoneyCalls).toBe(1);
   expect(tencentCalls).toBe(0);
 });
@@ -316,8 +320,8 @@ test('东方财富失败时腾讯自动兜底，双源都失败时保留手动�
   await page.getByRole('button', { name: '刷新行情' }).click();
   await expect(page.getByPlaceholder('输入你看到的最新价格')).toHaveValue('4.125');
   await expect(page.getByText(/来源：腾讯行情/)).toBeVisible();
-  await expect(page.getByLabel('昨日收盘价')).toHaveValue('4');
-  await expect(page.getByLabel('BOLL 中轨')).not.toHaveValue('');
+  await expect(page.getByRole('spinbutton', { name: '昨日收盘价' })).toHaveValue('4');
+  await expect(page.getByRole('spinbutton', { name: 'BOLL 中轨' })).not.toHaveValue('');
 
   await page.getByPlaceholder('输入你看到的最新价格').fill('3.500');
   await page.route('https://push2.eastmoney.com/**', async (route) => {
@@ -338,7 +342,7 @@ test('刷新写入的现价、昨收和 BOLL 轨道仍可手动改写', async ({
       status: 200,
       contentType: 'application/json',
       headers: { 'access-control-allow-origin': '*' },
-      body: JSON.stringify({ data: { f57: '510300', f58: '沪深300ETF', f43: '4.125', f60: '4.000', f86: currentMarketTimestamp() } }),
+      body: JSON.stringify({ data: { f57: '510300', f58: '沪深300ETF', f43: '4.125', f60: '4.000', f86: currentMarketEpoch() } }),
     });
   });
   await page.route('https://push2his.eastmoney.com/**', async (route) => {
@@ -359,17 +363,17 @@ test('刷新写入的现价、昨收和 BOLL 轨道仍可手动改写', async ({
   });
   await createFund(page, '可编辑价格 ETF', '510300');
   await page.getByRole('button', { name: '刷新行情' }).click();
-  await expect(page.getByLabel('昨日收盘价')).toHaveValue('4');
-  await page.getByLabel('当前价格').fill('4.200');
-  await page.getByLabel('昨日收盘价').fill('3.900');
-  await page.getByLabel('BOLL 上轨').fill('4.500');
-  await page.getByLabel('BOLL 中轨').fill('4.100');
-  await page.getByLabel('BOLL 下轨').fill('3.700');
-  await expect(page.getByLabel('当前价格')).toHaveValue('4.200');
-  await expect(page.getByLabel('昨日收盘价')).toHaveValue('3.900');
-  await expect(page.getByLabel('BOLL 上轨')).toHaveValue('4.500');
-  await expect(page.getByLabel('BOLL 中轨')).toHaveValue('4.100');
-  await expect(page.getByLabel('BOLL 下轨')).toHaveValue('3.700');
+  await expect(page.getByRole('spinbutton', { name: '昨日收盘价' })).toHaveValue('4');
+  await page.getByRole('spinbutton', { name: '当前价格' }).fill('4.200');
+  await page.getByRole('spinbutton', { name: '昨日收盘价' }).fill('3.900');
+  await page.getByRole('spinbutton', { name: 'BOLL 上轨' }).fill('4.500');
+  await page.getByRole('spinbutton', { name: 'BOLL 中轨' }).fill('4.100');
+  await page.getByRole('spinbutton', { name: 'BOLL 下轨' }).fill('3.700');
+  await expect(page.getByRole('spinbutton', { name: '当前价格' })).toHaveValue('4.200');
+  await expect(page.getByRole('spinbutton', { name: '昨日收盘价' })).toHaveValue('3.900');
+  await expect(page.getByRole('spinbutton', { name: 'BOLL 上轨' })).toHaveValue('4.500');
+  await expect(page.getByRole('spinbutton', { name: 'BOLL 中轨' })).toHaveValue('4.100');
+  await expect(page.getByRole('spinbutton', { name: 'BOLL 下轨' })).toHaveValue('3.700');
   await expect(page.getByText(/价格字段已手动修改/)).toBeVisible();
 });
 
@@ -405,4 +409,91 @@ test('各 ETF 独立保存阶梯基准和方向，切换及重载后不串用', 
   await page.getByRole('button', { name: '下一只基金' }).click();
   await expect(page.getByLabel('选择计算基准')).toHaveValue('middle');
   await expect(page.getByRole('button', { name: '上涨 1%—10%' })).toHaveClass(/active/);
+});
+
+
+test('刷新进行中用户改写现价，返回后不被行情覆盖且提示手动修改', async ({ page }) => {
+  let releaseQuote!: () => void;
+  const firstQuoteGate = new Promise<void>((resolve) => { releaseQuote = resolve; });
+  let firstQuoteHeld = true;
+  await page.route('https://push2.eastmoney.com/**', async (route) => {
+    if (firstQuoteHeld) {
+      firstQuoteHeld = false;
+      // Hold the first request until the test releases it.
+      await firstQuoteGate;
+    }
+    await route.fulfill({
+      status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' },
+      body: JSON.stringify({ data: { f57: '510300', f58: '沪深300ETF', f43: '4.125', f60: '4.000', f86: currentMarketEpoch() } }),
+    });
+  });
+  await page.route('https://qt.gtimg.cn/**', (route) => route.fulfill({ status: 503, body: 'down' }));
+  await page.route('https://push2his.eastmoney.com/**', (route) => route.fulfill({ status: 503, body: 'down' }));
+  await createFund(page, '手动编辑竞态 ETF', '510300');
+
+  await page.getByRole('button', { name: '刷新行情' }).click();
+  await expect(page.getByRole('button', { name: '刷新行情' })).toBeDisabled();
+  // User types their own price while the quote request is still in flight.
+  await page.getByRole('spinbutton', { name: '当前价格' }).fill('9.888');
+  await expect(page.getByText(/价格字段已手动修改/)).toBeVisible();
+
+  releaseQuote!();
+  await expect(page.getByText(/来源：东方财富/)).toBeVisible();
+
+  // The quote must NOT clobber the user's manual edit.
+  await expect(page.getByRole('spinbutton', { name: '当前价格' })).toHaveValue('9.888');
+  await expect(page.getByText(/价格字段已手动修改/)).toBeVisible();
+  await expect(page.getByPlaceholder('昨日收盘价')).toHaveValue('4');
+});
+
+test('BOLL 区间位置显示 0%/100%/超界与无效输入的诚实降级', async ({ page }) => {
+  await createFund(page, '区间位置 ETF', '510300');
+  // getByRole('spinbutton', { name: 'BOLL 下轨' }) also matches the basis <select> whose option text contains it; pin the spinbuttons.
+  const fill = (label: string, value: string) => page.getByRole('spinbutton', { name: label }).fill(value);
+  // 无效输入：上轨 ≤ 下轨 → 诚实显示待输入而非伪百分比
+  await fill('BOLL 下轨', '4.000');
+  await fill('BOLL 上轨', '4.000');
+  await expect(page.getByText('BOLL 区间位置')).toBeVisible();
+  await expect(page.getByText('待输入有效价格/轨道')).toBeVisible();
+
+  // 边界：当前价=下轨 → 0%；当前价=上轨 → 100%
+  await fill('BOLL 上轨', '5.000');
+  await fill('当前价格', '4.000');
+  await expect(page.getByText('当前价位于下轨')).toBeVisible();
+  const positionCard = page.locator('.comparison-card').filter({ hasText: 'BOLL 区间位置' });
+  await expect(positionCard).toContainText('0.00%');
+  await fill('当前价格', '5.000');
+  await expect(page.getByText('当前价位于上轨')).toBeVisible();
+  await expect(positionCard).toContainText('100.00%');
+  // 超界：高于上轨 > 100%，低于下轨 < 0%
+  await fill('当前价格', '5.500');
+  await expect(positionCard).toContainText('150.00%');
+  await expect(page.getByText('当前价高于上轨')).toBeVisible();
+  await fill('当前价格', '3.500');
+  await expect(positionCard).toContainText('-50.00%');
+  await expect(page.getByText('当前价低于下轨')).toBeVisible();
+});
+
+
+test('手动改过费用后改数量不覆盖输入，重算按钮显式恢复估算', async ({ page }) => {
+  await createFund(page, '费用守卫 ETF', '510300');
+  await page.getByRole('button', { name: '交易账本', exact: true }).click();
+  await page.getByRole('button', { name: '＋ 新增交易' }).click();
+  await page.getByLabel('成交价格（元/份）').fill('4.000');
+  await page.getByLabel('成交数量（份，整数）').fill('10000');
+  // Auto-estimate fills first: 10000 × 4.000 × 0.015% = ¥6.00.
+  await expect(page.getByLabel('佣金（0.015%）')).toHaveValue('6.00');
+  await expect(page.getByLabel('其他费用（0.004%）')).toHaveValue('1.60');
+
+  // User overrides commission to 0 (broker waiver) — a manual fee decision.
+  await page.getByLabel('佣金（0.015%）').fill('0');
+  // User then fixes a quantity typo; the manual fee must survive.
+  await page.getByLabel('成交数量（份，整数）').fill('12000');
+  await expect(page.getByLabel('佣金（0.015%）')).toHaveValue('0');
+  await expect(page.getByLabel('其他费用（0.004%）')).toHaveValue('1.92');
+
+  // The explicit recompute button restores the estimates on demand.
+  await page.getByRole('button', { name: '按固定费率重算' }).click();
+  await expect(page.getByLabel('佣金（0.015%）')).toHaveValue('7.20');
+  await expect(page.getByLabel('其他费用（0.004%）')).toHaveValue('1.92');
 });

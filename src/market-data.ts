@@ -68,66 +68,104 @@ function eastmoneyMarket(code: string, market: MarketQuoteRequest['market']): '0
   return marketPrefix(code, market) === 'sh' ? '1' : '0';
 }
 
-function shanghaiDate(now = new Date()): string {
+interface SourceTimestamp {
+  date: string;
+  time?: string;
+}
+
+function shanghaiParts(now: Date): Record<'year' | 'month' | 'day' | 'hour' | 'minute' | 'second', string> {
   const parts = new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Asia/Shanghai',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
   }).formatToParts(now);
   const get = (type: string) => parts.find((part) => part.type === type)?.value ?? '';
-  return get('year') + '-' + get('month') + '-' + get('day');
+  return { year: get('year'), month: get('month'), day: get('day'), hour: get('hour'), minute: get('minute'), second: get('second') };
+}
+
+function shanghaiDate(now = new Date()): string {
+  const parts = shanghaiParts(now);
+  return parts.year + '-' + parts.month + '-' + parts.day;
+}
+
+// Calendar digits: 14=yyyymmddhhmmss, 12=yyyymmddhhmm, 8=yyyymmdd. Returns null when not a plausible date.
+function calendarFromDigits(digits: string): SourceTimestamp | null {
+  const year = digits.slice(0, 4);
+  const month = digits.slice(4, 6);
+  const day = digits.slice(6, 8);
+  if (Number(year) < 2000 || Number(year) > 2100 || Number(month) < 1 || Number(month) > 12 || Number(day) < 1 || Number(day) > 31) return null;
+  const date = year + '-' + month + '-' + day;
+  if (digits.length >= 14) {
+    const hour = digits.slice(8, 10);
+    const minute = digits.slice(10, 12);
+    const second = digits.slice(12, 14);
+    if (Number(hour) > 23 || Number(minute) > 59 || Number(second) > 59) return null;
+    return { date, time: hour + ':' + minute + ':' + second };
+  }
+  if (digits.length === 12) {
+    const hour = digits.slice(8, 10);
+    const minute = digits.slice(10, 12);
+    if (Number(hour) > 23 || Number(minute) > 59) return null;
+    return { date, time: hour + ':' + minute + ':00' };
+  }
+  return { date };
+}
+
+// Eastmoney f86 is a Unix epoch: 10 digits = seconds, 13 digits = milliseconds.
+function epochFromDigits(digits: string): SourceTimestamp | null {
+  const value = Number(digits);
+  if (!Number.isFinite(value) || value <= 0) return null;
+  const seconds = digits.length === 13 ? Math.floor(value / 1000) : value;
+  if (seconds < 946684800 || seconds > 4102444800) return null; // outside 2000..2100
+  const parts = shanghaiParts(new Date(seconds * 1000));
+  return { date: `${parts.year}-${parts.month}-${parts.day}`, time: `${parts.hour}:${parts.minute}:${parts.second}` };
+}
+
+function parseSourceTimestamp(value: unknown): SourceTimestamp | null {
+  if (value === null || value === undefined || value === '') return null;
+  const raw = String(value).trim();
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length !== raw.length) return null;
+  if (digits.length === 14 || digits.length === 12 || digits.length === 8) return calendarFromDigits(digits);
+  // 10 digits is ambiguous: yyyymmddhh (calendar) vs Unix seconds (epoch). Prefer calendar when the date is plausible.
+  if (digits.length === 10 || digits.length === 13) return calendarFromDigits(digits) ?? epochFromDigits(digits);
+  if (digits.length === 6) {
+    const hour = digits.slice(0, 2);
+    const minute = digits.slice(2, 4);
+    const second = digits.slice(4, 6);
+    if (Number(hour) > 23 || Number(minute) > 59 || Number(second) > 59) return null;
+    return { date: shanghaiDate(), time: hour + ':' + minute + ':' + second };
+  }
+  return null;
 }
 
 function tradingDateFrom(value: unknown): string | undefined {
-  if (value === null || value === undefined || value === '') return undefined;
-  const digits = String(value).trim().replace(/\D/g, '');
-  if (digits.length >= 8) {
-    const year = digits.slice(0, 4);
-    const month = digits.slice(4, 6);
-    const day = digits.slice(6, 8);
-    if (Number(year) < 2000 || Number(year) > 2100 || Number(month) < 1 || Number(month) > 12 || Number(day) < 1 || Number(day) > 31) return undefined;
-    return year + '-' + month + '-' + day;
-  }
-  if (digits.length === 6) return shanghaiDate();
-  return undefined;
+  return parseSourceTimestamp(value)?.date;
 }
 
 function parseMarketTime(value: unknown): string | undefined {
-  if (value === null || value === undefined || value === '') return undefined;
-  const digits = String(value).trim().replace(/\D/g, '');
-  let date = '';
-  let time = '';
-
-  if (digits.length >= 14 || digits.length === 12 || digits.length === 8) {
-    const year = digits.slice(0, 4);
-    const month = digits.slice(4, 6);
-    const day = digits.slice(6, 8);
-    if (Number(year) < 2000 || Number(year) > 2100 || Number(month) < 1 || Number(month) > 12 || Number(day) < 1 || Number(day) > 31) return undefined;
-    date = year + '-' + month + '-' + day;
-    if (digits.length >= 14) time = digits.slice(8, 10) + ':' + digits.slice(10, 12) + ':' + digits.slice(12, 14);
-    else if (digits.length === 12) time = digits.slice(8, 10) + ':' + digits.slice(10, 12);
-  } else if (digits.length === 6) {
-    date = shanghaiDate();
-    time = digits.slice(0, 2) + ':' + digits.slice(2, 4) + ':' + digits.slice(4, 6);
-  } else {
-    return undefined;
-  }
-
-  if (time) {
-    const [hour, minute, second = '0'] = time.split(':').map(Number);
-    if (hour > 23 || minute > 59 || second > 59) return undefined;
-    return date + ' ' + time + '（北京时间）';
-  }
-  return date + '（北京时间）';
+  const parsed = parseSourceTimestamp(value);
+  if (!parsed) return undefined;
+  return parsed.time ? `${parsed.date} ${parsed.time}（北京时间）` : `${parsed.date}（北京时间）`;
 }
 
-async function requestText(url: string): Promise<string> {
+async function requestText(url: string, encoding: 'utf-8' | 'gbk' = 'utf-8'): Promise<string> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
     const response = await fetch(url, { cache: 'no-store', signal: controller.signal });
     if (!response.ok) throw new Error('行情服务返回 HTTP ' + response.status);
+    // Tencent serves GBK; decoding must treat multi-byte sequences atomically so a GBK
+    // second byte of 0x7E never masquerades as the "~" field separator.
+    if (encoding === 'gbk') {
+      const buffer = await response.arrayBuffer();
+      return new TextDecoder('gbk').decode(buffer);
+    }
     return await response.text();
   } catch (error) {
     if (controller.signal.aborted) throw new Error('行情请求超时');
@@ -188,7 +226,7 @@ async function fetchEastmoneyQuote(code: string, market: MarketQuoteRequest['mar
 
 async function fetchTencentQuote(code: string, market: MarketQuoteRequest['market']): Promise<MarketQuote> {
   const symbol = marketPrefix(code, market) + code;
-  const raw = await requestText('https://qt.gtimg.cn/q=' + symbol + '&_=' + String(Date.now()));
+  const raw = await requestText('https://qt.gtimg.cn/q=' + symbol + '&_=' + String(Date.now()), 'gbk');
   const match = raw.match(/=\s*"([\s\S]*?)"\s*;/);
   if (!match) throw new Error('腾讯行情返回格式无法识别');
   const fields = match[1].split('~');

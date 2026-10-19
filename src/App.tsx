@@ -3,7 +3,7 @@ import { bollRangePositionRatio, calculatePosition, compareToBases, currentValue
 import { formatCents, formatCurrency, formatPercent, parseMoneyCents, parseQuantity, parseScaled, priceAmountCents } from './decimal';
 import { loadAppData, saveAppData } from './storage';
 import { fetchLatestMarketData, type MarketQuote } from './market-data';
-import { createId, emptyAppData, newFund, type AppData, type Fund, type FundCategory, type FundPrices, type PriceBasisKey, type PriceSnapshot, type Trade, type TradeSide } from './types';
+import { createId, emptyAppData, newFund, type AppData, type Fund, type FundCategory, type FundPrices, type LadderDirection, type PriceBasisKey, type PriceSnapshot, type Trade, type TradeSide } from './types';
 
 const NAV_ITEMS = [
   { id: 'calculator', label: '价格计算', caption: 'BOLL 与十档定位' },
@@ -86,12 +86,9 @@ function normalizeAppData(value: AppData): AppData {
     delete fund.commissionRatePercent;
     delete fund.minimumCommission;
     delete fund.applyMinimumCommission;
-    return {
-      ...fund,
-      // Older local data and imported backups have no per-ETF ladder preferences.
-      ladderBasis: allowedBases.includes(fund.ladderBasis) ? fund.ladderBasis : 'lastTradePrice',
-      ladderDirection: fund.ladderDirection === 'down' ? 'down' : 'up',
-    };
+    const ladderBasis: PriceBasisKey = allowedBases.includes(fund.ladderBasis) ? fund.ladderBasis : 'lastTradePrice';
+    const ladderDirection: LadderDirection = fund.ladderDirection === 'down' ? 'down' : 'up';
+    return { ...fund, ladderBasis, ladderDirection };
   });
   return { ...value, funds };
 }
@@ -132,10 +129,23 @@ function TradeForm({ fund, initial, onSave, onCancel }: { fund: Fund; initial?: 
     commission: initial.commission, transferFee: initial.transferFee, stampDuty: initial.stampDuty, otherFee: initial.otherFee, feesChecked: initial.feesChecked, note: initial.note,
   } : { ...EMPTY_TRADE });
   const patch = (key: keyof typeof form, value: string) => setForm((old) => ({ ...old, [key]: value }));
+  // Per-field guard: once the user edits a fee field, the estimate stops overwriting THAT field
+  // only; untouched fields keep auto-estimating. "按固定费率重算" clears the guard.
+  const feesDirtyRef = useRef<Set<'commission' | 'transferFee' | 'stampDuty' | 'otherFee'>>(new Set());
+  const patchFee = (key: 'commission' | 'transferFee' | 'stampDuty' | 'otherFee', value: string) => {
+    feesDirtyRef.current.add(key);
+    patch(key, value);
+  };
   useEffect(() => {
     if (initial) return;
+    const dirty = feesDirtyRef.current;
     if (!form.price.trim() || !form.quantity.trim()) {
-      setForm((old) => old.commission || old.otherFee ? { ...old, commission: '', otherFee: '' } : old);
+      setForm((old) => {
+        const next = { ...old };
+        if (!dirty.has('commission') && next.commission) next.commission = '';
+        if (!dirty.has('otherFee') && next.otherFee) next.otherFee = '';
+        return next.commission === old.commission && next.otherFee === old.otherFee ? old : next;
+      });
       return;
     }
     try {
@@ -143,10 +153,18 @@ function TradeForm({ fund, initial, onSave, onCancel }: { fund: Fund; initial?: 
       const otherFee = estimateOtherFee(form.price, form.quantity);
       setForm((old) => {
         if (old.price !== form.price || old.quantity !== form.quantity) return old;
-        return old.commission === commission && old.otherFee === otherFee ? old : { ...old, commission, otherFee };
+        const next = { ...old };
+        if (!dirty.has('commission')) next.commission = commission;
+        if (!dirty.has('otherFee')) next.otherFee = otherFee;
+        return next.commission === old.commission && next.otherFee === old.otherFee ? old : next;
       });
     } catch {
-      setForm((old) => old.commission || old.otherFee ? { ...old, commission: '', otherFee: '' } : old);
+      setForm((old) => {
+        const next = { ...old };
+        if (!dirty.has('commission') && next.commission) next.commission = '';
+        if (!dirty.has('otherFee') && next.otherFee) next.otherFee = '';
+        return next.commission === old.commission && next.otherFee === old.otherFee ? old : next;
+      });
     }
   }, [initial, form.price, form.quantity]);
   const grossCents = useMemo(() => {
@@ -179,12 +197,16 @@ function TradeForm({ fund, initial, onSave, onCancel }: { fund: Fund; initial?: 
       window.alert('请先填写有效的成交价格和成交数量，再计算固定费用。');
     }
   };
+  const resetAndFillFees = () => {
+    feesDirtyRef.current.clear();
+    fillEstimatedFees();
+  };
   return <Modal title={initial ? '编辑交易记录' : '新增交易记录'} onClose={onCancel} wide><form className="form-stack" onSubmit={submit}>
     <div className="trade-side-switch"><button type="button" className={form.side === 'BUY' ? 'active buy' : ''} onClick={() => patch('side', 'BUY')}>买入</button><button type="button" className={form.side === 'SELL' ? 'active sell' : ''} onClick={() => patch('side', 'SELL')}>卖出</button></div>
     <div className="form-grid two"><Field label="成交日期和时间" value={form.tradedAt} onChange={(v) => patch('tradedAt', v)} type="datetime-local"/><Field label="成交价格（元/份）" value={form.price} onChange={(v) => patch('price', v)} placeholder="0.000" type="number" step="any" min="0"/></div>
     <div className="form-grid two"><Field label="成交数量（份，整数）" value={form.quantity} onChange={(v) => patch('quantity', v)} placeholder="例如 1000" type="number" step="1" min="1"/><div className="amount-preview"><span className="muted">成交金额（自动计算）</span><strong>{formatCurrency(grossCents)}</strong></div></div>
-    <div className="section-divider"/><div className="fee-heading"><div><h3>交易费用（元）</h3><p className="muted small">佣金 0.015%、其他费用 0.004%，按分四舍五入自动估算；经手/过户费与印花税按实际发生填写。保存前请核对成交明细。</p></div><button type="button" className="button small-button" onClick={fillEstimatedFees}>按固定费率重算</button></div>
-    <div className="form-grid four"><Field label="佣金（0.015%）" value={form.commission} onChange={(v) => patch('commission', v)} placeholder="自动计算" type="number" step="0.01" min="0"/><Field label="经手/过户等费用" value={form.transferFee} onChange={(v) => patch('transferFee', v)} placeholder="按实际填写" type="number" step="0.01" min="0"/><Field label="印花税" value={form.stampDuty} onChange={(v) => patch('stampDuty', v)} placeholder="按实际填写" type="number" step="0.01" min="0"/><Field label="其他费用（0.004%）" value={form.otherFee} onChange={(v) => patch('otherFee', v)} placeholder="自动计算" type="number" step="0.01" min="0"/></div>
+    <div className="section-divider"/><div className="fee-heading"><div><h3>交易费用（元）</h3><p className="muted small">佣金 0.015%、其他费用 0.004%，按分四舍五入自动估算；经手/过户费与印花税按实际发生填写。保存前请核对成交明细。</p></div><button type="button" className="button small-button" onClick={resetAndFillFees}>按固定费率重算</button></div>
+    <div className="form-grid four"><Field label="佣金（0.015%）" value={form.commission} onChange={(v) => patchFee('commission', v)} placeholder="自动计算" type="number" step="0.01" min="0"/><Field label="经手/过户等费用" value={form.transferFee} onChange={(v) => patchFee('transferFee', v)} placeholder="按实际填写" type="number" step="0.01" min="0"/><Field label="印花税" value={form.stampDuty} onChange={(v) => patchFee('stampDuty', v)} placeholder="按实际填写" type="number" step="0.01" min="0"/><Field label="其他费用（0.004%）" value={form.otherFee} onChange={(v) => patchFee('otherFee', v)} placeholder="自动计算" type="number" step="0.01" min="0"/></div>
     <div className="fee-verification"><input id="fees-checked" type="checkbox" checked={form.feesChecked} onChange={(e) => setForm((old) => ({ ...old, feesChecked: e.target.checked }))}/><label htmlFor="fees-checked">我已对照东方财富实际成交明细核对本笔费用（没有发生的费用填 0；未核对时不要勾选）</label></div>
     <div className="cost-summary"><span>费用合计 <strong>{formatCurrency(feeCents)}</strong></span><span>{form.side === 'BUY' ? '买入现金支出' : '卖出现金净收入'} <strong>{formatCurrency(form.side === 'BUY' ? grossCents + feeCents : grossCents - feeCents)}</strong></span></div>
     <Field label="交易备注" value={form.note} onChange={(v) => patch('note', v)} placeholder="例如：参考 BOLL 下轨买入（可选）"/>
@@ -327,6 +349,10 @@ export default function App() {
   };
 
   const refreshMarketQuote = async (fund: Fund) => {
+    // Snapshot the fund's inputs at request start; the response may only overwrite
+    // fields the user has not touched while this request was in flight.
+    const priorPrices = { ...fund.prices };
+    const fundIdBefore = fund.id;
     setMarketQuotes((old) => ({
       ...old,
       [fund.id]: {
@@ -339,11 +365,28 @@ export default function App() {
       const quote = await fetchLatestMarketData({ code: fund.code, market: fund.market });
       setData((old) => ({
         ...old,
-        funds: old.funds.map((item) => item.id === fund.id && item.code === fund.code
-          ? { ...item, prices: { ...item.prices, currentPrice: quote.price, previousClose: quote.previousClose, ...(quote.boll ? { upper: quote.boll.upper, middle: quote.boll.middle, lower: quote.boll.lower } : {}) }, updatedAt: new Date().toISOString() }
-          : item),
+        funds: old.funds.map((item) => {
+          if (item.id !== fundIdBefore || item.code !== fund.code) return item;
+          return {
+            ...item,
+            prices: {
+              ...item.prices,
+              currentPrice: item.prices.currentPrice === priorPrices.currentPrice ? quote.price : item.prices.currentPrice,
+              previousClose: item.prices.previousClose === priorPrices.previousClose ? quote.previousClose : item.prices.previousClose,
+              ...(quote.boll && item.prices.upper === priorPrices.upper && item.prices.middle === priorPrices.middle && item.prices.lower === priorPrices.lower
+                ? { upper: quote.boll.upper, middle: quote.boll.middle, lower: quote.boll.lower }
+                : {}),
+            },
+            updatedAt: new Date().toISOString(),
+          };
+        }),
       }));
-      setMarketQuotes((old) => ({ ...old, [fund.id]: { requestedCode: fund.code, status: 'success', quote, hasManualEdits: false } }));
+      setMarketQuotes((old) => {
+        const prior = old[fundIdBefore];
+        // Keep the manual-edit flag when the user edited during the request; the hint must stay honest.
+        const keepManualEdits = prior?.requestedCode === fund.code && prior.hasManualEdits === true;
+        return { ...old, [fundIdBefore]: { requestedCode: fund.code, status: 'success', quote, hasManualEdits: keepManualEdits } };
+      });
       setNotification('已刷新 ' + fund.name + ' 最新价、昨收' + (quote.boll ? '及 BOLL(20,2)' : '') + '（' + quote.source + '）。' + (quote.bollError ? ' BOLL未更新，保留原轨道价格。' : ''));
     } catch (error) {
       setMarketQuotes((old) => ({
@@ -393,7 +436,7 @@ export default function App() {
     <div className={`workspace ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}><aside className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}><div className="sidebar-header"><span className="sidebar-label">工作台</span><button type="button" className="sidebar-toggle" onClick={() => setSidebarCollapsed((old) => !old)} aria-label={sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'} title={sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'}>{sidebarCollapsed ? '☰' : '‹'}</button></div>{NAV_ITEMS.map((item) => <button key={item.id} className={`nav-item ${activePage === item.id ? 'selected' : ''}`} onClick={() => setActivePage(item.id)} title={sidebarCollapsed ? item.label : undefined} aria-label={item.label}><span className="nav-symbol">{item.id === 'calculator' ? '⌁' : item.id === 'ledger' ? '≡' : item.id === 'portfolio' ? '◫' : '↻'}</span><span><strong>{item.label}</strong><small>{item.caption}</small></span></button>)}<div className="sidebar-divider"/><div className="sidebar-funds-head"><span className="sidebar-label">我的基金</span><button className="round-add" onClick={() => { setEditingFundId(null); setShowFundForm(true); }} aria-label="新增基金">＋</button></div>{data.funds.length === 0 ? <div className="empty-funds">还没有基金档案。<br/>新增后即可开始计算。</div> : <div className="fund-list">{data.funds.map((fund) => <button key={fund.id} className={`fund-list-item ${fund.id === selectedFundId ? 'active' : ''}`} onClick={() => setSelectedFundId(fund.id)} aria-label={fund.name} title={sidebarCollapsed ? fund.name : undefined}><span className="fund-dot">{fund.name.slice(0, 1)}</span><span className="fund-list-text"><strong>{fund.name}</strong><small>{fund.code || fund.category}</small></span>{fund.id === selectedFundId && <span className="selected-mark">●</span>}</button>)}</div>}<button className="button outline full-width add-fund" onClick={() => { setEditingFundId(null); setShowFundForm(true); }}>＋ 新增基金</button><div className="sidebar-footer"><span>数据保存在当前浏览器设备</span><span>跨设备请使用备份导入导出</span></div></aside>
       <main className="main-content"><div className="page-heading"><div><div className="eyebrow">PERSONAL FUND WORKSPACE</div><h1>{NAV_ITEMS.find((x) => x.id === activePage)?.label}</h1><p>{NAV_ITEMS.find((x) => x.id === activePage)?.caption} · 行情可手动刷新，不自动轮询</p></div>{selectedFund && <div className="page-fund-tools"><div className="fund-selector-wrap"><label htmlFor="fund-select">当前基金</label><select id="fund-select" value={selectedFund.id} onChange={(e) => setSelectedFundId(e.target.value)}>{data.funds.map((fund) => <option key={fund.id} value={fund.id}>{fund.name}{fund.code ? ` · ${fund.code}` : ''}</option>)}</select></div><div className="fund-navigation" role="group" aria-label="切换基金"><button type="button" className="icon-button fund-nav-button" aria-label="上一只基金" title="上一只基金" disabled={selectedFundIndex <= 0} onClick={() => { const previous = data.funds[selectedFundIndex - 1]; if (previous) setSelectedFundId(previous.id); }}>‹</button><button type="button" className="icon-button fund-nav-button" aria-label="下一只基金" title="下一只基金" disabled={selectedFundIndex < 0 || selectedFundIndex >= data.funds.length - 1} onClick={() => { const next = data.funds[selectedFundIndex + 1]; if (next) setSelectedFundId(next.id); }}>›</button></div><button className="button ghost" onClick={() => { setEditingFundId(null); setShowFundForm(true); }}>＋ 新增</button><button className="button ghost" onClick={() => { setEditingFundId(selectedFund.id); setShowFundForm(true); }}>编辑档案</button></div>}</div>
         {data.funds.length === 0 ? <section className="welcome-card"><div className="welcome-icon">阶</div><h2>先建立第一只场内基金</h2><p>手动输入布林线上轨、中轨、下轨、昨日收盘价、上一次成交价和当前价格，即可生成十档阶梯。交易账本会记录成交数量、费用、持仓和盈亏。</p><button className="button primary" onClick={() => { setEditingFundId(null); setShowFundForm(true); }}>＋ 新增基金档案</button><div className="welcome-feature-row"><span>手动刷新行情</span><span>不自动下单</span><span>本地保存</span><span>JSON 备份恢复</span></div></section> : !selectedFund ? null : <>
-          {activePage === 'calculator' && <CalculatorPage fund={selectedFund} comparisons={comparisons} ladderBasis={ladderBasis} setLadderBasis={setLadderBasis} ladderDirection={ladderDirection} setLadderDirection={setLadderDirection} ladderRows={ladderRows} onPriceChange={(key, value) => { mutatePrices(selectedFund.id, { [key]: value }); setMarketQuotes((old) => { const prior = old[selectedFund.id]; if (!prior?.quote || prior.requestedCode !== selectedFund.code) return old; return { ...old, [selectedFund.id]: { ...prior, hasManualEdits: true } }; }); }} quoteState={currentQuoteState} onRefreshQuote={() => void refreshMarketQuote(selectedFund)} onUseLatestTrade={() => { const price = lastTradePriceForFund(selectedFund.id); if (price) mutatePrices(selectedFund.id, { lastTradePrice: price }); else setNotification('当前基金还没有交易记录，请手动输入上一次成交价。'); }} onSaveSnapshot={handleSaveSnapshot} snapshotNote={snapshotNote} setSnapshotNote={setSnapshotNote} onGoLedger={() => { setActivePage('ledger'); setShowTradeForm(true); }}/>} 
+          {activePage === 'calculator' && <CalculatorPage fund={selectedFund} comparisons={comparisons} ladderBasis={ladderBasis} setLadderBasis={setLadderBasis} ladderDirection={ladderDirection} setLadderDirection={setLadderDirection} ladderRows={ladderRows} onPriceChange={(key, value) => { mutatePrices(selectedFund.id, { [key]: value }); setMarketQuotes((old) => { const prior = old[selectedFund.id]; if (!prior || prior.requestedCode !== selectedFund.code) return old; return { ...old, [selectedFund.id]: { ...prior, hasManualEdits: true } }; }); }} quoteState={currentQuoteState} onRefreshQuote={() => void refreshMarketQuote(selectedFund)} onUseLatestTrade={() => { const price = lastTradePriceForFund(selectedFund.id); if (price) mutatePrices(selectedFund.id, { lastTradePrice: price }); else setNotification('当前基金还没有交易记录，请手动输入上一次成交价。'); }} onSaveSnapshot={handleSaveSnapshot} snapshotNote={snapshotNote} setSnapshotNote={setSnapshotNote} onGoLedger={() => { setActivePage('ledger'); setShowTradeForm(true); }}/>}
           {activePage === 'ledger' && <LedgerPage fund={selectedFund} trades={fundTrades} position={position!} onAdd={() => { setEditingTradeId(null); setShowTradeForm(true); }} onEdit={(trade) => { setEditingTradeId(trade.id); setShowTradeForm(true); }} onDelete={handleDeleteTrade}/>} 
           {activePage === 'portfolio' && <PortfolioPage funds={data.funds} trades={data.trades} onSelect={(id) => { setSelectedFundId(id); setActivePage('calculator'); }}/>} 
           {activePage === 'history' && <HistoryPage data={data} filter={historyFundFilter} setFilter={setHistoryFundFilter} onDeleteSnapshot={(id) => { if (window.confirm('确定删除这条价格快照吗？')) setData((old) => ({ ...old, snapshots: old.snapshots.filter((s) => s.id !== id) })); }} onExportCsv={exportCsv} onExportJson={exportJson} onImport={() => importInputRef.current?.click()} onDeleteFund={handleDeleteFund}/>} 
@@ -424,13 +467,20 @@ function CalculatorPage({ fund, comparisons, ladderBasis, setLadderBasis, ladder
       <div className="quote-refresh-row">
         <button type="button" className="button outline quote-refresh-button" onClick={onRefreshQuote} disabled={quoteState?.status === 'loading' || !fund.code.trim()} aria-label="刷新行情">{quoteState?.status === 'loading' ? '正在刷新…' : '↻ 刷新行情'}</button>
         <div className="quote-refresh-meta" aria-live="polite">
-          {quoteState?.quote && quoteState.quote.code === fund.code && <>
+          {quoteState?.hasManualEdits && quoteState?.quote && quoteState.quote.code === fund.code && <>
             <strong className={getInputChangePercent(fund.prices.currentPrice, fund.prices.previousClose) > 0 ? 'positive' : getInputChangePercent(fund.prices.currentPrice, fund.prices.previousClose) < 0 ? 'negative' : ''}>日涨跌 {formatQuotePercent(getInputChangePercent(fund.prices.currentPrice, fund.prices.previousClose))}</strong>
             <small>来源：{quoteState.quote.source} · 行情时间：{quoteState.quote.quotedAt || '源端未提供'} · 获取于 {quoteState.quote.fetchedAt}</small>
             {quoteState.quote.boll && <small>BOLL(20,2) · 日线日期：{quoteState.quote.boll.tradingDate}{quoteState.quote.boll.currentPriceApplied ? ' · 已按本次现价重算' : ' · 使用行情源日线收盘价'}</small>}
             {quoteState.quote.bollError && <small className="quote-error" role="status">BOLL未更新：{quoteState.quote.bollError}；原有轨道价格已保留。</small>}
-            {quoteState.hasManualEdits && <small>价格字段已手动修改；涨跌幅按当前输入的现价与昨收重新计算。</small>}
+            <small>价格字段已手动修改；涨跌幅按当前输入的现价与昨收重新计算。</small>
           </>}
+          {quoteState?.quote && !quoteState.hasManualEdits && quoteState.quote.code === fund.code && <>
+            <strong className={getInputChangePercent(fund.prices.currentPrice, fund.prices.previousClose) > 0 ? 'positive' : getInputChangePercent(fund.prices.currentPrice, fund.prices.previousClose) < 0 ? 'negative' : ''}>日涨跌 {formatQuotePercent(getInputChangePercent(fund.prices.currentPrice, fund.prices.previousClose))}</strong>
+            <small>来源：{quoteState.quote.source} · 行情时间：{quoteState.quote.quotedAt || '源端未提供'} · 获取于 {quoteState.quote.fetchedAt}</small>
+            {quoteState.quote.boll && <small>BOLL(20,2) · 日线日期：{quoteState.quote.boll.tradingDate}{quoteState.quote.boll.currentPriceApplied ? ' · 已按本次现价重算' : ' · 使用行情源日线收盘价'}</small>}
+            {quoteState.quote.bollError && <small className="quote-error" role="status">BOLL未更新：{quoteState.quote.bollError}；原有轨道价格已保留。</small>}
+          </>}
+          {quoteState?.status === 'loading' && quoteState.hasManualEdits && <small className="quote-error" role="status">价格字段已手动修改；本次刷新将不覆盖你输入的价格。</small>}
           {!quoteState?.quote && quoteState?.status === 'loading' && <small>正在请求东方财富；失败时自动尝试腾讯。</small>}
           {!quoteState?.quote && quoteState?.status === 'error' && <small className="quote-error" role="status">{quoteState.message} 未覆盖当前价格。</small>}
           {!quoteState && <small>点击刷新获取最新价、昨收及 BOLL(20,2)；现价、昨收和三条轨道均可继续手动修改，不自动轮询。</small>}

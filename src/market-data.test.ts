@@ -9,6 +9,10 @@ function marketTime(): string {
   return String(now.getFullYear()) + pad(now.getMonth() + 1) + pad(now.getDate())
     + pad(now.getHours()) + pad(now.getMinutes()) + pad(now.getSeconds());
 }
+// Real Eastmoney f86 is a Unix-seconds epoch (10 digits), as observed live on 2026-10-19.
+function marketEpochSeconds(): number {
+  return Math.floor(Date.now() / 1000);
+}
 function dateIso(date: Date): string {
   return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
 }
@@ -44,6 +48,54 @@ describe('manual ETF market quote refresh', () => {
     expect(quote.previousClose).toBe('4');
     expect(quote.changePercent).toBe(3.13);
     expect(quote.quotedAt).toBeTruthy();
+  });
+  it('parses the real Eastmoney f86 Unix-seconds epoch into a Beijing-time quote stamp', async () => {
+    const epoch = marketEpochSeconds();
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(eastmoneyResponse({
+      f57: '510300', f58: '沪深300ETF', f43: '4.125', f60: '4.000', f86: epoch,
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    const quote = await fetchLatestQuote({ code: '510300', market: '沪市' });
+    expect(quote.quotedAt).toContain('（北京时间）');
+    expect(quote.quotedAt).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}（北京时间）$/);
+    expect(quote.tradingDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    // The epoch's Shanghai date must be the trading date actually used for BOLL recalculation.
+    const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(epoch * 1000));
+    expect(quote.tradingDate).toBe(parts.split('/').reverse().join('-'));
+  });
+  it('rejects implausible epoch values instead of showing a bogus quote time', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(eastmoneyResponse({
+      f57: '510300', f58: '沪深300ETF', f43: '4.125', f60: '4.000', f86: 12345678901234,
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    const quote = await fetchLatestQuote({ code: '510300', market: '沪市' });
+    expect(quote.quotedAt).toBeUndefined();
+    expect(quote.tradingDate).toBeUndefined();
+  });
+  it('decodes GBK Tencent payloads so multi-byte names cannot forge the ~ separator', async () => {
+    // GBK 0x5526 (唦) encodes to 0x86 0x7E: its second byte equals the '~' separator byte.
+    // The mock must therefore serve REAL GBK bytes; decoding them atomically keeps field
+    // alignment intact, while a naive UTF-8 text() read would split the name and shift fields.
+    const fields = Array.from({ length: 50 }, () => '');
+    fields[0] = '1'; fields[1] = '唦深300ETF'; fields[2] = '510300'; fields[3] = '4.125'; fields[4] = '4.000';
+    fields[30] = marketTime(); fields[32] = '3.13';
+    const textPart = 'v_sh510300="' + fields.join('~') + '";';
+    // Rebuild the byte stream with GBK encoding for the CJK name field:
+    // 唦 -> 0x86 0x7E (second byte == '~' 0x7E), 深 -> 0xC9 0xEE.
+    const nameStart = textPart.indexOf('唦深300ETF');
+    const gbkBytes: number[] = [];
+    for (const ch of textPart.slice(0, nameStart)) gbkBytes.push(ch.charCodeAt(0));
+    gbkBytes.push(0x86, 0x7e, 0xc9, 0xee);
+    for (const ch of '300ETF') gbkBytes.push(ch.charCodeAt(0));
+    for (const ch of textPart.slice(nameStart + '唦深300ETF'.length)) gbkBytes.push(ch.charCodeAt(0));
+    const tencentGbk = new Response(new Uint8Array(gbkBytes).buffer, { status: 200, headers: { 'Content-Type': 'text/html; charset=GBK' } });
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(eastmoneyResponse(null)).mockResolvedValueOnce(tencentGbk);
+    vi.stubGlobal('fetch', fetchMock);
+    const quote = await fetchLatestQuote({ code: '510300', market: '沪市' });
+    expect(quote.source).toBe('腾讯行情');
+    expect(quote.name).toBe('唦深300ETF');
+    expect(quote.price).toBe('4.125');
+    expect(quote.changePercent).toBe(3.13);
   });
   it('falls back to Tencent when Eastmoney returns no valid row', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(eastmoneyResponse(null)).mockResolvedValueOnce(tencentResponse());
