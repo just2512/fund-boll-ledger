@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { calculatePosition, compareToBases, currentValueCents, estimateCommission, estimateOtherFee, PRICE_KEYS, priceLadder, unrealizedPnlCents, type Direction, type PriceKey } from './calculations';
+import { bollRangePositionRatio, calculatePosition, compareToBases, currentValueCents, estimateCommission, estimateOtherFee, PRICE_KEYS, priceLadder, unrealizedPnlCents, type Direction, type PriceKey } from './calculations';
 import { formatCents, formatCurrency, formatPercent, parseMoneyCents, parseQuantity, parseScaled, priceAmountCents } from './decimal';
 import { loadAppData, saveAppData } from './storage';
 import { fetchLatestMarketData, type MarketQuote } from './market-data';
-import { createId, emptyAppData, newFund, type AppData, type Fund, type FundCategory, type FundPrices, type PriceSnapshot, type Trade, type TradeSide } from './types';
+import { createId, emptyAppData, newFund, type AppData, type Fund, type FundCategory, type FundPrices, type PriceBasisKey, type PriceSnapshot, type Trade, type TradeSide } from './types';
 
 const NAV_ITEMS = [
   { id: 'calculator', label: '价格计算', caption: 'BOLL 与十档定位' },
@@ -76,6 +76,7 @@ function isValidAppData(value: unknown): value is AppData {
 }
 
 function normalizeAppData(value: AppData): AppData {
+  const allowedBases: PriceBasisKey[] = ['upper', 'middle', 'lower', 'previousClose', 'lastTradePrice'];
   const funds = value.funds.map((source) => {
     const fund = { ...source } as Fund & {
       commissionRatePercent?: string;
@@ -85,7 +86,12 @@ function normalizeAppData(value: AppData): AppData {
     delete fund.commissionRatePercent;
     delete fund.minimumCommission;
     delete fund.applyMinimumCommission;
-    return fund;
+    return {
+      ...fund,
+      // Older local data and imported backups have no per-ETF ladder preferences.
+      ladderBasis: allowedBases.includes(fund.ladderBasis) ? fund.ladderBasis : 'lastTradePrice',
+      ladderDirection: fund.ladderDirection === 'down' ? 'down' : 'up',
+    };
   });
   return { ...value, funds };
 }
@@ -114,7 +120,7 @@ function FundForm({ initial, onSave, onCancel }: { initial?: Fund; onSave: (fund
   return <Modal title={initial ? '编辑基金档案' : '新增基金档案'} onClose={onCancel} wide><form onSubmit={submit} className="form-stack">
     <div className="form-grid two"><Field label="基金名称（必填）" value={value.name} onChange={(v) => patch('name', v)} placeholder="例如：宽基 ETF"/><Field label="基金代码（可选）" value={value.code} onChange={(v) => patch('code', v)} placeholder="例如：510300"/></div>
     <div className="form-grid three"><label className="field"><span>基金类别</span><select value={value.category} onChange={(e) => patch('category', e.target.value as FundCategory)}>{CATEGORY_OPTIONS.map((x) => <option key={x}>{x}</option>)}</select></label><label className="field"><span>交易市场</span><select value={value.market} onChange={(e) => patch('market', e.target.value as Fund['market'])}><option>沪市</option><option>深市</option><option>其他/未确认</option></select></label><Field label="最小价格变动单位" value={value.tickSize} onChange={(v) => patch('tickSize', v)} placeholder="0.001" help="默认 0.001 元，可按具体基金规则修改。"/></div>
-    <div className="section-divider"/><div><h3>统一费用规则（全局固定）</h3><p className="muted small">所有基金共用：佣金 0.025%，其他费用 0.004%，两项均按分四舍五入；此处不再单独配置费率。</p></div>
+    <div className="section-divider"/><div><h3>统一费用规则（全局固定）</h3><p className="muted small">所有基金共用：佣金 0.015%，其他费用 0.004%，两项均按分四舍五入；此处不再单独配置费率。</p></div>
     <Field label="档案备注" value={value.notes} onChange={(v) => patch('notes', v)} placeholder="自定义说明（可选）"/>
     <div className="modal-actions"><button type="button" className="button ghost" onClick={onCancel}>取消</button><button type="submit" className="button primary">保存档案</button></div>
   </form></Modal>;
@@ -177,8 +183,8 @@ function TradeForm({ fund, initial, onSave, onCancel }: { fund: Fund; initial?: 
     <div className="trade-side-switch"><button type="button" className={form.side === 'BUY' ? 'active buy' : ''} onClick={() => patch('side', 'BUY')}>买入</button><button type="button" className={form.side === 'SELL' ? 'active sell' : ''} onClick={() => patch('side', 'SELL')}>卖出</button></div>
     <div className="form-grid two"><Field label="成交日期和时间" value={form.tradedAt} onChange={(v) => patch('tradedAt', v)} type="datetime-local"/><Field label="成交价格（元/份）" value={form.price} onChange={(v) => patch('price', v)} placeholder="0.000" type="number" step="any" min="0"/></div>
     <div className="form-grid two"><Field label="成交数量（份，整数）" value={form.quantity} onChange={(v) => patch('quantity', v)} placeholder="例如 1000" type="number" step="1" min="1"/><div className="amount-preview"><span className="muted">成交金额（自动计算）</span><strong>{formatCurrency(grossCents)}</strong></div></div>
-    <div className="section-divider"/><div className="fee-heading"><div><h3>交易费用（元）</h3><p className="muted small">佣金 0.025%、其他费用 0.004%，按分四舍五入自动估算；经手/过户费与印花税按实际发生填写。保存前请核对成交明细。</p></div><button type="button" className="button small-button" onClick={fillEstimatedFees}>按固定费率重算</button></div>
-    <div className="form-grid four"><Field label="佣金（0.025%）" value={form.commission} onChange={(v) => patch('commission', v)} placeholder="自动计算" type="number" step="0.01" min="0"/><Field label="经手/过户等费用" value={form.transferFee} onChange={(v) => patch('transferFee', v)} placeholder="按实际填写" type="number" step="0.01" min="0"/><Field label="印花税" value={form.stampDuty} onChange={(v) => patch('stampDuty', v)} placeholder="按实际填写" type="number" step="0.01" min="0"/><Field label="其他费用（0.004%）" value={form.otherFee} onChange={(v) => patch('otherFee', v)} placeholder="自动计算" type="number" step="0.01" min="0"/></div>
+    <div className="section-divider"/><div className="fee-heading"><div><h3>交易费用（元）</h3><p className="muted small">佣金 0.015%、其他费用 0.004%，按分四舍五入自动估算；经手/过户费与印花税按实际发生填写。保存前请核对成交明细。</p></div><button type="button" className="button small-button" onClick={fillEstimatedFees}>按固定费率重算</button></div>
+    <div className="form-grid four"><Field label="佣金（0.015%）" value={form.commission} onChange={(v) => patch('commission', v)} placeholder="自动计算" type="number" step="0.01" min="0"/><Field label="经手/过户等费用" value={form.transferFee} onChange={(v) => patch('transferFee', v)} placeholder="按实际填写" type="number" step="0.01" min="0"/><Field label="印花税" value={form.stampDuty} onChange={(v) => patch('stampDuty', v)} placeholder="按实际填写" type="number" step="0.01" min="0"/><Field label="其他费用（0.004%）" value={form.otherFee} onChange={(v) => patch('otherFee', v)} placeholder="自动计算" type="number" step="0.01" min="0"/></div>
     <div className="fee-verification"><input id="fees-checked" type="checkbox" checked={form.feesChecked} onChange={(e) => setForm((old) => ({ ...old, feesChecked: e.target.checked }))}/><label htmlFor="fees-checked">我已对照东方财富实际成交明细核对本笔费用（没有发生的费用填 0；未核对时不要勾选）</label></div>
     <div className="cost-summary"><span>费用合计 <strong>{formatCurrency(feeCents)}</strong></span><span>{form.side === 'BUY' ? '买入现金支出' : '卖出现金净收入'} <strong>{formatCurrency(form.side === 'BUY' ? grossCents + feeCents : grossCents - feeCents)}</strong></span></div>
     <Field label="交易备注" value={form.note} onChange={(v) => patch('note', v)} placeholder="例如：参考 BOLL 下轨买入（可选）"/>
@@ -199,8 +205,6 @@ export default function App() {
   const [editingFundId, setEditingFundId] = useState<string | null>(null);
   const [showTradeForm, setShowTradeForm] = useState(false);
   const [editingTradeId, setEditingTradeId] = useState<string | null>(null);
-  const [ladderBasis, setLadderBasis] = useState<PriceKey>('lastTradePrice');
-  const [ladderDirection, setLadderDirection] = useState<Direction>('up');
   const [snapshotNote, setSnapshotNote] = useState('');
   const [marketQuotes, setMarketQuotes] = useState<Record<string, QuoteViewState>>({});
   const [historyFundFilter, setHistoryFundFilter] = useState('all');
@@ -247,6 +251,14 @@ export default function App() {
   const selectedFund = useMemo(() => data.funds.find((fund) => fund.id === selectedFundId) ?? null, [data.funds, selectedFundId]);
   const storedQuoteState = selectedFund ? marketQuotes[selectedFund.id] : undefined;
   const currentQuoteState = storedQuoteState?.requestedCode === selectedFund?.code ? storedQuoteState : undefined;
+  const ladderBasis: PriceKey = selectedFund?.ladderBasis ?? 'lastTradePrice';
+  const ladderDirection: Direction = selectedFund?.ladderDirection ?? 'up';
+  const setLadderBasis = useCallback((basis: PriceKey) => {
+    setData((old) => ({ ...old, funds: old.funds.map((fund) => fund.id === selectedFundId ? { ...fund, ladderBasis: basis } : fund) }));
+  }, [selectedFundId]);
+  const setLadderDirection = useCallback((direction: Direction) => {
+    setData((old) => ({ ...old, funds: old.funds.map((fund) => fund.id === selectedFundId ? { ...fund, ladderDirection: direction } : fund) }));
+  }, [selectedFundId]);
   const selectedFundIndex = data.funds.findIndex((fund) => fund.id === selectedFundId);
   const fundTrades = useMemo(() => data.trades.filter((trade) => trade.fundId === selectedFundId).slice().sort((a, b) => b.tradedAt.localeCompare(a.tradedAt) || b.createdAt.localeCompare(a.createdAt)), [data.trades, selectedFundId]);
   const position = useMemo(() => selectedFund ? calculatePosition(data.trades, selectedFund.id) : null, [data.trades, selectedFund]);
@@ -399,6 +411,7 @@ function CalculatorPage({ fund, comparisons, ladderBasis, setLadderBasis, ladder
 }) {
   const baseLabels: Record<PriceKey, string> = { upper: 'BOLL 上轨', middle: 'BOLL 中轨', lower: 'BOLL 下轨', previousClose: '昨日收盘价', lastTradePrice: '上一次成交价' };
   const selectedComparison = comparisons.find((x) => x.key === ladderBasis);
+  const bollRangePosition = bollRangePositionRatio(fund.prices);
   const current = fund.prices.currentPrice.trim() ? parseMaybe(fund.prices.currentPrice) : null;
   const baseValue = selectedComparison?.base.trim() ? parseMaybe(selectedComparison.base) : null;
   const currentPct = selectedComparison?.percent ?? null;
@@ -426,7 +439,7 @@ function CalculatorPage({ fund, comparisons, ladderBasis, setLadderBasis, ladder
         </div>
       </div>
     </div></div></section>
-    <section className="panel"><div className="section-title-row"><div><h2>当前价格对比</h2><p>统一以当前价格分别对比五个基准，百分比不共享基准。</p></div><span className="muted small">当前价：{fund.prices.currentPrice || '—'}</span></div><div className="comparison-grid">{comparisons.map((item) => <div key={item.key} className={`comparison-card ${item.percent === null ? '' : item.percent > 0 ? 'is-up' : item.percent < 0 ? 'is-down' : ''}`}><span>{item.label}</span><strong>{item.percentLabel}</strong><div className="comparison-foot"><span>基准 {item.base || '—'}</span><span>{item.delta !== null ? `${Number(item.delta) > 0 ? '+' : ''}${item.delta}` : '—'} 元</span></div><small>{item.location}</small></div>)}</div></section>
+    <section className="panel"><div className="section-title-row"><div><h2>当前价格对比</h2><p>统一以当前价格分别对比五个基准，百分比不共享基准。</p></div><span className="muted small">当前价：{fund.prices.currentPrice || '—'}</span></div><div className="comparison-grid">{comparisons.map((item) => <div key={item.key} className={`comparison-card ${item.percent === null ? '' : item.percent > 0 ? 'is-up' : item.percent < 0 ? 'is-down' : ''}`}><span>{item.label}</span><strong>{item.percentLabel}</strong><div className="comparison-foot"><span>基准 {item.base || '—'}</span><span>{item.delta !== null ? `${Number(item.delta) > 0 ? '+' : ''}${item.delta}` : '—'} 元</span></div><small>{item.location}</small></div>)}<div className="comparison-card"><span>BOLL 区间位置</span><strong>{bollRangePosition === null ? '待输入有效价格/轨道' : (bollRangePosition * 100).toFixed(2) + '%'}</strong><div className="comparison-foot"><span>下轨 0%</span><span>上轨 100%</span></div><small>{bollRangePosition === null ? '需要有效现价、下轨和高于下轨的上轨' : bollRangePosition < 0 ? '当前价低于下轨' : bollRangePosition > 1 ? '当前价高于上轨' : bollRangePosition === 0 ? '当前价位于下轨' : bollRangePosition === 1 ? '当前价位于上轨' : '表示当前价在 BOLL 上下轨间的位置'}</small></div></div></section>
     <section className="panel ladder-panel"><div className="section-title-row"><div><h2>十档价格阶梯</h2><p>每一档均以所选参考价独立计算，不使用连续复利。</p></div><span className="tag">1%—10%</span></div><div className="ladder-controls"><label className="field basis-select"><span>选择计算基准</span><select value={ladderBasis} onChange={(e) => setLadderBasis(e.target.value as PriceKey)}>{PRICE_KEYS.map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}</select></label><div className="direction-switch" role="group" aria-label="阶梯方向"><button className={ladderDirection === 'up' ? 'active rise' : ''} onClick={() => setLadderDirection('up')}>↑ 上涨 1%—10%</button><button className={ladderDirection === 'down' ? 'active fall' : ''} onClick={() => setLadderDirection('down')}>↓ 下跌 1%—10%</button></div></div><div className="ladder-status">{!fund.prices.currentPrice.trim() || current === null || current <= 0 || baseValue === null ? <span>请输入有效的当前价格（大于零）和所选基准，系统才可标记已越过档位。</span> : <><div><span className="status-label">当前相对{baseLabels[ladderBasis]}</span><strong className={currentPct! > 0 ? 'positive' : currentPct! < 0 ? 'negative' : ''}>{formatPercent(currentPct)}</strong></div><div className="next-target">{overRange ? `当前价格已超出所选方向的十档范围（实际涨跌幅 ${formatPercent(currentPct)}）` : nextRow ? `下一档：${ladderDirection === 'up' ? '+' : '−'}${nextRow.percent}% · ${nextRow.price} 元` : ladderRows.length && ladderRows.every((r) => r.reached) ? `已越过全部十档（实际涨跌幅 ${formatPercent(currentPct)}）` : '尚未到达第一档'}</div></>}</div>{ladderRows.length ? <div className="table-scroll"><table className="ladder-table"><thead><tr><th>刻度</th><th>对应价格（元）</th><th>理论档位</th><th>当前状态</th></tr></thead><tbody>{ladderRows.map((row) => <tr key={row.percent} className={`${row.reached ? 'reached-row' : ''} ${row.isNext ? 'next-row' : ''}`}><td><span className={`level-chip ${ladderDirection}`}>{ladderDirection === 'up' ? '+' : '−'}{row.percent}%</span></td><td><strong>{row.price}</strong></td><td>{ladderDirection === 'up' ? '+' : '−'}{row.percent}.00%</td><td>{row.reached ? <span className="state-pill crossed">已越过</span> : row.isNext ? <span className="state-pill next">下一档</span> : <span className="state-pill pending">尚未到达</span>}</td></tr>)}</tbody></table></div> : <div className="empty-state compact"><strong>尚未生成阶梯</strong><span>请先填写上方选择的基准价格，并检查最小价格变动单位。</span></div>}<div className="ladder-note"><span>报价单位：{fund.tickSize} 元</span><span>价格先计算，再按报价单位四舍五入。</span><span>已越过标记只用于价格定位，不构成交易信号。</span></div></section>
     <section className="snapshot-bar"><div><strong>保存今天的价格观察</strong><p>保留五个基准和当前价，便于回顾当时阶梯。每次保存都会生成一条快照。</p></div><div className="snapshot-actions"><input value={snapshotNote} onChange={(e) => setSnapshotNote(e.target.value)} placeholder="备注（可选）" aria-label="快照备注"/><button className="button primary" onClick={onSaveSnapshot}>保存价格快照</button></div></section>
     <section className="panel quick-action-panel"><div><h3>准备记一笔买入或卖出？</h3><p className="muted">成交价、份额、佣金和其他费用在交易账本中单独记录。</p></div><button className="button outline" onClick={onGoLedger}>新增交易记录 →</button></section>
