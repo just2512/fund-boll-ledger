@@ -273,7 +273,7 @@ async function fetchEastmoneyBollBands(
   const params = new URLSearchParams({
     secid,
     fields1: 'f1,f2,f3,f4,f5,f6',
-    fields2: 'f51,f53',
+    fields2: 'f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61',
     klt: '101',
     fqt: '0',
     end: '20500101',
@@ -296,7 +296,7 @@ async function fetchEastmoneyBollBands(
   const dailyCloses: DailyClose[] = row.klines.flatMap((entry): DailyClose[] => {
     if (typeof entry !== 'string') return [];
     const fields = entry.split(',');
-    return fields.length >= 2 ? [{ date: fields[0], close: fields[1] }] : [];
+    return fields.length >= 3 ? [{ date: fields[0], close: fields[2] }] : [];
   });
   return calculateBollBands(dailyCloses, quote.price, quote.tradingDate);
 }

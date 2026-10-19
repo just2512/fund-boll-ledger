@@ -261,7 +261,8 @@ test('行情仅在手动点击时请求，东方财富成功后更新当前价�
       const date = new Date(today);
       date.setDate(today.getDate() - (24 - index));
       const dateText = date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate());
-      return dateText + ',' + (4 + index * 0.001).toFixed(3);
+      const close = (4 + index * 0.001).toFixed(3);
+      return [dateText, close, close, close, close, '0', '0', '0', '0', '0', '0'].join(',');
     });
     await route.fulfill({
       status: 200, contentType: 'application/json',
@@ -301,7 +302,8 @@ test('东方财富失败时腾讯自动兜底，双源都失败时保留手动�
       const date = new Date(today);
       date.setDate(today.getDate() - (24 - index));
       const dateText = date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate());
-      return dateText + ',' + (4 + index * 0.001).toFixed(3);
+      const close = (4 + index * 0.001).toFixed(3);
+      return [dateText, close, close, close, close, '0', '0', '0', '0', '0', '0'].join(',');
     });
     await route.fulfill({
       status: 200, contentType: 'application/json',
@@ -345,7 +347,8 @@ test('刷新写入的现价、昨收和 BOLL 轨道仍可手动改写', async ({
       const date = new Date(today);
       date.setDate(today.getDate() - (24 - index));
       const dateText = date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate());
-      return dateText + ',' + (4 + index * 0.001).toFixed(3);
+      const close = (4 + index * 0.001).toFixed(3);
+      return [dateText, close, close, close, close, '0', '0', '0', '0', '0', '0'].join(',');
     });
     await route.fulfill({
       status: 200, contentType: 'application/json',

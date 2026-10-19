@@ -94,7 +94,7 @@ describe('BOLL(20,2)', () => {
   it('loads daily bars after a quote and calculates BOLL(20,2)', async () => {
     const fetchMock = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(eastmoneyResponse({ code: '510300', f57: '510300', f58: '沪深300ETF', f43: '4.125', f60: '4.000', f86: marketTime() }))
-      .mockResolvedValueOnce(eastmoneyResponse({ code: '510300', klines: dailyCloses() }));
+      .mockResolvedValueOnce(eastmoneyResponse({ code: '510300', klines: dailyCloses().map((line) => { const [date, close] = line.split(','); return [date, close, close, close, close, '0', '0', '0', '0', '0', '0'].join(','); }) }));
     vi.stubGlobal('fetch', fetchMock);
     const market = await fetchLatestMarketData({ code: '510300', market: '沪市' });
     expect(fetchMock).toHaveBeenCalledTimes(2);
