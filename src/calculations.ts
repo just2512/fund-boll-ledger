@@ -1,7 +1,7 @@
-import type { FundPrices, Trade } from './types';
+import type { FundPrices, LadderDirection, PriceBasisKey, Trade } from './types';
 import { formatCents, formatScaled, parseMoneyCents, parseScaled, parseQuantity, percentHundredths, priceAmountCents, roundDiv, roundToTick } from './decimal';
 
-export type PriceKey = Exclude<keyof FundPrices, 'currentPrice'>;
+export type PriceKey = PriceBasisKey;
 export const PRICE_KEYS: Array<{ key: PriceKey; label: string }> = [
   { key: 'upper', label: 'BOLL 上轨' },
   { key: 'middle', label: 'BOLL 中轨' },
@@ -9,7 +9,7 @@ export const PRICE_KEYS: Array<{ key: PriceKey; label: string }> = [
   { key: 'previousClose', label: '昨日收盘价' },
   { key: 'lastTradePrice', label: '上一次成交价' },
 ];
-export type Direction = 'up' | 'down';
+export type Direction = LadderDirection;
 
 export interface LadderRow {
   percent: number;
@@ -50,6 +50,19 @@ export interface PriceComparison {
   percent: number | null;
   percentLabel: string;
   location: string;
+}
+
+export function bollRangePositionRatio(prices: FundPrices): number | null {
+  if (!prices.currentPrice.trim() || !prices.lower.trim() || !prices.upper.trim()) return null;
+  try {
+    const current = parseScaled(prices.currentPrice);
+    const lower = parseScaled(prices.lower);
+    const upper = parseScaled(prices.upper);
+    if (current <= 0n || lower <= 0n || upper <= lower) return null;
+    return Number(current - lower) / Number(upper - lower);
+  } catch {
+    return null;
+  }
 }
 
 export function compareToBases(prices: FundPrices, tickText = '0.001'): PriceComparison[] {
@@ -122,7 +135,7 @@ export function calculatePosition(trades: Trade[], fundId: string): PositionSumm
   return { quantity, costBasisCents, realizedCents, feesCents, grossBuyCents, grossSellCents };
 }
 
-export const ETF_COMMISSION_RATE_PERCENT = '0.025';
+export const ETF_COMMISSION_RATE_PERCENT = '0.015';
 export const ETF_OTHER_FEE_RATE_PERCENT = '0.004';
 
 function estimateFixedRateFee(priceText: string, quantityText: string, ratePercent: string): string {

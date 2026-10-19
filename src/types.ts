@@ -1,5 +1,7 @@
 export type FundCategory = 'ETF' | 'LOF' | '债券ETF' | '货币ETF' | '其他场内基金';
 export type TradeSide = 'BUY' | 'SELL';
+export type PriceBasisKey = 'upper' | 'middle' | 'lower' | 'previousClose' | 'lastTradePrice';
+export type LadderDirection = 'up' | 'down';
 
 export interface FundPrices {
   upper: string;
@@ -18,6 +20,8 @@ export interface Fund {
   category: FundCategory;
   tickSize: string;
   prices: FundPrices;
+  ladderBasis: PriceBasisKey;
+  ladderDirection: LadderDirection;
   notes: string;
   createdAt: string;
   updatedAt: string;
@@ -71,7 +75,8 @@ export function newFund(name = '新基金'): Fund {
   return {
     id: createId(), name, code: '', market: '其他/未确认', category: 'ETF',
     tickSize: '0.001',
-    prices: { ...EMPTY_PRICES }, notes: '', createdAt: now, updatedAt: now,
+    prices: { ...EMPTY_PRICES }, ladderBasis: 'lastTradePrice', ladderDirection: 'up',
+    notes: '', createdAt: now, updatedAt: now,
   };
 }
 

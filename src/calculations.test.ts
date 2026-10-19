@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compareToBases, calculatePosition, estimateCommission, estimateOtherFee, priceLadder } from './calculations';
+import { bollRangePositionRatio, compareToBases, calculatePosition, estimateCommission, estimateOtherFee, priceLadder } from './calculations';
 import { parseScaled, priceAmountCents, formatCents } from './decimal';
 import type { FundPrices, Trade } from './types';
 
@@ -40,6 +40,23 @@ describe('price ladder', () => {
   });
 });
 
+describe('BOLL range position', () => {
+  it('calculates a relative position across the lower and upper bands', () => {
+    expect(bollRangePositionRatio({ ...prices, lower: '8', middle: '10', upper: '12', currentPrice: '10' })).toBe(0.5);
+    expect(bollRangePositionRatio({ ...prices, lower: '8', middle: '10', upper: '12', currentPrice: '8' })).toBe(0);
+    expect(bollRangePositionRatio({ ...prices, lower: '8', middle: '10', upper: '12', currentPrice: '12' })).toBe(1);
+    expect(bollRangePositionRatio({ ...prices, lower: '8', middle: '10', upper: '12', currentPrice: '14' })).toBe(1.5);
+    expect(bollRangePositionRatio({ ...prices, lower: '8', middle: '10', upper: '12', currentPrice: '6' })).toBe(-0.5);
+  });
+
+  it('returns null for missing prices and invalid/equal bands', () => {
+    expect(bollRangePositionRatio({ ...prices, currentPrice: '' })).toBeNull();
+    expect(bollRangePositionRatio({ ...prices, upper: '', lower: '8' })).toBeNull();
+    expect(bollRangePositionRatio({ ...prices, upper: '8', lower: '8' })).toBeNull();
+    expect(bollRangePositionRatio({ ...prices, upper: '7', lower: '8' })).toBeNull();
+  });
+});
+
 describe('comparison', () => {
   it('compares current price against all five independent bases', () => {
     const result = compareToBases(prices);
@@ -53,13 +70,14 @@ describe('comparison', () => {
 
 describe('global fixed ETF fees', () => {
   it('applies the same rates to all funds', () => {
-    expect(estimateCommission('10', '100')).toBe('0.25');
+    expect(estimateCommission('10', '100')).toBe('0.15');
     expect(estimateOtherFee('10', '100')).toBe('0.04');
   });
 
   it('rounds the final fee half-up to two decimals', () => {
-    expect(estimateCommission('20', '1')).toBe('0.01');
+    expect(estimateCommission('100', '1')).toBe('0.02');
     expect(estimateOtherFee('125', '1')).toBe('0.01');
+    expect(estimateCommission('20', '1')).toBe('0.00');
     expect(estimateCommission('10', '1')).toBe('0.00');
   });
 
