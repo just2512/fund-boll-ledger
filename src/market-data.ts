@@ -96,48 +96,30 @@ function tradingDateFrom(value: unknown): string | undefined {
 function parseMarketTime(value: unknown): string | undefined {
   if (value === null || value === undefined || value === '') return undefined;
   const digits = String(value).trim().replace(/\D/g, '');
-  let year: number;
-  let month: number;
-  let day: number;
-  let hour = 15;
-  let minute = 0;
-  let second = 0;
-  let dateOnly = false;
+  let date = '';
+  let time = '';
 
-  if (digits.length >= 14) {
-    year = Number(digits.slice(0, 4));
-    month = Number(digits.slice(4, 6));
-    day = Number(digits.slice(6, 8));
-    hour = Number(digits.slice(8, 10));
-    minute = Number(digits.slice(10, 12));
-    second = Number(digits.slice(12, 14));
-  } else if (digits.length === 12) {
-    year = Number(digits.slice(0, 4));
-    month = Number(digits.slice(4, 6));
-    day = Number(digits.slice(6, 8));
-    hour = Number(digits.slice(8, 10));
-    minute = Number(digits.slice(10, 12));
-  } else if (digits.length === 8) {
-    year = Number(digits.slice(0, 4));
-    month = Number(digits.slice(4, 6));
-    day = Number(digits.slice(6, 8));
-    dateOnly = true;
+  if (digits.length >= 14 || digits.length === 12 || digits.length === 8) {
+    const year = digits.slice(0, 4);
+    const month = digits.slice(4, 6);
+    const day = digits.slice(6, 8);
+    if (Number(year) < 2000 || Number(year) > 2100 || Number(month) < 1 || Number(month) > 12 || Number(day) < 1 || Number(day) > 31) return undefined;
+    date = year + '-' + month + '-' + day;
+    if (digits.length >= 14) time = digits.slice(8, 10) + ':' + digits.slice(10, 12) + ':' + digits.slice(12, 14);
+    else if (digits.length === 12) time = digits.slice(8, 10) + ':' + digits.slice(10, 12);
   } else if (digits.length === 6) {
-    const [yyyy, mm, dd] = shanghaiDate().split('-').map(Number);
-    year = yyyy;
-    month = mm;
-    day = dd;
-    hour = Number(digits.slice(0, 2));
-    minute = Number(digits.slice(2, 4));
-    second = Number(digits.slice(4, 6));
+    date = shanghaiDate();
+    time = digits.slice(0, 2) + ':' + digits.slice(2, 4) + ':' + digits.slice(4, 6);
   } else {
     return undefined;
   }
 
-  if (month < 1 || month > 12 || day < 1 || day > 31 || hour > 23 || minute > 59 || second > 59) return undefined;
-  const date = new Date(year, month - 1, day, hour, minute, second);
-  if (!Number.isFinite(date.getTime())) return undefined;
-  return dateOnly ? date.toLocaleDateString('zh-CN') : date.toLocaleString('zh-CN', { hour12: false });
+  if (time) {
+    const [hour, minute, second = '0'] = time.split(':').map(Number);
+    if (hour > 23 || minute > 59 || second > 59) return undefined;
+    return date + ' ' + time + '（北京时间）';
+  }
+  return date + '（北京时间）';
 }
 
 async function requestText(url: string): Promise<string> {
