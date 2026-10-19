@@ -239,7 +239,6 @@ function mockTencentQuote(code = '510300'): string {
 }
 
 test('行情仅在手动点击时请求，东方财富成功后更新当前价与当日涨跌幅', async ({ page }) => {
-  await createFund(page, '行情测试 ETF', '510300');
   let eastmoneyCalls = 0;
   let tencentCalls = 0;
   await page.route('https://push2.eastmoney.com/**', async (route) => {
@@ -255,6 +254,7 @@ test('行情仅在手动点击时请求，东方财富成功后更新当前价�
     tencentCalls += 1;
     await route.fulfill({ status: 200, contentType: 'text/plain', headers: { 'access-control-allow-origin': '*' }, body: mockTencentQuote() });
   });
+  await createFund(page, '行情测试 ETF', '510300');
 
   expect(eastmoneyCalls).toBe(0);
   expect(tencentCalls).toBe(0);

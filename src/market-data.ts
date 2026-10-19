@@ -56,6 +56,7 @@ function parseMarketTime(value: unknown): string | undefined {
   let hour = 15;
   let minute = 0;
   let second = 0;
+  let dateOnly = false;
 
   if (digits.length >= 14) {
     year = Number(digits.slice(0, 4));
@@ -74,6 +75,7 @@ function parseMarketTime(value: unknown): string | undefined {
     year = Number(digits.slice(0, 4));
     month = Number(digits.slice(4, 6));
     day = Number(digits.slice(6, 8));
+    dateOnly = true;
   } else if (digits.length === 6) {
     const now = new Date();
     year = now.getFullYear();
@@ -89,7 +91,7 @@ function parseMarketTime(value: unknown): string | undefined {
   if (month < 1 || month > 12 || day < 1 || day > 31 || hour > 23 || minute > 59 || second > 59) return undefined;
   const date = new Date(year, month - 1, day, hour, minute, second);
   if (!Number.isFinite(date.getTime())) return undefined;
-  return date.toLocaleString('zh-CN', { hour12: false });
+  return dateOnly ? date.toLocaleDateString('zh-CN') : date.toLocaleString('zh-CN', { hour12: false });
 }
 
 async function requestText(url: string): Promise<string> {

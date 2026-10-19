@@ -19,6 +19,7 @@ jobs:
         run: |
           set -e
           export PATH="/usr/bin:$PATH"
+          echo "/usr/bin" >> "$GITHUB_PATH"
           command -v node
           command -v npm
           node --version
