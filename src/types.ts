@@ -17,9 +17,6 @@ export interface Fund {
   market: '沪市' | '深市' | '其他/未确认';
   category: FundCategory;
   tickSize: string;
-  commissionRatePercent: string;
-  minimumCommission: string;
-  applyMinimumCommission: boolean;
   prices: FundPrices;
   notes: string;
   createdAt: string;
@@ -73,7 +70,7 @@ export function newFund(name = '新基金'): Fund {
   const now = new Date().toISOString();
   return {
     id: createId(), name, code: '', market: '其他/未确认', category: 'ETF',
-    tickSize: '0.001', commissionRatePercent: '', minimumCommission: '', applyMinimumCommission: false,
+    tickSize: '0.001',
     prices: { ...EMPTY_PRICES }, notes: '', createdAt: now, updatedAt: now,
   };
 }

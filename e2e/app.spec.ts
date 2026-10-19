@@ -66,11 +66,11 @@ test('交易记账计算持仓与盈亏，并拒绝超卖', async ({ page }) => 
   await page.getByRole('button', { name: '新增交易' }).first().click();
   await page.getByLabel('成交价格（元/份）').fill('10');
   await page.getByPlaceholder('例如 1000').fill('100');
-  await page.getByLabel('实际佣金').fill('1');
+  await page.getByLabel('佣金（0.025%）').fill('1');
   await page.getByRole('button', { name: '保存交易' }).click();
   await expect(page.getByText('交易明细已保存')).toBeVisible();
   await expect(page.locator('.metric', { hasText: '当前持仓' }).locator('strong')).toHaveText('100 份');
-  await expect(page.locator('.metric', { hasText: '剩余持仓成本' }).locator('strong')).toHaveText('¥1001.00');
+  await expect(page.locator('.metric', { hasText: '剩余持仓成本' }).locator('strong')).toHaveText('¥1001.04');
 
   // 卖出 40 @ 13，佣金 1
   await page.getByRole('button', { name: '新增交易' }).first().click();
@@ -81,8 +81,8 @@ test('交易记账计算持仓与盈亏，并拒绝超卖', async ({ page }) => 
   await page.getByRole('button', { name: '保存交易' }).click();
   await expect(page.getByText('交易明细已保存')).toBeVisible();
   await expect(page.locator('.metric', { hasText: '当前持仓' }).locator('strong')).toHaveText('60 份');
-  await expect(page.locator('.metric', { hasText: '已实现盈亏' }).locator('strong')).toHaveText('¥118.60');
-  await expect(page.locator('.metric', { hasText: '剩余持仓成本' }).locator('strong')).toHaveText('¥600.60');
+  await expect(page.locator('.metric', { hasText: '已实现盈亏' }).locator('strong')).toHaveText('¥118.56');
+  await expect(page.locator('.metric', { hasText: '剩余持仓成本' }).locator('strong')).toHaveText('¥600.62');
 
   // 超卖 61 份被拒绝
   await page.getByRole('button', { name: '新增交易' }).first().click();
@@ -95,20 +95,22 @@ test('交易记账计算持仓与盈亏，并拒绝超卖', async ({ page }) => 
   await expect(page.locator('.metric', { hasText: '当前持仓' }).locator('strong')).toHaveText('60 份');
 });
 
-test('佣金估算：费率与最低佣金生效', async ({ page }) => {
-  await createFund(page, '费率基金', '510300');
-  await page.getByRole('button', { name: '编辑档案' }).click();
-  await page.getByPlaceholder('例如 0.025').fill('0.025');
-  await page.getByPlaceholder('按账户协议填写').fill('5');
-  await page.getByLabel('佣金不足最低额时按最低额估算').check();
-  await page.getByRole('button', { name: '保存档案' }).click();
+test('统一固定费率自动估算佣金和其他费用，并按分四舍五入', async ({ page }) => {
+  await createFund(page, '固定费率基金', '510300');
   await page.getByRole('button', { name: '交易账本' }).click();
   await page.getByRole('button', { name: '新增交易' }).first().click();
   await page.getByLabel('成交价格（元/份）').fill('10');
   await page.getByPlaceholder('例如 1000').fill('100');
-  await page.getByRole('button', { name: '估算佣金' }).click();
-  // 1000 × 0.025% = 0.25 元，被最低佣金 5 元抬升
-  await expect(page.getByLabel('实际佣金')).toHaveValue('5.00');
+  await expect(page.getByLabel('佣金（0.025%）')).toHaveValue('0.25');
+  await expect(page.getByLabel('其他费用（0.004%）')).toHaveValue('0.04');
+
+  await page.getByLabel('成交价格（元/份）').fill('20');
+  await page.getByPlaceholder('例如 1000').fill('1');
+  await expect(page.getByLabel('佣金（0.025%）')).toHaveValue('0.01');
+
+  await page.getByLabel('成交价格（元/份）').fill('125');
+  await expect(page.getByLabel('其他费用（0.004%）')).toHaveValue('0.01');
+  await page.getByRole('button', { name: '按固定费率重算' }).click();
   await page.getByRole('button', { name: '取消' }).click();
 });
 
@@ -190,4 +192,28 @@ test('移动端能新增第二只基金（侧边栏入口在手机上被隐藏�
   await page.getByRole('button', { name: '保存档案' }).click();
   await expect(page.getByText('已保存基金档案')).toBeVisible();
   await expect(page.getByLabel('当前基金')).toContainText('第二只');
+});
+test('侧边栏可收起为图标并可恢复', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await createFund(page, '折叠导航基金', '510300');
+  await page.getByRole('button', { name: '收起侧边栏' }).click();
+  await expect(page.locator('.workspace')).toHaveClass(/sidebar-collapsed/);
+  await expect(page.getByRole('button', { name: '价格计算' })).toBeVisible();
+  await expect(page.locator('.sidebar.collapsed .nav-item').first()).toBeVisible();
+  await page.getByRole('button', { name: '展开侧边栏' }).click();
+  await expect(page.locator('.workspace')).not.toHaveClass(/sidebar-collapsed/);
+});
+
+test('页头上一只和下一只基金按钮切换当前 ETF', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await createFund(page, '第一只ETF', '510300');
+  await page.locator('.page-fund-tools').getByRole('button', { name: '＋ 新增' }).click();
+  await page.getByPlaceholder('例如：宽基 ETF').fill('第二只ETF');
+  await page.getByPlaceholder('例如：510300').fill('512170');
+  await page.getByRole('button', { name: '保存档案' }).click();
+  await expect(page.getByLabel('当前基金')).toContainText('第二只ETF');
+  await page.getByRole('button', { name: '上一只基金' }).click();
+  await expect(page.getByLabel('当前基金')).toContainText('第一只ETF');
+  await page.getByRole('button', { name: '下一只基金' }).click();
+  await expect(page.getByLabel('当前基金')).toContainText('第二只ETF');
 });

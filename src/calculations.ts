@@ -1,5 +1,5 @@
-import type { Fund, FundPrices, Trade } from './types';
-import { formatScaled, parseMoneyCents, parseScaled, parseQuantity, percentHundredths, priceAmountCents, roundDiv, roundToTick } from './decimal';
+import type { FundPrices, Trade } from './types';
+import { formatCents, formatScaled, parseMoneyCents, parseScaled, parseQuantity, percentHundredths, priceAmountCents, roundDiv, roundToTick } from './decimal';
 
 export type PriceKey = Exclude<keyof FundPrices, 'currentPrice'>;
 export const PRICE_KEYS: Array<{ key: PriceKey; label: string }> = [
@@ -122,18 +122,24 @@ export function calculatePosition(trades: Trade[], fundId: string): PositionSumm
   return { quantity, costBasisCents, realizedCents, feesCents, grossBuyCents, grossSellCents };
 }
 
-export function estimateCommission(fund: Fund, priceText: string, quantityText: string): string {
-  const rateText = fund.commissionRatePercent.trim();
-  if (!rateText) return '';
-  const rate = Number(rateText);
-  if (!Number.isFinite(rate) || rate < 0) return '';
-  const grossCents = priceAmountCents(priceText, quantityText);
-  let estimateCents = roundDiv(grossCents * BigInt(Math.round(rate * 1_000_000)), 100_000_000n);
-  if (fund.applyMinimumCommission && fund.minimumCommission.trim()) {
-    const minimum = parseMoneyCents(fund.minimumCommission);
-    if (estimateCents < minimum) estimateCents = minimum;
-  }
-  return (Number(estimateCents) / 100).toFixed(2);
+export const ETF_COMMISSION_RATE_PERCENT = '0.025';
+export const ETF_OTHER_FEE_RATE_PERCENT = '0.004';
+
+function estimateFixedRateFee(priceText: string, quantityText: string, ratePercent: string): string {
+  if (!priceText.trim() || !quantityText.trim()) return '';
+  const priceMicros = parseScaled(priceText);
+  const quantity = parseQuantity(quantityText);
+  // Calculate from the precise entered price before currency rounding, then round the final fee half-up to cents.
+  const rateScaled = parseScaled(ratePercent);
+  return formatCents(roundDiv(priceMicros * quantity * rateScaled, 1_000_000_000_000n));
+}
+
+export function estimateCommission(priceText: string, quantityText: string): string {
+  return estimateFixedRateFee(priceText, quantityText, ETF_COMMISSION_RATE_PERCENT);
+}
+
+export function estimateOtherFee(priceText: string, quantityText: string): string {
+  return estimateFixedRateFee(priceText, quantityText, ETF_OTHER_FEE_RATE_PERCENT);
 }
 
 export function currentValueCents(currentPriceText: string, quantity: bigint): bigint | null {

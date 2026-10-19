@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compareToBases, calculatePosition, priceLadder } from './calculations';
+import { compareToBases, calculatePosition, estimateCommission, estimateOtherFee, priceLadder } from './calculations';
 import { parseScaled, priceAmountCents, formatCents } from './decimal';
 import type { FundPrices, Trade } from './types';
 
@@ -48,6 +48,24 @@ describe('comparison', () => {
     expect(result[1].percent).toBe(9.5);
     expect(result[4].percent).toBe(4.29);
     expect(result[4].delta).toBe('0.450');
+  });
+});
+
+describe('global fixed ETF fees', () => {
+  it('applies the same rates to all funds', () => {
+    expect(estimateCommission('10', '100')).toBe('0.25');
+    expect(estimateOtherFee('10', '100')).toBe('0.04');
+  });
+
+  it('rounds the final fee half-up to two decimals', () => {
+    expect(estimateCommission('20', '1')).toBe('0.01');
+    expect(estimateOtherFee('125', '1')).toBe('0.01');
+    expect(estimateCommission('10', '1')).toBe('0.00');
+  });
+
+  it('does not estimate fees before price and quantity are entered', () => {
+    expect(estimateCommission('', '100')).toBe('');
+    expect(estimateOtherFee('10', '')).toBe('');
   });
 });
 
