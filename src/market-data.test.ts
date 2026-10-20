@@ -72,6 +72,31 @@ describe('manual ETF market quote refresh', () => {
     expect(quote.quotedAt).toBeUndefined();
     expect(quote.tradingDate).toBeUndefined();
   });
+  it('prefers epoch over a coincidental calendar reading for 10-digit f86 values', async () => {
+    // 2035010100: as a calendar yyyymmddhh it would read 2035-01-01 (plausible!), but the
+    // epoch interpretation is the real one; epoch must win so no ghost trading date is forged.
+    const epoch = Math.floor(Date.now() / 1000);
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(eastmoneyResponse({
+      f57: '510300', f58: '沪深300ETF', f43: '4.125', f60: '4.000', f86: epoch,
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    const quote = await fetchLatestQuote({ code: '510300', market: '沪市' });
+    const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(epoch * 1000));
+    expect(quote.tradingDate).toBe(parts.split('/').reverse().join('-'));
+  });
+  it('keeps a 6-digit hhmmss stamp dateless so no ghost trading date is forged', async () => {
+    const fields = Array.from({ length: 50 }, () => '');
+    fields[0] = '1'; fields[1] = '沪深300ETF'; fields[2] = '510300'; fields[3] = '4.125'; fields[4] = '4.000';
+    fields[30] = '150030'; fields[32] = '3.13';
+    const tencent = new Response('v_sh510300="' + fields.join('~') + '";', { status: 200, headers: { 'Content-Type': 'text/plain; charset=GBK' } });
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(eastmoneyResponse(null)).mockResolvedValueOnce(tencent);
+    vi.stubGlobal('fetch', fetchMock);
+    const quote = await fetchLatestQuote({ code: '510300', market: '沪市' });
+    expect(quote.quotedAt).toBe('15:00:30（北京时间）');
+    // Dateless stamps must never be stamped with today: a weekend refresh must not
+    // inject a ghost non-trading-day bar into the BOLL window.
+    expect(quote.tradingDate).toBeUndefined();
+  });
   it('decodes GBK Tencent payloads so multi-byte names cannot forge the ~ separator', async () => {
     // GBK 0x5526 (唦) encodes to 0x86 0x7E: its second byte equals the '~' separator byte.
     // The mock must therefore serve REAL GBK bytes; decoding them atomically keeps field
@@ -116,7 +141,8 @@ describe('manual ETF market quote refresh', () => {
   it('fails clearly if both live quote sources are unavailable', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(new Response('', { status: 503 })).mockResolvedValueOnce(new Response('invalid response', { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
-    await expect(fetchLatestQuote({ code: '510300', market: '沪市' })).rejects.toThrow('东方财富未返回有效行情');
+    // Both sources' own failure reasons must survive into the final message.
+    await expect(fetchLatestQuote({ code: '510300', market: '沪市' })).rejects.toThrow('东方财富失败：行情服务返回 HTTP 503；腾讯失败：腾讯行情返回格式无法识别');
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

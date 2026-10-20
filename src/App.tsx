@@ -12,7 +12,8 @@ const NAV_ITEMS = [
   { id: 'history', label: '历史与备份', caption: '价格快照与数据迁移' },
 ] as const;
 type PageId = (typeof NAV_ITEMS)[number]['id'];
-type QuoteViewState = { requestedCode: string; status: 'loading' | 'success' | 'error'; quote?: MarketQuote; message?: string; hasManualEdits?: boolean };
+type QuoteViewState = { requestedCode: string; status: 'loading' | 'success' | 'error'; quote?: MarketQuote; message?: string; hasManualEdits?: boolean; token?: number };
+let quoteRequestToken = 0;
 const CATEGORY_OPTIONS: FundCategory[] = ['ETF', 'LOF', '债券ETF', '货币ETF', '其他场内基金'];
 const EMPTY_TRADE = {
   tradedAt: localDateTime(), side: 'BUY' as TradeSide, price: '', quantity: '',
@@ -63,8 +64,10 @@ function isValidAppData(value: unknown): value is AppData {
       if (parseScaled(trade.price) <= 0n || parseQuantity(trade.quantity) <= 0n) return false;
       for (const fee of [trade.commission, trade.transferFee, trade.stampDuty, trade.otherFee]) if (parseMoneyCents(fee) < 0n) return false;
     }
+    const snapshotIds = new Set<string>();
     for (const snapshot of v.snapshots) {
-      if (!snapshot || typeof snapshot.id !== 'string' || !fundIds.has(snapshot.fundId) || typeof snapshot.prices !== 'object' || !snapshot.prices || typeof snapshot.createdAt !== 'string' || !Number.isFinite(Date.parse(snapshot.createdAt)) || typeof snapshot.tickSize !== 'string' || parseScaled(snapshot.tickSize) <= 0n || typeof snapshot.note !== 'string' || typeof snapshot.tradingDate !== 'string') return false;
+      if (!snapshot || typeof snapshot.id !== 'string' || snapshotIds.has(snapshot.id) || !fundIds.has(snapshot.fundId) || typeof snapshot.prices !== 'object' || !snapshot.prices || typeof snapshot.createdAt !== 'string' || !Number.isFinite(Date.parse(snapshot.createdAt)) || typeof snapshot.tickSize !== 'string' || parseScaled(snapshot.tickSize) <= 0n || typeof snapshot.note !== 'string' || typeof snapshot.tradingDate !== 'string') return false;
+      snapshotIds.add(snapshot.id);
       for (const key of ['upper', 'middle', 'lower', 'previousClose', 'lastTradePrice', 'currentPrice'] as const) {
         if (typeof snapshot.prices[key] !== 'string') return false;
         if (snapshot.prices[key].trim() && parseScaled(snapshot.prices[key]) <= 0n) return false;
@@ -333,6 +336,8 @@ export default function App() {
     const next = { ...data, funds: data.funds.filter((f) => f.id !== selectedFund.id), trades: data.trades.filter((t) => t.fundId !== selectedFund.id), snapshots: data.snapshots.filter((s) => s.fundId !== selectedFund.id) };
     setData(next);
     setSelectedFundId(next.funds[0]?.id ?? '');
+    // The deleted fund's snapshots vanish; a stale filter would show an empty list for no reason.
+    if (historyFundFilter !== 'all' && !next.funds.some((f) => f.id === historyFundFilter)) setHistoryFundFilter('all');
     setNotification('基金档案及其关联记录已删除。');
   };
 
@@ -353,12 +358,17 @@ export default function App() {
     // fields the user has not touched while this request was in flight.
     const priorPrices = { ...fund.prices };
     const fundIdBefore = fund.id;
+    // Request token: only the newest request may write quote state back; a stale
+    // response (e.g. after editing the fund code mid-flight) must not clobber it.
+    const token = ++quoteRequestToken;
     setMarketQuotes((old) => ({
       ...old,
       [fund.id]: {
         requestedCode: fund.code,
         status: 'loading',
         quote: old[fund.id]?.requestedCode === fund.code ? old[fund.id]?.quote : undefined,
+        hasManualEdits: old[fund.id]?.requestedCode === fund.code ? old[fund.id]?.hasManualEdits : undefined,
+        token,
       },
     }));
     try {
@@ -383,21 +393,28 @@ export default function App() {
       }));
       setMarketQuotes((old) => {
         const prior = old[fundIdBefore];
+        if (prior && prior.token !== undefined && prior.token !== token) return old; // a newer request owns the slot
         // Keep the manual-edit flag when the user edited during the request; the hint must stay honest.
         const keepManualEdits = prior?.requestedCode === fund.code && prior.hasManualEdits === true;
-        return { ...old, [fundIdBefore]: { requestedCode: fund.code, status: 'success', quote, hasManualEdits: keepManualEdits } };
+        return { ...old, [fundIdBefore]: { requestedCode: fund.code, status: 'success', quote, hasManualEdits: keepManualEdits, token } };
       });
       setNotification('已刷新 ' + fund.name + ' 最新价、昨收' + (quote.boll ? '及 BOLL(20,2)' : '') + '（' + quote.source + '）。' + (quote.bollError ? ' BOLL未更新，保留原轨道价格。' : ''));
     } catch (error) {
-      setMarketQuotes((old) => ({
-        ...old,
-        [fund.id]: {
-          requestedCode: fund.code,
-          status: 'error',
-          quote: old[fund.id]?.requestedCode === fund.code ? old[fund.id]?.quote : undefined,
-          message: error instanceof Error ? error.message : '行情获取失败。',
-        },
-      }));
+      setMarketQuotes((old) => {
+        const prior = old[fundIdBefore];
+        if (prior && prior.token !== undefined && prior.token !== token) return old; // a newer request owns the slot
+        return {
+          ...old,
+          [fundIdBefore]: {
+            requestedCode: fund.code,
+            status: 'error',
+            quote: prior?.requestedCode === fund.code ? prior?.quote : undefined,
+            hasManualEdits: prior?.requestedCode === fund.code ? prior?.hasManualEdits : undefined,
+            message: error instanceof Error ? error.message : '行情获取失败。',
+            token,
+          },
+        };
+      });
     }
   };
 
@@ -421,8 +438,11 @@ export default function App() {
       if (!window.confirm(`备份文件含 ${parsed.funds.length} 只基金、${parsed.trades.length} 笔交易、${parsed.snapshots.length} 条价格快照。导入将完全替换当前设备数据。请确认已导出现有数据。`)) return;
       const normalized = normalizeAppData(parsed);
       setData(normalized);
+      // Imported data replaces the whole ledger; stale quote/progress state must not survive it.
+      setMarketQuotes({});
       setSelectedFundId(normalized.funds[0]?.id ?? '');
-      setNotification('备份已载入当前设备；保存状态确认后再关闭页面。');
+      setHistoryFundFilter('all');
+      setNotification(storageReady ? '备份已载入当前设备；保存状态确认后再关闭页面。' : '备份已载入内存，但本浏览器无法持久化（本地保存异常）；请在关闭页面前导出 JSON 备份。');
     } catch (error) { window.alert(error instanceof Error ? error.message : '无法读取备份文件。'); }
     finally { if (importInputRef.current) importInputRef.current.value = ''; }
   };
@@ -460,7 +480,10 @@ function CalculatorPage({ fund, comparisons, ladderBasis, setLadderBasis, ladder
   const currentPct = selectedComparison?.percent ?? null;
   const nextRow = ladderRows.find((row) => row.isNext);
   const hasCurrent = current !== null;
-  const overRange = hasCurrent && baseValue !== null && (currentPct !== null && (ladderDirection === 'up' ? currentPct >= 10 : currentPct <= -10));
+  // Compare against the 10th rung's exact scaled price, not a rounded percent — the two
+  // disagree by up to half a basis point and the rung is the truth.
+  const tenthRung = ladderRows.at(-1) ?? null;
+  const overRange = hasCurrent && baseValue !== null && tenthRung !== null && parseScaled(fund.prices.currentPrice) > 0n && (ladderDirection === 'up' ? parseScaled(fund.prices.currentPrice) >= tenthRung.priceScaled : parseScaled(fund.prices.currentPrice) <= tenthRung.priceScaled);
   return <div className="page-stack">
     <section className="panel price-reference-panel"><div className="section-title-row"><div><h2>价格基准</h2><p>修改输入后即时重新计算；历史快照需手动保存。</p></div><span className="tag">{fund.category} · {fund.tickSize || '0.001'} 元/档</span></div><div className="reference-grid"><PriceInput label="BOLL 上轨" value={fund.prices.upper} onChange={(v) => onPriceChange('upper', v)} placeholder="输入上轨"/><PriceInput label="BOLL 中轨" value={fund.prices.middle} onChange={(v) => onPriceChange('middle', v)} placeholder="输入中轨"/><PriceInput label="BOLL 下轨" value={fund.prices.lower} onChange={(v) => onPriceChange('lower', v)} placeholder="输入下轨"/><PriceInput label="昨日收盘价" value={fund.prices.previousClose} onChange={(v) => onPriceChange('previousClose', v)} placeholder="输入昨日收盘价"/><div className="reference-input last-trade-input"><PriceInput label="上一次成交价" value={fund.prices.lastTradePrice} onChange={(v) => onPriceChange('lastTradePrice', v)} placeholder="输入上一笔成交价"/><button className="text-button reference-fill" onClick={onUseLatestTrade}>取最近成交价 ↗</button></div><div className="current-price-input">
       <PriceInput label="当前价格" value={fund.prices.currentPrice} onChange={(v) => onPriceChange('currentPrice', v)} placeholder="输入你看到的最新价格" prominent/>
@@ -480,7 +503,7 @@ function CalculatorPage({ fund, comparisons, ladderBasis, setLadderBasis, ladder
             {quoteState.quote.boll && <small>BOLL(20,2) · 日线日期：{quoteState.quote.boll.tradingDate}{quoteState.quote.boll.currentPriceApplied ? ' · 已按本次现价重算' : ' · 使用行情源日线收盘价'}</small>}
             {quoteState.quote.bollError && <small className="quote-error" role="status">BOLL未更新：{quoteState.quote.bollError}；原有轨道价格已保留。</small>}
           </>}
-          {quoteState?.status === 'loading' && quoteState.hasManualEdits && <small className="quote-error" role="status">价格字段已手动修改；本次刷新将不覆盖你输入的价格。</small>}
+          {quoteState?.status === 'loading' && quoteState.hasManualEdits && <small className="quote-error" role="status">价格字段已手动修改；本次刷新不会覆盖你手动改过的价格字段。</small>}
           {!quoteState?.quote && quoteState?.status === 'loading' && <small>正在请求东方财富；失败时自动尝试腾讯。</small>}
           {!quoteState?.quote && quoteState?.status === 'error' && <small className="quote-error" role="status">{quoteState.message} 未覆盖当前价格。</small>}
           {!quoteState && <small>点击刷新获取最新价、昨收及 BOLL(20,2)；现价、昨收和三条轨道均可继续手动修改，不自动轮询。</small>}

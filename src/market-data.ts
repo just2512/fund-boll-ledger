@@ -88,11 +88,6 @@ function shanghaiParts(now: Date): Record<'year' | 'month' | 'day' | 'hour' | 'm
   return { year: get('year'), month: get('month'), day: get('day'), hour: get('hour'), minute: get('minute'), second: get('second') };
 }
 
-function shanghaiDate(now = new Date()): string {
-  const parts = shanghaiParts(now);
-  return parts.year + '-' + parts.month + '-' + parts.day;
-}
-
 // Calendar digits: 14=yyyymmddhhmmss, 12=yyyymmddhhmm, 8=yyyymmdd. Returns null when not a plausible date.
 function calendarFromDigits(digits: string): SourceTimestamp | null {
   const year = digits.slice(0, 4);
@@ -132,26 +127,32 @@ function parseSourceTimestamp(value: unknown): SourceTimestamp | null {
   const digits = raw.replace(/\D/g, '');
   if (digits.length !== raw.length) return null;
   if (digits.length === 14 || digits.length === 12 || digits.length === 8) return calendarFromDigits(digits);
-  // 10 digits is ambiguous: yyyymmddhh (calendar) vs Unix seconds (epoch). Prefer calendar when the date is plausible.
-  if (digits.length === 10 || digits.length === 13) return calendarFromDigits(digits) ?? epochFromDigits(digits);
+  // 10/13 digits: Eastmoney f86 is a Unix epoch (seconds/millis). Calendar yyyymmddhh readings
+  // are never produced by our sources; preferring epoch also defuses the 2033-2036 window where
+  // an epoch prefix would coincidentally parse as a valid calendar date.
+  if (digits.length === 10 || digits.length === 13) return epochFromDigits(digits) ?? calendarFromDigits(digits);
   if (digits.length === 6) {
     const hour = digits.slice(0, 2);
     const minute = digits.slice(2, 4);
     const second = digits.slice(4, 6);
     if (Number(hour) > 23 || Number(minute) > 59 || Number(second) > 59) return null;
-    return { date: shanghaiDate(), time: hour + ':' + minute + ':' + second };
+    // hhmmss carries no date; stamping it with "today" would forge a trading date for BOLL
+    // merging (weekend refresh would inject a ghost bar), so keep the time display only.
+    return { date: '', time: hour + ':' + minute + ':' + second };
   }
   return null;
 }
 
 function tradingDateFrom(value: unknown): string | undefined {
-  return parseSourceTimestamp(value)?.date;
+  const parsed = parseSourceTimestamp(value);
+  return parsed?.date ? parsed.date : undefined;
 }
 
 function parseMarketTime(value: unknown): string | undefined {
   const parsed = parseSourceTimestamp(value);
   if (!parsed) return undefined;
-  return parsed.time ? `${parsed.date} ${parsed.time}（北京时间）` : `${parsed.date}（北京时间）`;
+  // Dateless hhmmss stamps show time only; the full form carries the source trading date.
+  return parsed.time ? (parsed.date ? `${parsed.date} ${parsed.time}（北京时间）` : `${parsed.time}（北京时间）`) : (parsed.date ? `${parsed.date}（北京时间）` : undefined);
 }
 
 async function requestText(url: string, encoding: 'utf-8' | 'gbk' = 'utf-8'): Promise<string> {
@@ -325,14 +326,18 @@ async function fetchEastmoneyBollBands(
 export async function fetchLatestQuote(request: MarketQuoteRequest): Promise<MarketQuote> {
   const code = request.code.trim();
   if (!/^\d{6}$/.test(code)) throw new Error('请先在基金档案中填写有效的 6 位场内基金代码。');
+  let eastmoneyError: Error | undefined;
   try {
     return await fetchEastmoneyQuote(code, request.market);
-  } catch {
-    try {
-      return await fetchTencentQuote(code, request.market);
-    } catch {
-      throw new Error('东方财富未返回有效行情，腾讯行情也未返回有效报价。请检查基金代码或网络连接。');
-    }
+  } catch (error) {
+    eastmoneyError = error instanceof Error ? error : new Error('东方财富请求失败');
+  }
+  try {
+    return await fetchTencentQuote(code, request.market);
+  } catch (error) {
+    const tencentError = error instanceof Error ? error : new Error('腾讯行情请求失败');
+    // Surface both source failures so "wrong code" and "network down" are distinguishable.
+    throw new Error(`东方财富失败：${eastmoneyError.message}；腾讯失败：${tencentError.message}。请检查基金代码或网络连接。`);
   }
 }
 

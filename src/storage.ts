@@ -27,7 +27,19 @@ export async function loadAppData(): Promise<AppData> {
   try {
     return await new Promise((resolve, reject) => {
       const request = db.transaction(STORE_NAME, 'readonly').objectStore(STORE_NAME).get(STATE_KEY);
-      request.onsuccess = () => resolve((request.result as AppData | undefined) ?? emptyAppData());
+      request.onsuccess = () => {
+        const stored = request.result as AppData | undefined;
+        // A bare cast would let a corrupted record crash rendering later; validate the
+        // envelope here so the app degrades to an empty ledger with a readable message.
+        if (stored === undefined) { resolve(emptyAppData()); return; }
+        if (!stored || typeof stored !== 'object'
+          || stored.schemaVersion !== 1
+          || !Array.isArray(stored.funds) || !Array.isArray(stored.trades) || !Array.isArray(stored.snapshots)) {
+          reject(new Error('本地数据格式无法识别，已停止加载以免损坏账本。请导出备份后反馈排查。'));
+          return;
+        }
+        resolve(stored);
+      };
       request.onerror = () => reject(request.error ?? new Error('读取本地数据失败'));
     });
   } finally {
