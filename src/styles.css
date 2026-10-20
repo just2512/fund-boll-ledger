@@ -6,6 +6,30 @@
 .fee-verification{display:flex;align-items:flex-start;gap:9px;background:#f7f9fc;border:1px solid #e5ebf3;padding:11px 12px;border-radius:9px}.fee-verification input{width:15px;height:15px;margin:1px 0 0;accent-color:var(--brand);flex-shrink:0}.fee-verification label{font-size:10px;line-height:1.7;color:#667285;cursor:pointer}
 @media(max-width:480px){.fee-verification label{font-size:9px}}
 
+/* 折叠屏安卓适配：安全区用 max() 吸收挖孔/圆角，桌面端 env() 为 0 无副作用 */
+.topbar{padding-top:max(0px,env(safe-area-inset-top,0px))} /* 顶栏吃掉挖孔高度，sticky 定位下内容不被状态栏遮挡 */
+.topbar{height:calc(76px + max(0px,env(safe-area-inset-top,0px)))} /* 高度同步抬高，避免 align-items:center 把品牌行压进挖孔 */
+.sidebar{padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px))} /* 侧边栏抽屉左/右安全区（横屏折叠态） */
+.main-content{padding-bottom:max(20px,env(safe-area-inset-bottom,0px))} /* 主内容底部避开手势条 */
+@media (max-width:820px){
+ .topbar{height:calc(66px + max(0px,env(safe-area-inset-top,0px)))} /* 移动断点顶栏高度同样叠加安全区 */
+ .sidebar{padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px))} /* 移动断点侧栏安全区收紧 */
+ .main-content{padding-bottom:max(18px,env(safe-area-inset-bottom,0px))}
+}
+
+/* 折叠屏内屏正方形形态（OPPO Find N2 1916×1816≈1.055）：宽屏但矮，放宽网格利用横向空间 */
+@media (min-width:821px) and (max-aspect-ratio:11/10){ /* 宽>820 且宽高比≈1（含折痕正方形屏） */
+ .reference-grid{grid-template-columns:repeat(3,minmax(0,1fr))} /* 基准网格横向铺满三列 */
+ .comparison-grid{grid-template-columns:repeat(3,minmax(0,1fr))} /* 对比卡片三列，正方形屏无需挤成五列 */
+ .ladder-table th,.ladder-table td{padding:9px 10px} /* 十档表收紧行距，正方形屏一行可见更多档位且免横向滚动 */
+}
+
+/* 外屏窄形态（≈360px）可用性：输入框不小于可点击下限，两列基准网格保持有效宽 */
+@media (max-width:360px){
+ .reference-grid{grid-template-columns:1fr} /* 360 以下基准输入单列，保证每个输入框宽度≥可用值 */
+ .price-input input{min-height:44px} /* 触控目标≥44px，防误触 */
+}
+
 /* Sidebar collapse, ETF navigation and aligned form fields. */
 .sidebar-header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:2px 8px 12px}
 .sidebar-header .sidebar-label{margin:0}

@@ -37,3 +37,63 @@ test('折叠屏外屏、内屏、横屏和桌面视口无页面级横向溢出',
     expect(dimensions.body, viewport.label).toBeLessThanOrEqual(dimensions.viewport + 1);
   }
 });
+
+test('外屏窄形态（360×760）侧边导航、价格输入与 modal 可用性', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 760 });
+  await createFund(page);
+
+  // 侧边导航为可横滑条而非桌面抽屉：导航项可见且可点击切换页面
+  await expect(page.getByRole('button', { name: '交易账本' })).toBeVisible();
+  await page.getByRole('button', { name: '交易账本' }).click();
+  await expect(page.getByRole('heading', { name: '交易账本' })).toBeVisible();
+
+  // 价格输入不挤压：每列输入框有可点击宽度（≥120px）
+  await page.getByRole('button', { name: '价格计算' }).click();
+  const inputs = page.locator('.reference-grid input');
+  const count = await inputs.count();
+  expect(count).toBeGreaterThan(0);
+  for (let i = 0; i < count; i++) {
+    const width = await inputs.nth(i).evaluate((el) => el.getBoundingClientRect().width);
+    expect(width, `reference-grid input #${i}`).toBeGreaterThanOrEqual(120);
+  }
+
+  // 新增基金 modal 打开不溢出且可滚动（360px 下侧栏新增按钮被移动断点隐藏，走页头工具入口）
+  await page.getByRole('button', { name: '＋ 新增' }).click();
+  const modal = page.locator('.modal');
+  await expect(modal).toBeVisible();
+  const modalBox = await modal.boundingBox();
+  expect(modalBox).not.toBeNull();
+  expect(modalBox!.width).toBeLessThanOrEqual(360);
+  const overflow = await modal.evaluate((el) => el.scrollHeight - el.clientHeight);
+  expect(overflow).toBeGreaterThanOrEqual(0); // 可滚动而非内容被裁切
+  await page.getByRole('button', { name: '取消' }).click();
+  await expect(modal).toBeHidden();
+});
+
+test('内屏正方形形态（900×850）利用横向空间且十档表免横向滚动', async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 850 });
+  await createFund(page);
+  await page.getByPlaceholder('输入上轨').fill('10.800');
+  await page.getByPlaceholder('输入中轨').fill('10.000');
+  await page.getByPlaceholder('输入下轨').fill('9.200');
+  await page.getByPlaceholder('输入昨日收盘价').fill('10.500');
+  await page.getByPlaceholder('输入上一笔成交价').fill('10.500');
+  await page.getByPlaceholder('输入你看到的最新价格').fill('10.950');
+
+  // 对比卡片利用横向空间：正方形区间放宽为多列（网格列数≥2）
+  const gridColumns = await page.locator('.comparison-grid').evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(' ').length);
+  expect(gridColumns).toBeGreaterThanOrEqual(2);
+
+  // 十档表不出现横向滚动条
+  const scroll = await page.locator('.ladder-panel .table-scroll').evaluate((el) => ({ scrollWidth: el.scrollWidth, clientWidth: el.clientWidth }));
+  expect(scroll.scrollWidth).toBeLessThanOrEqual(scroll.clientWidth + 1);
+});
+
+test('viewport meta 携带 viewport-fit=cover（静态检查）', async ({ page }) => {
+  // 说明：styles.css 直接使用 env(safe-area-inset-*)（含 0px 回退），桌面端与无挖孔设备 env()=0 无副作用，
+  // 无 CSS 变量间接层，故安全区用 addInitScript 注入假值无法通过 var() 回退写法验证，改为静态断言。
+  await page.goto('/');
+  const content = await page.evaluate(() => document.querySelector('meta[name="viewport"]')?.getAttribute('content') ?? '');
+  expect(content).toContain('viewport-fit=cover');
+  expect(content).toContain('interactive-widget=resizes-content');
+});

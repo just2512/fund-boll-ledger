@@ -497,3 +497,448 @@ test('手动改过费用后改数量不覆盖输入，重算按钮显式恢复�
   await expect(page.getByLabel('佣金（0.015%）')).toHaveValue('7.20');
   await expect(page.getByLabel('其他费用（0.004%）')).toHaveValue('1.92');
 });
+
+// ============ 补齐缺口：交互层审查列出的 13 条 ============
+
+test('删除基金级联删除交易与快照，选中回退且 reload 不复活', async ({ page }) => {
+  await createFund(page, '留存款', '510300');
+  // 第二只基金（成为当前选中）
+  await page.locator('.page-fund-tools').getByRole('button', { name: '＋ 新增' }).click();
+  await page.getByPlaceholder('例如：宽基 ETF').fill('删除款');
+  await page.getByPlaceholder('例如：510300').fill('512170');
+  await page.getByRole('button', { name: '保存档案' }).click();
+  await expect(page.getByLabel('当前基金')).toContainText('删除款');
+
+  // 当前基金（删除款）加 1 笔交易
+  await page.getByRole('button', { name: '交易账本' }).click();
+  await page.getByRole('button', { name: '新增交易' }).first().click();
+  await page.getByLabel('成交价格（元/份）').fill('5');
+  await page.getByPlaceholder('例如 1000').fill('100');
+  await page.getByRole('button', { name: '保存交易' }).click();
+  await expect(page.getByText('交易明细已保存')).toBeVisible();
+
+  // 当前基金保存 1 条快照
+  await page.getByRole('button', { name: '价格计算' }).click();
+  await page.getByPlaceholder('输入上轨').fill('5.500');
+  await page.getByPlaceholder('输入你看到的最新价格').fill('5.100');
+  await page.getByPlaceholder('备注（可选）').fill('删除款的快照');
+  await page.getByRole('button', { name: '保存价格快照' }).click();
+  await expect(page.getByText(/已保存 \d{4}-\d{2}-\d{2} 的价格快照/)).toBeVisible();
+
+  // 删除当前基金（confirm 接受）
+  await page.getByRole('button', { name: '历史与备份' }).click();
+  page.once('dialog', (d) => d.accept());
+  await page.getByRole('button', { name: '删除当前基金及关联记录' }).click();
+
+  // 选中回退到剩余基金
+  await expect(page.getByLabel('当前基金')).toContainText('留存款');
+  // 交易与快照消失
+  await expect(page.locator('.snapshot-card', { hasText: '删除款的快照' })).toHaveCount(0);
+  await expect(page.locator('.fund-list-item', { hasText: '删除款' })).toHaveCount(0);
+
+  // 导出 JSON 验证级联（trades/snapshots 已清空）
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: '导出 JSON' }).click();
+  const json = JSON.parse(readFileSync(await (await downloadPromise).path(), 'utf8'));
+  expect(json.funds.length).toBe(1);
+  expect(json.funds[0].name).toBe('留存款');
+  expect(json.trades.length).toBe(0);
+  expect(json.snapshots.length).toBe(0);
+
+  // reload 后被删基金不复活
+  await expect(page.locator('.save-state')).toHaveText('已保存到本机');
+  await page.reload();
+  await expect(page.locator('.fund-list-item', { hasText: '留存款' })).toBeVisible();
+  await expect(page.locator('.fund-list-item', { hasText: '删除款' })).toHaveCount(0);
+});
+
+test('含快照的完整备份导出后重新导入可全部恢复', async ({ page }) => {
+  await createFund(page, '备份基金', '510300');
+  await page.getByRole('button', { name: '交易账本' }).click();
+  await page.getByRole('button', { name: '新增交易' }).first().click();
+  await page.getByLabel('成交价格（元/份）').fill('10');
+  await page.getByPlaceholder('例如 1000').fill('100');
+  await page.getByRole('button', { name: '保存交易' }).click();
+  await expect(page.getByText('交易明细已保存')).toBeVisible();
+  await page.getByRole('button', { name: '价格计算' }).click();
+  await page.getByPlaceholder('输入上轨').fill('10.800');
+  await page.getByPlaceholder('输入你看到的最新价格').fill('10.500');
+  await page.getByPlaceholder('备注（可选）').fill('恢复用快照');
+  await page.getByRole('button', { name: '保存价格快照' }).click();
+  await expect(page.getByText(/已保存 \d{4}-\d{2}-\d{2} 的价格快照/)).toBeVisible();
+
+  // 导出完整备份并落盘
+  await page.getByRole('button', { name: '历史与备份' }).click();
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: '导出 JSON' }).click();
+  const download = await downloadPromise;
+  await download.saveAs('test-results/full-backup.json');
+  const backupText = readFileSync('test-results/full-backup.json', 'utf8');
+  const backup = JSON.parse(backupText);
+  expect(backup.funds.length).toBe(1);
+  expect(backup.trades.length).toBe(1);
+  expect(backup.snapshots.length).toBe(1);
+
+  // 清空重建场景
+  const empty = { schemaVersion: 1, funds: [], trades: [], snapshots: [] };
+  page.once('dialog', (d) => d.accept());
+  await page.locator('input[type=file]').setInputFiles({ name: 'empty.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(empty)) });
+  await expect(page.getByText('备份已载入')).toBeVisible();
+  await expect(page.getByText('先建立第一只场内基金')).toBeVisible();
+
+  // 重新导入完整备份文件（用导出的原始字节）
+  page.once('dialog', (d) => d.accept());
+  await page.locator('input[type=file]').setInputFiles({ name: 'full-backup.json', mimeType: 'application/json', buffer: Buffer.from(backupText) });
+  await expect(page.getByText('备份已载入')).toBeVisible();
+
+  // 基金、交易、快照全部恢复
+  await expect(page.locator('.fund-list-item', { hasText: '备份基金' })).toBeVisible();
+  await page.getByRole('button', { name: '交易账本' }).click();
+  await expect(page.locator('.metric', { hasText: '当前持仓' }).locator('strong')).toHaveText('100 份');
+  await page.getByRole('button', { name: '历史与备份' }).click();
+  await expect(page.locator('.snapshot-card', { hasText: '恢复用快照' })).toBeVisible();
+});
+
+test('恶意备份变体被拒绝且数据不变，非法 ladderBasis 被 normalize 兜底', async ({ page }) => {
+  await createFund(page, '防线基金', '510300');
+  const alerts: string[] = [];
+  page.on('dialog', (d) => {
+    alerts.push(d.message());
+    void (d.type() === 'confirm' ? d.accept() : d.dismiss());
+  });
+
+  const validFund = () => ({
+    id: 'f1', name: '规范化基金', code: '510300', market: '沪市', category: 'ETF', tickSize: '0.001',
+    prices: { upper: '', middle: '', lower: '', previousClose: '', lastTradePrice: '', currentPrice: '' },
+    ladderBasis: 'lastTradePrice', ladderDirection: 'up', notes: '',
+    createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+  });
+  const validTrade = (fundId: string, overrides: Record<string, unknown> = {}) => ({
+    id: 't1', fundId, tradedAt: '2026-01-02T10:00', side: 'BUY', price: '10', quantity: '100',
+    commission: '1', transferFee: '0', stampDuty: '0', otherFee: '0', feesChecked: false, note: '',
+    createdAt: '2026-01-02T00:00:00.000Z', updatedAt: '2026-01-02T00:00:00.000Z', ...overrides,
+  });
+  const importJson = async (payload: unknown) => {
+    alerts.length = 0;
+    await page.locator('input[type=file]').setInputFiles({ name: 'bad.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(payload)) });
+    // 等待本次导入的响应：alert 或成功 toast
+    await expect.poll(async () => alerts.length > 0 || await page.getByText('备份已载入').isVisible()).toBe(true);
+  };
+  const dataUnchanged = async () => {
+    await expect(page.locator('.fund-list-item', { hasText: '防线基金' })).toBeVisible();
+    await expect(page.locator('.fund-list-item', { hasText: '规范化基金' })).toHaveCount(0);
+  };
+
+  // 变体 1：trade.fundId 指向不存在的基金
+  await importJson({ schemaVersion: 1, funds: [validFund()], trades: [validTrade('ghost')], snapshots: [] });
+  await expect.poll(() => alerts.join('\n')).toContain('文件结构不符合');
+  await dataUnchanged();
+
+  // 变体 2：两条相同 fund.id
+  await importJson({ schemaVersion: 1, funds: [validFund(), validFund()], trades: [], snapshots: [] });
+  await expect.poll(() => alerts.join('\n')).toContain('文件结构不符合');
+  await dataUnchanged();
+
+  // 变体 3：负数佣金
+  await importJson({ schemaVersion: 1, funds: [validFund()], trades: [validTrade('f1', { commission: '-1' })], snapshots: [] });
+  await expect.poll(() => alerts.join('\n')).toContain('文件结构不符合');
+  await dataUnchanged();
+
+  // 变体 4：ladderBasis 非法值 → 导入成功且 normalize 兜底为 lastTradePrice
+  const hacked: Record<string, unknown> = { ...validFund(), ladderBasis: 'hack' };
+  await importJson({ schemaVersion: 1, funds: [hacked], trades: [], snapshots: [] });
+  await expect(page.locator('.fund-list-item', { hasText: '规范化基金' })).toBeVisible();
+  await expect(page.getByLabel('选择计算基准')).toHaveValue('lastTradePrice');
+});
+
+test('刷新行情按钮连点两次只发出一次 eastmoney 请求', async ({ page }) => {
+  let eastmoneyCalls = 0;
+  await page.route('https://push2.eastmoney.com/**', async (route) => {
+    eastmoneyCalls += 1;
+    // 轻微延迟让 loading 状态可被观察
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    await route.fulfill({
+      status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' },
+      body: JSON.stringify({ data: { f57: '510300', f58: '沪深300ETF', f43: '4.125', f60: '4.000', f86: currentMarketEpoch() } }),
+    });
+  });
+  await page.route('https://qt.gtimg.cn/**', (route) => route.fulfill({ status: 503, body: 'down' }));
+  await page.route('https://push2his.eastmoney.com/**', (route) => route.fulfill({ status: 503, body: 'down' }));
+  await createFund(page, '连点测试 ETF', '510300');
+
+  const refreshButton = page.getByRole('button', { name: '刷新行情' });
+  await refreshButton.click();
+  // 第一次点击后按钮立即 disabled（防并发）
+  await expect(refreshButton).toBeDisabled();
+  // 立即再点：disabled 元素的原生 click() 不会触发 handler
+  await refreshButton.evaluate((button) => (button as HTMLButtonElement).click());
+
+  await expect(page.getByText(/来源：东方财富/)).toBeVisible();
+  expect(eastmoneyCalls).toBe(1);
+});
+
+test('刷新进行中编辑基金代码，旧响应不写入新代码基金的价格', async ({ page }) => {
+  let releaseQuote!: () => void;
+  const quoteGate = new Promise<void>((resolve) => { releaseQuote = resolve; });
+  let quoteHeld = true;
+  await page.route('https://push2.eastmoney.com/**', async (route) => {
+    if (quoteHeld) {
+      quoteHeld = false;
+      await quoteGate;
+    }
+    await route.fulfill({
+      status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' },
+      body: JSON.stringify({ data: { f57: '510300', f58: '沪深300ETF', f43: '4.125', f60: '4.000', f86: currentMarketEpoch() } }),
+    });
+  });
+  await page.route('https://qt.gtimg.cn/**', (route) => route.fulfill({ status: 503, body: 'down' }));
+  await page.route('https://push2his.eastmoney.com/**', (route) => route.fulfill({ status: 503, body: 'down' }));
+  await createFund(page, '改码竞态 ETF', '510300');
+
+  await page.getByRole('button', { name: '刷新行情' }).click();
+  await expect(page.getByRole('button', { name: '刷新行情' })).toBeDisabled();
+
+  // in-flight 中编辑档案改代码保存
+  await page.getByRole('button', { name: '编辑档案' }).click();
+  await page.getByPlaceholder('例如：510300').fill('512170');
+  await page.getByRole('button', { name: '保存档案' }).click();
+  await expect(page.getByText('已保存基金档案')).toBeVisible();
+
+  // 放行旧请求（响应携带旧代码 510300 的数据）
+  releaseQuote();
+  await expect(page.getByText(/已刷新 .*（东方财富）/)).toBeVisible();
+
+  // 新代码基金的价格不被旧响应写入
+  await expect(page.getByPlaceholder('输入你看到的最新价格')).toHaveValue('');
+  await expect(page.getByText(/来源：东方财富/)).toHaveCount(0);
+  // 旧 loading 状态不得锁死新代码的刷新按钮
+  await expect(page.getByRole('button', { name: '刷新行情' })).toBeEnabled();
+});
+
+test('删除最新交易后持仓重算且上一次成交价回退到次新', async ({ page }) => {
+  await createFund(page, '回退测试基金', '510300');
+  await page.getByRole('button', { name: '交易账本' }).click();
+
+  // 第一笔：100 @ 10
+  await page.getByRole('button', { name: '新增交易' }).first().click();
+  await page.getByLabel('成交日期和时间').fill('2026-01-02T10:00');
+  await page.getByLabel('成交价格（元/份）').fill('10');
+  await page.getByPlaceholder('例如 1000').fill('100');
+  await page.getByLabel('佣金（0.015%）').fill('1');
+  await page.getByRole('button', { name: '保存交易' }).click();
+  await expect(page.getByText('交易明细已保存')).toBeVisible();
+
+  // 第二笔（最新）：100 @ 12
+  await page.getByRole('button', { name: '新增交易' }).first().click();
+  await page.getByLabel('成交日期和时间').fill('2026-01-03T10:00');
+  await page.getByLabel('成交价格（元/份）').fill('12');
+  await page.getByPlaceholder('例如 1000').fill('100');
+  await page.getByLabel('佣金（0.015%）').fill('1');
+  await page.getByRole('button', { name: '保存交易' }).click();
+  await expect(page.getByText('交易明细已保存')).toBeVisible();
+  await expect(page.locator('.metric', { hasText: '当前持仓' }).locator('strong')).toHaveText('200 份');
+
+  // 删除最新一笔（列表第一行，tradedAt 降序）
+  page.once('dialog', (d) => d.accept());
+  await page.locator('tbody tr').first().getByText('删除').click();
+  await expect(page.getByText('交易记录已删除并重新计算。')).toBeVisible();
+
+  // 持仓重算
+  await expect(page.locator('.metric', { hasText: '当前持仓' }).locator('strong')).toHaveText('100 份');
+  // 上一次成交价回退到次新成交价
+  await page.getByRole('button', { name: '价格计算' }).click();
+  await expect(page.getByPlaceholder('输入上一笔成交价')).toHaveValue('10');
+});
+
+test('编辑交易回填正确、保存后数量更新且费用不被自动估算覆盖', async ({ page }) => {
+  await createFund(page, '编辑测试基金', '510300');
+  await page.getByRole('button', { name: '交易账本' }).click();
+  await page.getByRole('button', { name: '新增交易' }).first().click();
+  await page.getByLabel('成交价格（元/份）').fill('4.000');
+  await page.getByPlaceholder('例如 1000').fill('100');
+  // 佣金手动改写（若编辑路径被重新估算会是 0.06）
+  await page.getByLabel('佣金（0.015%）').fill('1');
+  await page.getByRole('button', { name: '保存交易' }).click();
+  await expect(page.getByText('交易明细已保存')).toBeVisible();
+
+  // 打开编辑：initial 回填正确，费用是原值而非重新估算
+  await page.getByRole('button', { name: '编辑', exact: true }).click();
+  await expect(page.getByLabel('成交价格（元/份）')).toHaveValue('4.000');
+  await expect(page.getByLabel('成交数量（份，整数）')).toHaveValue('100');
+  await expect(page.getByLabel('佣金（0.015%）')).toHaveValue('1');
+  // 4.000×100×0.004% = 0.016 元，按分四舍五入 0.02：编辑框回填保存值而非重新估算
+  await expect(page.getByLabel('其他费用（0.004%）')).toHaveValue('0.02');
+
+  // 修改数量保存 → 列表与再次打开编辑框都应看到新数量
+  await page.getByLabel('成交数量（份，整数）').fill('200');
+  await page.getByRole('button', { name: '保存交易' }).click();
+  await expect(page.getByText('交易明细已保存')).toBeVisible();
+  await expect(page.locator('tbody tr').first().locator('td').nth(3)).toHaveText('200');
+
+  await page.getByRole('button', { name: '编辑', exact: true }).click();
+  await expect(page.getByLabel('成交数量（份，整数）')).toHaveValue('200');
+  await expect(page.getByLabel('佣金（0.015%）')).toHaveValue('1');
+});
+
+test('IndexedDB 被破坏时显示本地保存异常警告而非白屏', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(window, 'indexedDB', { get() { throw new Error('blocked'); } });
+  });
+  await page.goto('/');
+  // 不白屏：应用外壳照常渲染
+  await expect(page.getByText('基金阶梯账本').first()).toBeVisible();
+  await expect(page.getByText('先建立第一只场内基金')).toBeVisible();
+  // 显示本地保存异常警告横幅
+  await expect(page.locator('.storage-warning')).toContainText('本地保存异常');
+  // 界面仍可用（内存态）
+  await page.getByRole('button', { name: '新增基金档案' }).first().click();
+  await page.getByPlaceholder('例如：宽基 ETF').fill('降级基金');
+  await page.getByPlaceholder('例如：510300').fill('510300');
+  await page.getByRole('button', { name: '保存档案' }).click();
+  await expect(page.locator('.fund-list-item', { hasText: '降级基金' })).toBeVisible();
+});
+
+test('持仓盈亏汇总页与手算一致，打开按钮跳转对应基金计算页', async ({ page }) => {
+  await createFund(page, '基金甲', '510300');
+  await page.getByRole('button', { name: '交易账本' }).click();
+  await page.getByRole('button', { name: '新增交易' }).first().click();
+  await page.getByLabel('成交价格（元/份）').fill('10');
+  await page.getByPlaceholder('例如 1000').fill('100');
+  await page.getByLabel('佣金（0.015%）').fill('1');
+  await page.getByLabel('其他费用（0.004%）').fill('0');
+  await page.getByRole('button', { name: '保存交易' }).click();
+  await expect(page.getByText('交易明细已保存')).toBeVisible();
+
+  await page.locator('.page-fund-tools').getByRole('button', { name: '＋ 新增' }).click();
+  await page.getByPlaceholder('例如：宽基 ETF').fill('基金乙');
+  await page.getByPlaceholder('例如：510300').fill('512170');
+  await page.getByRole('button', { name: '保存档案' }).click();
+  await expect(page.getByText('已保存基金档案')).toBeVisible();
+  await page.getByRole('button', { name: '交易账本' }).click();
+  await page.getByRole('button', { name: '新增交易' }).first().click();
+  await page.getByLabel('成交价格（元/份）').fill('5');
+  await page.getByPlaceholder('例如 1000').fill('200');
+  await page.getByLabel('佣金（0.015%）').fill('1');
+  await page.getByLabel('其他费用（0.004%）').fill('0');
+  await page.getByRole('button', { name: '保存交易' }).click();
+  await expect(page.getByText('交易明细已保存')).toBeVisible();
+
+  // 各自输入当前价：乙 4 元，甲 12 元
+  await page.getByRole('button', { name: '价格计算' }).click();
+  await page.getByPlaceholder('输入你看到的最新价格').fill('4');
+  await page.getByRole('button', { name: '上一只基金' }).click();
+  await expect(page.getByLabel('当前基金')).toContainText('基金甲');
+  await page.getByPlaceholder('输入你看到的最新价格').fill('12');
+
+  // 汇总手算：甲成本 1000+1=1001.00 市值 1200.00 浮动 +199.00
+  //           乙成本 1000+1=1001.00 市值  800.00 浮动 -201.00
+  //           汇总 成本 2002.00 市值 2000.00 浮动 -2.00
+  await page.getByRole('button', { name: '持仓盈亏' }).click();
+  await expect(page.locator('.metric', { hasText: '剩余持仓成本' }).locator('strong')).toHaveText('¥2002.00');
+  await expect(page.locator('.metric', { hasText: '当前参考市值' }).locator('strong')).toHaveText('¥2000.00');
+  await expect(page.locator('.metric', { hasText: '浮动盈亏' }).locator('strong')).toHaveText('-¥2.00');
+
+  // 「打开」跳转到对应基金计算页
+  await page.locator('tbody tr', { hasText: '基金乙' }).getByText('打开').click();
+  await expect(page.getByText('十档价格阶梯')).toBeVisible();
+  await expect(page.getByLabel('当前基金')).toContainText('基金乙');
+});
+
+test('CSV 导出对逗号、引号和换行的备注正确转义', async ({ page }) => {
+  const exportCsvText = async () => {
+    const downloadPromise = page.waitForEvent('download');
+    await page.getByRole('button', { name: '导出 CSV' }).click();
+    return readFileSync(await (await downloadPromise).path(), 'utf8');
+  };
+  await createFund(page, '备份转义基金', '510300');
+  await page.getByRole('button', { name: '交易账本' }).click();
+  await page.getByRole('button', { name: '新增交易' }).first().click();
+  await page.getByLabel('成交价格（元/份）').fill('10');
+  await page.getByPlaceholder('例如 1000').fill('100');
+  await page.getByLabel('交易备注').fill('逗号,引号"');
+  await page.getByRole('button', { name: '保存交易' }).click();
+  await expect(page.getByText('交易明细已保存')).toBeVisible();
+
+  await page.getByRole('button', { name: '历史与备份' }).click();
+  const uiCsv = await exportCsvText();
+  // 每个字段被双引号包裹，备注内的逗号保留在引号内、内部引号翻倍
+  expect(uiCsv).toContain('"备份转义基金","510300"');
+  expect(uiCsv).toContain('"待核对","逗号,引号"""');
+
+  // 真实换行无法经单行 input 键入（浏览器剥离），经备份导入通道注入含换行的备注后导出
+  const backupWithNewlineNote = {
+    schemaVersion: 1,
+    funds: [{
+      id: 'f1', name: '换行基金', code: '510300', market: '沪市', category: 'ETF', tickSize: '0.001',
+      prices: { upper: '', middle: '', lower: '', previousClose: '', lastTradePrice: '', currentPrice: '' },
+      ladderBasis: 'lastTradePrice', ladderDirection: 'up', notes: '',
+      createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+    }],
+    trades: [{
+      id: 't1', fundId: 'f1', tradedAt: '2026-01-02T10:00', side: 'BUY', price: '10', quantity: '100',
+      commission: '1', transferFee: '0', stampDuty: '0', otherFee: '0', feesChecked: false,
+      note: '首行\n次行', createdAt: '2026-01-02T00:00:00.000Z', updatedAt: '2026-01-02T00:00:00.000Z',
+    }],
+    snapshots: [],
+  };
+  page.once('dialog', (d) => d.accept());
+  await page.locator('input[type=file]').setInputFiles({ name: 'newline-note.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(backupWithNewlineNote)) });
+  await expect(page.getByText('备份已载入')).toBeVisible();
+  const newlineCsv = await exportCsvText();
+  // 换行被保留在双引号包裹的字段内，CSV 行结构不被拆断
+  expect(newlineCsv).toContain('"首行\n次行"');
+  expect(newlineCsv).toContain('"换行基金","510300"');
+});
+
+test('reload 后基金、当前价与 BOLL 轨道输入全部恢复', async ({ page }) => {
+  await createFund(page, '重载基金', '510300');
+  await page.getByPlaceholder('输入上轨').fill('10.800');
+  await page.getByPlaceholder('输入中轨').fill('10.000');
+  await page.getByPlaceholder('输入下轨').fill('9.200');
+  await page.getByPlaceholder('输入昨日收盘价').fill('10.500');
+  await page.getByPlaceholder('输入上一笔成交价').fill('10.300');
+  await page.getByPlaceholder('输入你看到的最新价格').fill('10.950');
+
+  await expect(page.locator('.save-state')).toHaveText('已保存到本机');
+  await page.reload();
+
+  await expect(page.getByPlaceholder('输入上轨')).toHaveValue('10.800');
+  await expect(page.getByPlaceholder('输入中轨')).toHaveValue('10.000');
+  await expect(page.getByPlaceholder('输入下轨')).toHaveValue('9.200');
+  await expect(page.getByPlaceholder('输入昨日收盘价')).toHaveValue('10.500');
+  await expect(page.getByPlaceholder('输入上一笔成交价')).toHaveValue('10.300');
+  await expect(page.getByPlaceholder('输入你看到的最新价格')).toHaveValue('10.950');
+});
+
+test('基金代码为空时刷新行情按钮禁用', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: '新增基金档案' }).first().click();
+  await page.getByPlaceholder('例如：宽基 ETF').fill('无代码基金');
+  // 代码留空
+  await page.getByRole('button', { name: '保存档案' }).click();
+  await expect(page.getByText('已保存基金档案')).toBeVisible();
+  await expect(page.getByRole('button', { name: '刷新行情' })).toBeDisabled();
+});
+
+test('历史页删除快照只影响目标条目', async ({ page }) => {
+  await createFund(page, '快照删除基金', '510300');
+  await page.getByPlaceholder('输入上轨').fill('1.050');
+  await page.getByPlaceholder('输入你看到的最新价格').fill('1.000');
+
+  await page.getByPlaceholder('备注（可选）').fill('快照一');
+  await page.getByRole('button', { name: '保存价格快照' }).click();
+  await expect(page.getByText(/已保存 \d{4}-\d{2}-\d{2} 的价格快照/)).toBeVisible();
+
+  await page.getByPlaceholder('备注（可选）').fill('快照二');
+  await page.getByRole('button', { name: '保存价格快照' }).click();
+  // 等第二条快照确实入库再离开页面
+  await page.getByRole('button', { name: '历史与备份' }).click();
+  await expect(page.locator('.snapshot-card')).toHaveCount(2);
+
+  page.once('dialog', (d) => d.accept());
+  await page.locator('.snapshot-card', { hasText: '快照一' }).getByRole('button', { name: '删除' }).click();
+
+  await expect(page.locator('.snapshot-card', { hasText: '快照一' })).toHaveCount(0);
+  await expect(page.locator('.snapshot-card', { hasText: '快照二' })).toBeVisible();
+  await expect(page.locator('.snapshot-card')).toHaveCount(1);
+});
