@@ -43,7 +43,7 @@ test('五个基准 + 当前价生成正确涨跌幅和十档阶梯', async ({ pa
 
   await expect(page.locator('.comparison-card', { hasText: 'BOLL 中轨' }).locator('strong')).toHaveText('+9.50%');
   await expect(page.locator('.comparison-card', { hasText: '昨日收盘价' }).locator('strong')).toHaveText('+4.29%');
-  await expect(page.locator('.comparison-card', { hasText: 'BOLL 区间位置' }).locator('strong')).toHaveText('109.38%');
+  await expect(page.locator('.comparison-card', { hasText: '日 BOLL 区间位置' }).locator('strong')).toHaveText('109.38%');
 
   // 默认基准 = 上次成交价 10.5：+4% 已越过，+5% 下一档
   await expect(page.getByText('下一档：+5% · 11.025 元')).toBeVisible();
@@ -453,14 +453,14 @@ test('BOLL 区间位置显示 0%/100%/超界与无效输入的诚实降级', asy
   // 无效输入：上轨 ≤ 下轨 → 诚实显示待输入而非伪百分比
   await fill('BOLL 下轨', '4.000');
   await fill('BOLL 上轨', '4.000');
-  await expect(page.getByText('BOLL 区间位置')).toBeVisible();
+  await expect(page.getByText('日 BOLL 区间位置')).toBeVisible();
   await expect(page.getByText('待输入有效价格/轨道')).toBeVisible();
 
   // 边界：当前价=下轨 → 0%；当前价=上轨 → 100%
   await fill('BOLL 上轨', '5.000');
   await fill('当前价格', '4.000');
   await expect(page.getByText('当前价位于下轨')).toBeVisible();
-  const positionCard = page.locator('.comparison-card').filter({ hasText: 'BOLL 区间位置' });
+  const positionCard = page.locator('.comparison-card').filter({ hasText: '日 BOLL 区间位置' });
   await expect(positionCard).toContainText('0.00%');
   await fill('当前价格', '5.000');
   await expect(page.getByText('当前价位于上轨')).toBeVisible();
@@ -497,7 +497,12 @@ test('周/月 BOLL 区间位置独立取轨道并按 50% 分色，日 BOLL 按 0
       dates = Array.from({ length: 25 }, (_, i) => { const d = new Date(anchor); d.setUTCDate(anchor.getUTCDate() - (24 - i)); return d.toISOString().slice(0, 10); });
       base = 9;
     }
-    const klines = dates.map((date, i) => { const close = klt === '101' && i % 2 ? '11.000' : base.toFixed(3); return [date, close, close, close, close, '0', '0', '0', '0', '0', '0'].join(','); });
+    const klines = dates.map((date, i) => {
+      const close = klt === '101' ? (i % 2 ? '11.000' : '9.000')
+        : klt === '102' ? (i === 18 ? '10.000' : i < 18 && i % 2 ? '11.000' : '9.000')
+        : base.toFixed(3);
+      return [date, close, close, close, close, '0', '0', '0', '0', '0', '0'].join(',');
+    });
     await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ data: { code: '510300', klines } }) });
   });
   await createFund(page, '周月测试基金', '510300');
@@ -506,6 +511,7 @@ test('周/月 BOLL 区间位置独立取轨道并按 50% 分色，日 BOLL 按 0
   const weekly = page.locator('.comparison-card').filter({ hasText: '周 BOLL 区间位置' });
   const monthly = page.locator('.comparison-card').filter({ hasText: '月 BOLL 区间位置' });
   await expect(weekly).toHaveClass(/position-heat-red/);
+  await expect(weekly).toContainText('50.00%'); // 等于阈值时也必须红色
   await expect(monthly).toHaveClass(/position-heat-green/);
   const daily = page.locator('.comparison-card').filter({ hasText: '日 BOLL 区间位置' });
   await page.getByPlaceholder('输入下轨').fill('9.000');

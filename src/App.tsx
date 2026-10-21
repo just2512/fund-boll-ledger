@@ -398,7 +398,7 @@ export default function App() {
         const keepManualEdits = prior?.requestedCode === fund.code && prior.hasManualEdits === true;
         return { ...old, [fundIdBefore]: { requestedCode: fund.code, status: 'success', quote, hasManualEdits: keepManualEdits, token } };
       });
-      setNotification('已刷新 ' + fund.name + ' 最新价、昨收' + (quote.boll || quote.weeklyBoll || quote.monthlyBoll ? '及日/周/月 BOLL 区间数据' : '') + '（' + quote.source + '）。' + (quote.bollError ? ' 日 BOLL 未更新，原日轨道价格已保留。' : ''));
+      setNotification('已刷新 ' + fund.name + ' 最新价、昨收' + (quote.boll || quote.weeklyBoll || quote.monthlyBoll ? '及' + [quote.boll ? '日' : '', quote.weeklyBoll ? '周' : '', quote.monthlyBoll ? '月' : ''].filter(Boolean).join('、') + ' BOLL 区间数据' : '') + '（' + quote.source + '）。' + (quote.bollError ? ' 日 BOLL 未更新，原日轨道价格已保留。' : ''));
     } catch (error) {
       setMarketQuotes((old) => {
         const prior = old[fundIdBefore];
@@ -513,8 +513,8 @@ function CalculatorPage({ fund, comparisons, ladderBasis, setLadderBasis, ladder
           {quoteState?.status === 'loading' && quoteState.hasManualEdits && <small className="quote-error" role="status">价格字段已手动修改；本次刷新不会覆盖你手动改过的价格字段。</small>}
           {!quoteState?.quote && quoteState?.status === 'loading' && <small>正在请求东方财富；失败时自动尝试腾讯。</small>}
           {!quoteState?.quote && quoteState?.status === 'error' && <small className="quote-error" role="status">{quoteState.message} 未覆盖当前价格。</small>}
-          {!quoteState && <small>点击刷新获取最新价、昨收及 BOLL(20,2)；现价、昨收和三条轨道均可继续手动修改，不自动轮询。</small>}
-          {quoteState?.status === 'loading' && <small>正在刷新报价和 BOLL 日线……</small>}
+          {!quoteState && <small>点击刷新获取最新价、昨收及日/周/月 BOLL(20,2)；现价、昨收和日线三条轨道均可继续手动修改，不自动轮询。</small>}
+          {quoteState?.status === 'loading' && <small>正在刷新报价和日/周/月 BOLL……</small>}
           {quoteState?.status === 'error' && quoteState.quote && <small className="quote-error" role="status">{quoteState.message} 本次未覆盖价格，保留上次成功报价。</small>}
         </div>
       </div>

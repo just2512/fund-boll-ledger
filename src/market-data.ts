@@ -318,6 +318,7 @@ async function fetchEastmoneyBollBands(
   interval: BollInterval,
 ): Promise<BollBands> {
   const secid = eastmoneyMarket(code, market) + '.' + code;
+  const intervalLabel = interval === 'daily' ? '日线' : interval === 'weekly' ? '周线' : '月线';
   const params = new URLSearchParams({
     secid,
     fields1: 'f1,f2,f3,f4,f5,f6',
@@ -334,14 +335,14 @@ async function fetchEastmoneyBollBands(
   try {
     payload = JSON.parse(raw);
   } catch {
-    throw new Error('东方财富日线返回内容不是有效 JSON');
+    throw new Error(`东方财富${intervalLabel}返回内容不是有效 JSON`);
   }
   if (!payload || typeof payload !== 'object') throw new Error('东方财富日线响应无效');
   const data = (payload as { data?: unknown }).data;
-  if (!data || typeof data !== 'object') throw new Error('东方财富未返回历史日线');
+  if (!data || typeof data !== 'object') throw new Error(`东方财富未返回历史${intervalLabel}`);
   const row = data as Record<string, unknown>;
-  if (String(row.code ?? '').trim() !== code) throw new Error('东方财富日线代码与当前基金不一致');
-  if (!Array.isArray(row.klines)) throw new Error('东方财富未返回日线列表');
+  if (String(row.code ?? '').trim() !== code) throw new Error(`东方财富${intervalLabel}代码与当前基金不一致`);
+  if (!Array.isArray(row.klines)) throw new Error(`东方财富未返回${intervalLabel}列表`);
   const dailyCloses: DailyClose[] = row.klines.flatMap((entry): DailyClose[] => {
     if (typeof entry !== 'string') return [];
     const fields = entry.split(',');

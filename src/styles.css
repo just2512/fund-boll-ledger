@@ -115,3 +115,7 @@
   .comparison-card:last-child .comparison-foot { justify-content: space-between; gap: 5px; }
   .quote-refresh-row { flex-direction: column; }
 }
+
+@media (min-width: 821px) and (max-aspect-ratio: 11/10) {
+  .comparison-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
