@@ -475,6 +475,56 @@ test('BOLL 区间位置显示 0%/100%/超界与无效输入的诚实降级', asy
 });
 
 
+test('周/月 BOLL 区间位置独立取轨道并按 50% 分色，日 BOLL 按 0/100% 分色', async ({ page }) => {
+  await page.route('https://push2.eastmoney.com/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ data: { f57: '510300', f58: '沪深300ETF', f43: '10.000', f60: '10.000', f86: currentMarketEpoch() } }) }));
+  await page.route('https://qt.gtimg.cn/**', (route) => route.fulfill({ status: 503, body: 'down' }));
+  await page.route('https://push2his.eastmoney.com/**', async (route) => {
+    const klt = new URL(route.request().url()).searchParams.get('klt');
+    const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(currentMarketEpoch() * 1000));
+    const marketDate = `${parts.find((p) => p.type === 'year')!.value}-${parts.find((p) => p.type === 'month')!.value}-${parts.find((p) => p.type === 'day')!.value}`;
+    const anchor = new Date(`${marketDate}T00:00:00.000Z`);
+    let dates: string[];
+    let base: number;
+    if (klt === '102') {
+      anchor.setUTCDate(anchor.getUTCDate() - ((anchor.getUTCDay() + 6) % 7));
+      dates = Array.from({ length: 20 }, (_, i) => { const d = new Date(anchor); d.setUTCDate(anchor.getUTCDate() - (19 - i) * 7); return d.toISOString().slice(0, 10); });
+      base = 9;
+    } else if (klt === '103') {
+      const [year, month] = marketDate.split('-').map(Number);
+      dates = Array.from({ length: 20 }, (_, i) => new Date(Date.UTC(year, month - 1 - (19 - i), 1)).toISOString().slice(0, 10));
+      base = 11;
+    } else {
+      dates = Array.from({ length: 25 }, (_, i) => { const d = new Date(anchor); d.setUTCDate(anchor.getUTCDate() - (24 - i)); return d.toISOString().slice(0, 10); });
+      base = 9;
+    }
+    const klines = dates.map((date, i) => { const close = klt === '101' && i % 2 ? '11.000' : base.toFixed(3); return [date, close, close, close, close, '0', '0', '0', '0', '0', '0'].join(','); });
+    await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ data: { code: '510300', klines } }) });
+  });
+  await createFund(page, '周月测试基金', '510300');
+  await page.getByRole('button', { name: '刷新行情' }).click();
+  await expect(page.getByText(/已刷新 .*东方财富/)).toBeVisible();
+  const weekly = page.locator('.comparison-card').filter({ hasText: '周 BOLL 区间位置' });
+  const monthly = page.locator('.comparison-card').filter({ hasText: '月 BOLL 区间位置' });
+  await expect(weekly).toHaveClass(/position-heat-red/);
+  await expect(monthly).toHaveClass(/position-heat-green/);
+  const daily = page.locator('.comparison-card').filter({ hasText: '日 BOLL 区间位置' });
+  await page.getByPlaceholder('输入下轨').fill('9.000');
+  await page.getByPlaceholder('输入上轨').fill('11.000');
+  await page.getByPlaceholder('输入你看到的最新价格').fill('11.000');
+  await expect(daily).toHaveClass(/is-up/);
+  await page.getByPlaceholder('输入你看到的最新价格').fill('9.000');
+  await expect(daily).toHaveClass(/is-down/);
+});
+
+test('价格基准输入框对齐，当前价格与普通价格框高度一致', async ({ page }) => {
+  await createFund(page, '输入对齐测试基金', '510300');
+  const measurements = await Promise.all(['输入下轨', '输入昨日收盘价', '输入上一笔成交价', '输入你看到的最新价格'].map(async (placeholder) => page.getByPlaceholder(placeholder).evaluate((el) => { const r = el.getBoundingClientRect(); return { top: r.top, height: r.height }; })));
+  const heights = measurements.map((m) => m.height);
+  expect(Math.max(...heights) - Math.min(...heights)).toBeLessThanOrEqual(1);
+  const gaps = await Promise.all(['BOLL 下轨', '昨日收盘价', '上一次成交价', '当前价格'].map(async (label) => page.getByRole('spinbutton', { name: label }).evaluate((el) => { const labelEl = el.closest('label')!.querySelector('span')!; return el.getBoundingClientRect().top - labelEl.getBoundingClientRect().bottom; })));
+  expect(Math.max(...gaps) - Math.min(...gaps)).toBeLessThanOrEqual(1);
+});
+
 test('手动改过费用后改数量不覆盖输入，重算按钮显式恢复估算', async ({ page }) => {
   await createFund(page, '费用守卫 ETF', '510300');
   await page.getByRole('button', { name: '交易账本', exact: true }).click();

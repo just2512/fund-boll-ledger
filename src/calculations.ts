@@ -52,17 +52,21 @@ export interface PriceComparison {
   location: string;
 }
 
-export function bollRangePositionRatio(prices: FundPrices): number | null {
-  if (!prices.currentPrice.trim() || !prices.lower.trim() || !prices.upper.trim()) return null;
+export function bollRangePositionRatioForBands(currentPrice: string, lowerText: string, upperText: string): number | null {
+  if (!currentPrice.trim() || !lowerText.trim() || !upperText.trim()) return null;
   try {
-    const current = parseScaled(prices.currentPrice);
-    const lower = parseScaled(prices.lower);
-    const upper = parseScaled(prices.upper);
+    const current = parseScaled(currentPrice);
+    const lower = parseScaled(lowerText);
+    const upper = parseScaled(upperText);
     if (current <= 0n || lower <= 0n || upper <= lower) return null;
     return Number(current - lower) / Number(upper - lower);
   } catch {
     return null;
   }
+}
+
+export function bollRangePositionRatio(prices: FundPrices): number | null {
+  return bollRangePositionRatioForBands(prices.currentPrice, prices.lower, prices.upper);
 }
 
 export function compareToBases(prices: FundPrices, tickText = '0.001'): PriceComparison[] {

@@ -10,6 +10,8 @@ export interface BollBands {
   currentPriceApplied: boolean;
 }
 
+export type BollInterval = 'daily' | 'weekly' | 'monthly';
+
 export interface DailyClose {
   date: string;
   close: string | number;
@@ -27,6 +29,10 @@ export interface MarketQuote {
   fetchedAt: string;
   boll?: BollBands;
   bollError?: string;
+  weeklyBoll?: BollBands;
+  weeklyBollError?: string;
+  monthlyBoll?: BollBands;
+  monthlyBollError?: string;
 }
 
 export interface MarketQuoteRequest {
@@ -50,7 +56,10 @@ function parsePositiveNumber(value: unknown, field: string): number {
 
 function formatPrice(value: number): string {
   if (!Number.isFinite(value) || value <= 0) throw new Error('计算出的价格无效');
-  return value.toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
+  // Prices are positive. The tiny epsilon avoids binary floating-point drift at decimal halves.
+  const scaled = value * 1000;
+  const rounded = Math.floor(scaled + 0.5 + Number.EPSILON * Math.max(1, Math.abs(scaled)) * 2);
+  return (rounded / 1000).toFixed(3);
 }
 
 function roundPercent(value: number): number {
@@ -237,10 +246,20 @@ async function fetchTencentQuote(code: string, market: MarketQuoteRequest['marke
   return createQuote(code, name, fields[3], fields[4], fields[30], '腾讯行情');
 }
 
+function intervalPeriodKey(date: string, interval: BollInterval): string {
+  if (interval === 'daily') return date;
+  if (interval === 'monthly') return date.slice(0, 7);
+  const parsed = new Date(`${date}T00:00:00.000Z`);
+  const daysSinceMonday = (parsed.getUTCDay() + 6) % 7;
+  parsed.setUTCDate(parsed.getUTCDate() - daysSinceMonday);
+  return parsed.toISOString().slice(0, 10);
+}
+
 export function calculateBollBands(
   dailyCloses: DailyClose[],
   latestPrice?: string,
   latestPriceDate?: string,
+  interval: BollInterval = 'daily',
 ): BollBands {
   const byDate = new Map<string, number>();
   for (const row of dailyCloses) {
@@ -257,18 +276,25 @@ export function calculateBollBands(
     try {
       const value = parsePositiveNumber(latestPrice, '最新价');
       const last = ordered.at(-1);
-      if (last?.date === latestPriceDate) {
+      const latestKey = intervalPeriodKey(latestPriceDate, interval);
+      const lastKey = last ? intervalPeriodKey(last.date, interval) : undefined;
+      if (last && lastKey === latestKey) {
+        // Weekly/monthly candle dates can precede the live quote date; compare interval identity.
         last.close = value;
         currentPriceApplied = true;
-      } else if (last && latestPriceDate > last.date) {
+      } else if (last && lastKey !== undefined && latestKey > lastKey) {
         ordered.push({ date: latestPriceDate, close: value });
         currentPriceApplied = true;
       }
     } catch {
-      // Keep raw daily bars when the quote is malformed.
+      // Keep raw history when the quote is malformed.
     }
   }
-  if (ordered.length < BOLL_PERIOD) throw new Error('历史日线不足 20 个交易日，暂时无法计算 BOLL(20,2)。');
+  if (ordered.length < BOLL_PERIOD) {
+    const intervalLabel = interval === 'daily' ? '日线交易日' : interval === 'weekly' ? '周线周期' : '月线周期';
+    const intervalName = interval === 'daily' ? '日' : interval === 'weekly' ? '周' : '月';
+    throw new Error(`历史${intervalLabel}不足 20 根，暂时无法计算${intervalName} BOLL(20,2)。`);
+  }
 
   const windowCloses = ordered.slice(-BOLL_PERIOD).map((row) => row.close);
   const middle = windowCloses.reduce((sum, value) => sum + value, 0) / BOLL_PERIOD;
@@ -289,6 +315,7 @@ async function fetchEastmoneyBollBands(
   code: string,
   market: MarketQuoteRequest['market'],
   quote: MarketQuote,
+  interval: BollInterval,
 ): Promise<BollBands> {
   const secid = eastmoneyMarket(code, market) + '.' + code;
   const params = new URLSearchParams({
@@ -296,7 +323,7 @@ async function fetchEastmoneyBollBands(
     fields1: 'f1,f2,f3,f4,f5,f6',
     fields2: 'f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61',
     ut: 'fa5fd1943c7b386f172d6893dbbd1d0c',
-    klt: '101',
+    klt: interval === 'daily' ? '101' : interval === 'weekly' ? '102' : '103',
     fqt: '0',
     end: '20500101',
     lmt: '40',
@@ -320,7 +347,7 @@ async function fetchEastmoneyBollBands(
     const fields = entry.split(',');
     return fields.length >= 3 ? [{ date: fields[0], close: fields[2] }] : [];
   });
-  return calculateBollBands(dailyCloses, quote.price, quote.tradingDate);
+  return calculateBollBands(dailyCloses, quote.price, quote.tradingDate, interval);
 }
 
 export async function fetchLatestQuote(request: MarketQuoteRequest): Promise<MarketQuote> {
@@ -343,9 +370,17 @@ export async function fetchLatestQuote(request: MarketQuoteRequest): Promise<Mar
 
 export async function fetchLatestMarketData(request: MarketQuoteRequest): Promise<MarketQuote> {
   const quote = await fetchLatestQuote(request);
-  try {
-    return { ...quote, boll: await fetchEastmoneyBollBands(request.code.trim(), request.market, quote) };
-  } catch (error) {
-    return { ...quote, bollError: error instanceof Error ? error.message : '东方财富日线不可用，未能计算 BOLL。' };
-  }
+  const code = request.code.trim();
+  const [daily, weekly, monthly] = await Promise.allSettled([
+    fetchEastmoneyBollBands(code, request.market, quote, 'daily'),
+    fetchEastmoneyBollBands(code, request.market, quote, 'weekly'),
+    fetchEastmoneyBollBands(code, request.market, quote, 'monthly'),
+  ]);
+  const errorText = (reason: unknown, fallback: string) => reason instanceof Error ? reason.message : fallback;
+  return {
+    ...quote,
+    ...(daily.status === 'fulfilled' ? { boll: daily.value } : { bollError: errorText(daily.reason, '东方财富日线不可用，未能计算 BOLL。') }),
+    ...(weekly.status === 'fulfilled' ? { weeklyBoll: weekly.value } : { weeklyBollError: errorText(weekly.reason, '东方财富周线不可用，未能计算周 BOLL。') }),
+    ...(monthly.status === 'fulfilled' ? { monthlyBoll: monthly.value } : { monthlyBollError: errorText(monthly.reason, '东方财富月线不可用，未能计算月 BOLL。') }),
+  };
 }

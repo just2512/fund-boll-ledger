@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bollRangePositionRatio, compareToBases, calculatePosition, estimateCommission, estimateOtherFee, priceLadder } from './calculations';
+import { bollRangePositionRatio, bollRangePositionRatioForBands, compareToBases, calculatePosition, estimateCommission, estimateOtherFee, priceLadder } from './calculations';
 import { parseScaled, priceAmountCents, formatCents } from './decimal';
 import type { FundPrices, Trade } from './types';
 
@@ -12,6 +12,18 @@ function trade(partial: Partial<Trade> & Pick<Trade, 'side' | 'price' | 'quantit
     feesChecked: false, note: '', createdAt: '2026-10-16T09:31:00.000Z', updatedAt: '2026-10-16T09:31:00.000Z', ...overrides, side, price, quantity,
   };
 }
+
+describe('BOLL interval position', () => {
+  it('calculates the current price position against any valid period bands', () => {
+    expect(bollRangePositionRatioForBands('10', '8', '12')).toBe(0.5);
+    expect(bollRangePositionRatioForBands('14', '8', '12')).toBe(1.5);
+    expect(bollRangePositionRatioForBands('6', '8', '12')).toBe(-0.5);
+  });
+  it('does not calculate when period bands or current price are invalid', () => {
+    expect(bollRangePositionRatioForBands('', '8', '12')).toBeNull();
+    expect(bollRangePositionRatioForBands('10', '12', '8')).toBeNull();
+  });
+});
 
 describe('price ladder', () => {
   it('calculates each level from the original base, not compounding', () => {
