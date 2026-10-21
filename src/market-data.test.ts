@@ -222,11 +222,11 @@ describe('BOLL(20,2)', () => {
     expect(market.price).toBe('4.125');
     expect(market.previousClose).toBe('4');
     expect(market.boll?.period).toBe(20);
-    expect(market.weeklyBoll?.period).toBe(20);
-    expect(market.monthlyBoll?.period).toBe(20);
+    expect(market.weeklyBollRange).toEqual({ upper: expect.any(String), lower: expect.any(String) });
+    expect(market.monthlyBollRange).toEqual({ upper: expect.any(String), lower: expect.any(String) });
     expect(market.boll?.upper).toMatch(/^\d+\.\d{3}$/);
-    expect(market.weeklyBoll).toBeDefined();
-    expect(market.monthlyBoll).toBeDefined();
+    expect(market.weeklyBollRange).toBeDefined();
+    expect(market.monthlyBollRange).toBeDefined();
   });
   it('preserves a valid quote when any or all historical BOLL periods fail', async () => {
     const fetchMock = vi.fn<typeof fetch>()
@@ -239,10 +239,10 @@ describe('BOLL(20,2)', () => {
     expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(market.price).toBe('4.125');
     expect(market.boll).toBeUndefined();
-    expect(market.weeklyBoll).toBeUndefined();
-    expect(market.monthlyBoll).toBeUndefined();
+    expect(market.weeklyBollRange).toBeUndefined();
+    expect(market.monthlyBollRange).toBeUndefined();
     expect(market.bollError).toContain('HTTP 503');
-    expect(market.weeklyBollError).toContain('HTTP 503');
-    expect(market.monthlyBollError).toContain('HTTP 503');
+    expect(market.weeklyBollRangeError).toContain('HTTP 503');
+    expect(market.monthlyBollRangeError).toContain('HTTP 503');
   });
 });

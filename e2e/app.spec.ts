@@ -458,6 +458,10 @@ test('BOLL 区间位置显示 0%/100%/超界与无效输入的诚实降级', asy
 
   // 边界：当前价=下轨 → 0%；当前价=上轨 → 100%
   await fill('BOLL 上轨', '5.000');
+  await fill('当前价格', '4.500');
+  await expect(positionCard.locator('strong')).toHaveText('50.00%');
+  await expect(positionCard.locator('strong')).not.toHaveClass(/daily-position-red|daily-position-green/);
+  await expect(positionCard).not.toHaveClass(/position-heat-red|position-heat-green/);
   await fill('当前价格', '4.000');
   await expect(page.getByText('当前价位于下轨')).toBeVisible();
   const positionCard = page.locator('.comparison-card').filter({ hasText: '日 BOLL 区间位置' });
@@ -513,13 +517,18 @@ test('周/月 BOLL 区间位置独立取轨道并按 50% 分色，日 BOLL 按 0
   await expect(weekly).toHaveClass(/position-heat-red/);
   await expect(weekly).toContainText('50.00%'); // 等于阈值时也必须红色
   await expect(monthly).toHaveClass(/position-heat-green/);
+  await expect(weekly.locator('strong')).toHaveCSS('color', 'rgb(182, 76, 76)');
+  await expect(monthly.locator('strong')).toHaveCSS('color', 'rgb(20, 123, 103)');
   const daily = page.locator('.comparison-card').filter({ hasText: '日 BOLL 区间位置' });
   await page.getByPlaceholder('输入下轨').fill('9.000');
   await page.getByPlaceholder('输入上轨').fill('11.000');
   await page.getByPlaceholder('输入你看到的最新价格').fill('11.000');
-  await expect(daily).toHaveClass(/is-up/);
+  await expect(daily.locator('strong')).toHaveClass(/daily-position-red/);
+  await page.getByPlaceholder('输入你看到的最新价格').fill('10.000');
+  await expect(daily.locator('strong')).not.toHaveClass(/daily-position-red|daily-position-green/); // 日位置 50% 不触发颜色规则
   await page.getByPlaceholder('输入你看到的最新价格').fill('9.000');
-  await expect(daily).toHaveClass(/is-down/);
+  await expect(daily.locator('strong')).toHaveClass(/daily-position-green/);
+  await expect(daily).not.toHaveClass(/position-heat-red|position-heat-green/);
 });
 
 test('价格基准输入框对齐，当前价格与普通价格框高度一致', async ({ page }) => {

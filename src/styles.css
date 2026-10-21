@@ -119,3 +119,11 @@
 @media (min-width: 821px) and (max-aspect-ratio: 11/10) {
   .comparison-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+
+
+/* Period-specific BOLL color semantics.
+   Daily: value-only red/green at <=0% / >=100%; 50% stays neutral.
+   Weekly/monthly: entire card turns red/green at the 50% boundary. */
+.comparison-card.daily-position-card > strong.daily-position-red { color: var(--up); }
+.comparison-card.daily-position-card > strong.daily-position-green { color: var(--down); }
+.comparison-card.daily-position-card { background: #fff; border-color: #e8ebef; }

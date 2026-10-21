@@ -10,6 +10,12 @@ export interface BollBands {
   currentPriceApplied: boolean;
 }
 
+/** Internal bounds used only for live weekly/monthly position calculations; not displayed as price inputs. */
+export interface BollPositionBounds {
+  upper: string;
+  lower: string;
+}
+
 export type BollInterval = 'daily' | 'weekly' | 'monthly';
 
 export interface DailyClose {
@@ -29,10 +35,10 @@ export interface MarketQuote {
   fetchedAt: string;
   boll?: BollBands;
   bollError?: string;
-  weeklyBoll?: BollBands;
-  weeklyBollError?: string;
-  monthlyBoll?: BollBands;
-  monthlyBollError?: string;
+  weeklyBollRange?: BollPositionBounds;
+  weeklyBollRangeError?: string;
+  monthlyBollRange?: BollPositionBounds;
+  monthlyBollRangeError?: string;
 }
 
 export interface MarketQuoteRequest {
@@ -381,7 +387,7 @@ export async function fetchLatestMarketData(request: MarketQuoteRequest): Promis
   return {
     ...quote,
     ...(daily.status === 'fulfilled' ? { boll: daily.value } : { bollError: errorText(daily.reason, '东方财富日线不可用，未能计算 BOLL。') }),
-    ...(weekly.status === 'fulfilled' ? { weeklyBoll: weekly.value } : { weeklyBollError: errorText(weekly.reason, '东方财富周线不可用，未能计算周 BOLL。') }),
-    ...(monthly.status === 'fulfilled' ? { monthlyBoll: monthly.value } : { monthlyBollError: errorText(monthly.reason, '东方财富月线不可用，未能计算月 BOLL。') }),
+    ...(weekly.status === 'fulfilled' ? { weeklyBollRange: { upper: weekly.value.upper, lower: weekly.value.lower } } : { weeklyBollRangeError: errorText(weekly.reason, '东方财富周线不可用，未能计算周 BOLL 区间位置。') }),
+    ...(monthly.status === 'fulfilled' ? { monthlyBollRange: { upper: monthly.value.upper, lower: monthly.value.lower } } : { monthlyBollRangeError: errorText(monthly.reason, '东方财富月线不可用，未能计算月 BOLL 区间位置。') }),
   };
 }
