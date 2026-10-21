@@ -20,7 +20,7 @@
 /* 折叠屏内屏正方形形态（OPPO Find N2 1916×1816≈1.055）：宽屏但矮，放宽网格利用横向空间 */
 @media (min-width:821px) and (max-aspect-ratio:11/10){ /* 宽>820 且宽高比≈1（含折痕正方形屏） */
  .reference-grid{grid-template-columns:repeat(3,minmax(0,1fr))} /* 基准网格横向铺满三列 */
- .comparison-grid{grid-template-columns:repeat(3,minmax(0,1fr))} /* 对比卡片三列，正方形屏无需挤成五列 */
+ /* 对比卡片的正方形屏列数由文件末尾的折叠屏适配块统一管理（后出现的同特异性规则生效），此处不再重复声明 */
  .ladder-table th,.ladder-table td{padding:9px 10px} /* 十档表收紧行距，正方形屏一行可见更多档位且免横向滚动 */
 }
 

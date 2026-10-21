@@ -343,7 +343,7 @@ async function fetchEastmoneyBollBands(
   } catch {
     throw new Error(`东方财富${intervalLabel}返回内容不是有效 JSON`);
   }
-  if (!payload || typeof payload !== 'object') throw new Error('东方财富日线响应无效');
+  if (!payload || typeof payload !== 'object') throw new Error(`东方财富${intervalLabel}响应无效`);
   const data = (payload as { data?: unknown }).data;
   if (!data || typeof data !== 'object') throw new Error(`东方财富未返回历史${intervalLabel}`);
   const row = data as Record<string, unknown>;

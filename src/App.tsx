@@ -398,7 +398,8 @@ export default function App() {
         const keepManualEdits = prior?.requestedCode === fund.code && prior.hasManualEdits === true;
         return { ...old, [fundIdBefore]: { requestedCode: fund.code, status: 'success', quote, hasManualEdits: keepManualEdits, token } };
       });
-      setNotification('已刷新 ' + fund.name + ' 最新价、昨收' + (quote.boll || quote.weeklyBollRange || quote.monthlyBollRange ? '及' + [quote.boll ? '日' : '', quote.weeklyBollRange ? '周' : '', quote.monthlyBollRange ? '月' : ''].filter(Boolean).join('、') + ' BOLL 区间位置数据' : '') + '（' + quote.source + '）。' + (quote.bollError ? ' 日 BOLL 未更新，原日轨道价格已保留。' : ''));
+      const bollFailureNotes = [quote.bollError ? '日 BOLL 未更新，原日轨道价格已保留。' : '', quote.weeklyBollRangeError ? '周 BOLL 未更新。' : '', quote.monthlyBollRangeError ? '月 BOLL 未更新。' : ''].filter(Boolean).join(' ');
+      setNotification('已刷新 ' + fund.name + ' 最新价、昨收' + (quote.boll || quote.weeklyBollRange || quote.monthlyBollRange ? '及' + [quote.boll ? '日' : '', quote.weeklyBollRange ? '周' : '', quote.monthlyBollRange ? '月' : ''].filter(Boolean).join('、') + ' BOLL 区间位置数据' : '') + '（' + quote.source + '）。' + bollFailureNotes);
     } catch (error) {
       setMarketQuotes((old) => {
         const prior = old[fundIdBefore];
