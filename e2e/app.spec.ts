@@ -281,7 +281,7 @@ test('行情仅在手动点击时请求，东方财富成功后更新当前价�
   expect(tencentCalls).toBe(0);
   await page.getByRole('button', { name: '刷新行情' }).click();
   await expect(page.getByPlaceholder('输入你看到的最新价格')).toHaveValue('4.125');
-  await expect(page.getByRole('spinbutton', { name: '昨日收盘价' })).toHaveValue('4');
+  await expect(page.getByRole('spinbutton', { name: '昨日收盘价' })).toHaveValue('4.000');
   await expect(page.getByRole('spinbutton', { name: 'BOLL 上轨' })).not.toHaveValue('');
   await expect(page.getByRole('spinbutton', { name: 'BOLL 中轨' })).not.toHaveValue('');
   await expect(page.getByRole('spinbutton', { name: 'BOLL 下轨' })).not.toHaveValue('');
@@ -320,7 +320,7 @@ test('东方财富失败时腾讯自动兜底，双源都失败时保留手动�
   await page.getByRole('button', { name: '刷新行情' }).click();
   await expect(page.getByPlaceholder('输入你看到的最新价格')).toHaveValue('4.125');
   await expect(page.getByText(/来源：腾讯行情/)).toBeVisible();
-  await expect(page.getByRole('spinbutton', { name: '昨日收盘价' })).toHaveValue('4');
+  await expect(page.getByRole('spinbutton', { name: '昨日收盘价' })).toHaveValue('4.000');
   await expect(page.getByRole('spinbutton', { name: 'BOLL 中轨' })).not.toHaveValue('');
 
   await page.getByPlaceholder('输入你看到的最新价格').fill('3.500');
@@ -363,7 +363,7 @@ test('刷新写入的现价、昨收和 BOLL 轨道仍可手动改写', async ({
   });
   await createFund(page, '可编辑价格 ETF', '510300');
   await page.getByRole('button', { name: '刷新行情' }).click();
-  await expect(page.getByRole('spinbutton', { name: '昨日收盘价' })).toHaveValue('4');
+  await expect(page.getByRole('spinbutton', { name: '昨日收盘价' })).toHaveValue('4.000');
   await page.getByRole('spinbutton', { name: '当前价格' }).fill('4.200');
   await page.getByRole('spinbutton', { name: '昨日收盘价' }).fill('3.900');
   await page.getByRole('spinbutton', { name: 'BOLL 上轨' }).fill('4.500');
@@ -443,7 +443,7 @@ test('刷新进行中用户改写现价，返回后不被行情覆盖且提示�
   // The quote must NOT clobber the user's manual edit.
   await expect(page.getByRole('spinbutton', { name: '当前价格' })).toHaveValue('9.888');
   await expect(page.getByText(/价格字段已手动修改/)).toBeVisible();
-  await expect(page.getByPlaceholder('昨日收盘价')).toHaveValue('4');
+  await expect(page.getByPlaceholder('昨日收盘价')).toHaveValue('4.000');
 });
 
 test('BOLL 区间位置显示 0%/100%/超界与无效输入的诚实降级', async ({ page }) => {
@@ -458,6 +458,7 @@ test('BOLL 区间位置显示 0%/100%/超界与无效输入的诚实降级', asy
 
   // 日 BOLL 只在 0%/100% 边界切换数值颜色；周/月的 50% 规则单独测试。
   // 边界：当前价=下轨 → 0%；当前价=上轨 → 100%
+  const positionCard = page.locator('.comparison-card').filter({ hasText: '日 BOLL 区间位置' });
   await fill('BOLL 上轨', '5.000');
   await fill('当前价格', '4.500');
   await expect(positionCard.locator('strong')).toHaveText('50.00%');
@@ -465,7 +466,6 @@ test('BOLL 区间位置显示 0%/100%/超界与无效输入的诚实降级', asy
   await expect(positionCard).not.toHaveClass(/position-heat-red|position-heat-green/);
   await fill('当前价格', '4.000');
   await expect(page.getByText('当前价位于下轨')).toBeVisible();
-  const positionCard = page.locator('.comparison-card').filter({ hasText: '日 BOLL 区间位置' });
   await expect(positionCard).toContainText('0.00%');
   await fill('当前价格', '5.000');
   await expect(page.getByText('当前价位于上轨')).toBeVisible();

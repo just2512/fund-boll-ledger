@@ -59,7 +59,7 @@ describe('manual ETF market quote refresh', () => {
     expect(String(fetchMock.mock.calls[0][0])).toContain('secid=1.510300');
     expect(quote.source).toBe('东方财富');
     expect(quote.price).toBe('4.125');
-    expect(quote.previousClose).toBe('4');
+    expect(quote.previousClose).toBe('4.000');
     expect(quote.changePercent).toBe(3.13);
     expect(quote.quotedAt).toBeTruthy();
   });
@@ -220,7 +220,7 @@ describe('BOLL(20,2)', () => {
     expect(String(fetchMock.mock.calls[2][0])).toContain('klt=102');
     expect(String(fetchMock.mock.calls[3][0])).toContain('klt=103');
     expect(market.price).toBe('4.125');
-    expect(market.previousClose).toBe('4');
+    expect(market.previousClose).toBe('4.000');
     expect(market.boll?.period).toBe(20);
     expect(market.weeklyBollRange).toEqual({ upper: expect.any(String), lower: expect.any(String) });
     expect(market.monthlyBollRange).toEqual({ upper: expect.any(String), lower: expect.any(String) });
