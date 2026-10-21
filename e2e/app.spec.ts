@@ -456,17 +456,13 @@ test('BOLL 区间位置显示 0%/100%/超界与无效输入的诚实降级', asy
   await expect(page.getByText('日 BOLL 区间位置')).toBeVisible();
   await expect(page.getByText('待输入有效价格/轨道')).toBeVisible();
 
-  // 颜色阈值：日位置在 50% 时开始变红、低于 50% 为绿色；卡片背景保持白色。
+  // 日 BOLL 只在 0%/100% 边界切换数值颜色；周/月的 50% 规则单独测试。
   // 边界：当前价=下轨 → 0%；当前价=上轨 → 100%
   await fill('BOLL 上轨', '5.000');
   await fill('当前价格', '4.500');
   await expect(positionCard.locator('strong')).toHaveText('50.00%');
-  await expect(positionCard.locator('strong')).toHaveClass(/daily-position-red/);
-  await expect(positionCard.locator('strong')).toHaveCSS('color', 'rgb(182, 76, 76)');
+  await expect(positionCard.locator('strong')).not.toHaveClass(/daily-position-red|daily-position-green/);
   await expect(positionCard).not.toHaveClass(/position-heat-red|position-heat-green/);
-  await fill('当前价格', '4.490');
-  await expect(positionCard.locator('strong')).toHaveClass(/daily-position-green/); // 49%：绿色，仅改数值颜色
-  await expect(positionCard.locator('strong')).toHaveCSS('color', 'rgb(20, 123, 103)');
   await fill('当前价格', '4.000');
   await expect(page.getByText('当前价位于下轨')).toBeVisible();
   const positionCard = page.locator('.comparison-card').filter({ hasText: '日 BOLL 区间位置' });
@@ -484,7 +480,7 @@ test('BOLL 区间位置显示 0%/100%/超界与无效输入的诚实降级', asy
 });
 
 
-test('日 BOLL 数值按 50% 分色；周/月 BOLL 在 50% 阈值改变整个模块颜色', async ({ page }) => {
+test('周/月 BOLL 区间位置独立取轨道并按 50% 分色，日 BOLL 按 0/100% 分色', async ({ page }) => {
   await page.route('https://push2.eastmoney.com/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ data: { f57: '510300', f58: '沪深300ETF', f43: '10.000', f60: '10.000', f86: currentMarketEpoch() } }) }));
   await page.route('https://qt.gtimg.cn/**', (route) => route.fulfill({ status: 503, body: 'down' }));
   await page.route('https://push2his.eastmoney.com/**', async (route) => {
@@ -530,7 +526,7 @@ test('日 BOLL 数值按 50% 分色；周/月 BOLL 在 50% 阈值改变整个模
   await page.getByPlaceholder('输入你看到的最新价格').fill('11.000');
   await expect(daily.locator('strong')).toHaveClass(/daily-position-red/);
   await page.getByPlaceholder('输入你看到的最新价格').fill('10.000');
-  await expect(daily.locator('strong')).toHaveClass(/daily-position-red/); // 日位置数值在 50% 起变红，背景仍不变
+  await expect(daily.locator('strong')).not.toHaveClass(/daily-position-red|daily-position-green/); // 日位置 50% 不触发颜色规则
   await page.getByPlaceholder('输入你看到的最新价格').fill('9.000');
   await expect(daily.locator('strong')).toHaveClass(/daily-position-green/);
   await expect(daily).not.toHaveClass(/position-heat-red|position-heat-green/);
