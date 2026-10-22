@@ -357,6 +357,56 @@ async function fetchEastmoneyBollBands(
   return calculateBollBands(dailyCloses, quote.price, quote.tradingDate, interval);
 }
 
+/** Tencent kline fallback: ifzq.gtimg.cn serves daily/weekly/monthly bars with the same [date, open, close, high, low] shape Eastmoney uses, so calculateBollBands consumes them unchanged. */
+async function fetchTencentBollBands(
+  code: string,
+  market: MarketQuoteRequest['market'],
+  quote: MarketQuote,
+  interval: BollInterval,
+): Promise<BollBands> {
+  const intervalLabel = interval === 'daily' ? '日线' : interval === 'weekly' ? '周线' : '月线';
+  const period = interval === 'daily' ? 'day' : interval === 'weekly' ? 'week' : 'month';
+  const symbol = marketPrefix(code, market) + code;
+  const url = 'https://ifzq.gtimg.cn/appstock/app/kline/kline?param=' + encodeURIComponent(`${symbol},${period},,,320`) + '&_=' + Date.now();
+  const raw = await requestText(url);
+  let payload: unknown;
+  try {
+    payload = JSON.parse(raw);
+  } catch {
+    throw new Error(`腾讯${intervalLabel}返回内容不是有效 JSON`);
+  }
+  const data = (payload as { code?: unknown; data?: Record<string, unknown> | null }).data;
+  if (!data || typeof data !== 'object' || !data[symbol] || typeof data[symbol] !== 'object') throw new Error(`腾讯未返回历史${intervalLabel}`);
+  const bars = (data[symbol] as Record<string, unknown>)[period];
+  if (!Array.isArray(bars)) throw new Error(`腾讯未返回${intervalLabel}列表`);
+  const dailyCloses: DailyClose[] = bars.flatMap((entry): DailyClose[] => {
+    if (!Array.isArray(entry) || entry.length < 3 || typeof entry[0] !== 'string') return [];
+    // Tencent closes are strings like "4.121"; keep them raw so parsePositiveNumber rejects malformed values.
+    return [{ date: entry[0], close: String(entry[2]) }];
+  });
+  return calculateBollBands(dailyCloses, quote.price, quote.tradingDate, interval);
+}
+
+/** Daily/weekly/monthly BOLL(20,2): Eastmoney klines first, Tencent kline API as the automatic fallback — mirrors the dual-source quote philosophy. */
+async function fetchBollBands(
+  code: string,
+  market: MarketQuoteRequest['market'],
+  quote: MarketQuote,
+  interval: BollInterval,
+): Promise<BollBands> {
+  try {
+    return await fetchEastmoneyBollBands(code, market, quote, interval);
+  } catch (eastmoneyError) {
+    try {
+      return await fetchTencentBollBands(code, market, quote, interval);
+    } catch (tencentError) {
+      throw new Error(
+        `东方财富失败：${eastmoneyError instanceof Error ? eastmoneyError.message : '未知错误'}；腾讯失败：${tencentError instanceof Error ? tencentError.message : '未知错误'}。请检查网络连接。`,
+      );
+    }
+  }
+}
+
 export async function fetchLatestQuote(request: MarketQuoteRequest): Promise<MarketQuote> {
   const code = request.code.trim();
   if (!/^\d{6}$/.test(code)) throw new Error('请先在基金档案中填写有效的 6 位场内基金代码。');
@@ -379,15 +429,15 @@ export async function fetchLatestMarketData(request: MarketQuoteRequest): Promis
   const quote = await fetchLatestQuote(request);
   const code = request.code.trim();
   const [daily, weekly, monthly] = await Promise.allSettled([
-    fetchEastmoneyBollBands(code, request.market, quote, 'daily'),
-    fetchEastmoneyBollBands(code, request.market, quote, 'weekly'),
-    fetchEastmoneyBollBands(code, request.market, quote, 'monthly'),
+    fetchBollBands(code, request.market, quote, 'daily'),
+    fetchBollBands(code, request.market, quote, 'weekly'),
+    fetchBollBands(code, request.market, quote, 'monthly'),
   ]);
   const errorText = (reason: unknown, fallback: string) => reason instanceof Error ? reason.message : fallback;
   return {
     ...quote,
-    ...(daily.status === 'fulfilled' ? { boll: daily.value } : { bollError: errorText(daily.reason, '东方财富日线不可用，未能计算 BOLL。') }),
-    ...(weekly.status === 'fulfilled' ? { weeklyBollRange: { upper: weekly.value.upper, lower: weekly.value.lower } } : { weeklyBollRangeError: errorText(weekly.reason, '东方财富周线不可用，未能计算周 BOLL 区间位置。') }),
-    ...(monthly.status === 'fulfilled' ? { monthlyBollRange: { upper: monthly.value.upper, lower: monthly.value.lower } } : { monthlyBollRangeError: errorText(monthly.reason, '东方财富月线不可用，未能计算月 BOLL 区间位置。') }),
+    ...(daily.status === 'fulfilled' ? { boll: daily.value } : { bollError: errorText(daily.reason, '日 BOLL 数据不可用，未能计算 BOLL。') }),
+    ...(weekly.status === 'fulfilled' ? { weeklyBollRange: { upper: weekly.value.upper, lower: weekly.value.lower } } : { weeklyBollRangeError: errorText(weekly.reason, '周 BOLL 数据不可用，未能计算周 BOLL 区间位置。') }),
+    ...(monthly.status === 'fulfilled' ? { monthlyBollRange: { upper: monthly.value.upper, lower: monthly.value.lower } } : { monthlyBollRangeError: errorText(monthly.reason, '月 BOLL 数据不可用，未能计算月 BOLL 区间位置。') }),
   };
 }
