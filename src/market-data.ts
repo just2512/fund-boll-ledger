@@ -336,13 +336,13 @@ async function fetchEastmoneyCloses(code: string, market: MarketQuoteRequest['ma
   });
   const raw = await requestText('https://push2his.eastmoney.com/api/qt/stock/kline/get?' + params.toString());
   let payload: unknown;
-  try { payload = JSON.parse(raw); } catch { throw new Error(\`东方财富\${intervalLabel}返回内容不是有效 JSON\`); }
-  if (!payload || typeof payload !== 'object') throw new Error(\`东方财富\${intervalLabel}响应无效\`);
+  try { payload = JSON.parse(raw); } catch { throw new Error(`东方财富${intervalLabel}返回内容不是有效 JSON`); }
+  if (!payload || typeof payload !== 'object') throw new Error(`东方财富${intervalLabel}响应无效`);
   const data = (payload as { data?: unknown }).data;
-  if (!data || typeof data !== 'object') throw new Error(\`东方财富未返回历史\${intervalLabel}\`);
+  if (!data || typeof data !== 'object') throw new Error(`东方财富未返回历史${intervalLabel}`);
   const row = data as Record<string, unknown>;
-  if (String(row.code ?? '').trim() !== code) throw new Error(\`东方财富\${intervalLabel}代码与当前基金不一致\`);
-  if (!Array.isArray(row.klines)) throw new Error(\`东方财富未返回\${intervalLabel}列表\`);
+  if (String(row.code ?? '').trim() !== code) throw new Error(`东方财富${intervalLabel}代码与当前基金不一致`);
+  if (!Array.isArray(row.klines)) throw new Error(`东方财富未返回${intervalLabel}列表`);
   return row.klines.flatMap((entry): DailyClose[] => {
     if (typeof entry !== 'string') return [];
     const fields = entry.split(',');
@@ -353,14 +353,14 @@ async function fetchTencentCloses(code: string, market: MarketQuoteRequest['mark
   const intervalLabel = interval === 'daily' ? '日线' : interval === 'weekly' ? '周线' : '月线';
   const period = interval === 'daily' ? 'day' : interval === 'weekly' ? 'week' : 'month';
   const symbol = marketPrefix(code, market) + code;
-  const url = 'https://ifzq.gtimg.cn/appstock/app/kline/kline?param=' + encodeURIComponent(\`\${symbol},\${period},,,320\`) + '&_=' + Date.now();
+  const url = 'https://ifzq.gtimg.cn/appstock/app/kline/kline?param=' + encodeURIComponent(`${symbol},${period},,,320`) + '&_=' + Date.now();
   const raw = await requestText(url);
   let payload: unknown;
-  try { payload = JSON.parse(raw); } catch { throw new Error(\`腾讯\${intervalLabel}返回内容不是有效 JSON\`); }
+  try { payload = JSON.parse(raw); } catch { throw new Error(`腾讯${intervalLabel}返回内容不是有效 JSON`); }
   const data = (payload as { code?: unknown; data?: Record<string, unknown> | null }).data;
-  if (!data || typeof data !== 'object' || !data[symbol] || typeof data[symbol] !== 'object') throw new Error(\`腾讯未返回历史\${intervalLabel}\`);
+  if (!data || typeof data !== 'object' || !data[symbol] || typeof data[symbol] !== 'object') throw new Error(`腾讯未返回历史${intervalLabel}`);
   const bars = (data[symbol] as Record<string, unknown>)[period];
-  if (!Array.isArray(bars)) throw new Error(\`腾讯未返回\${intervalLabel}列表\`);
+  if (!Array.isArray(bars)) throw new Error(`腾讯未返回${intervalLabel}列表`);
   return bars.flatMap((entry): DailyClose[] => {
     if (!Array.isArray(entry) || entry.length < 3 || typeof entry[0] !== 'string') return [];
     return [{ date: entry[0], close: String(entry[2]) }];
@@ -374,7 +374,7 @@ async function fetchIntervalCloses(code: string, market: MarketQuoteRequest['mar
     catch (tencentError) {
       const intervalLabel = interval === 'daily' ? '日线' : interval === 'weekly' ? '周线' : '月线';
       throw new Error(
-        \`东方财富失败：\${eastmoneyError instanceof Error ? eastmoneyError.message : '未知错误'}；腾讯失败：\${tencentError instanceof Error ? tencentError.message : '未知错误'}。请检查网络连接。\`,
+        `东方财富失败：${eastmoneyError instanceof Error ? eastmoneyError.message : '未知错误'}；腾讯失败：${tencentError instanceof Error ? tencentError.message : '未知错误'}。请检查网络连接。`,
       );
     }
   }
