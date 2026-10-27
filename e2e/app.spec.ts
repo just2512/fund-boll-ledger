@@ -32,6 +32,21 @@ test('基金档案校验必填名称', async ({ page }) => {
   await expect.poll(() => msg).toContain('请填写基金名称');
 });
 
+
+test('当前价格对比模块可整体收起、展开并保留本地选择', async ({ page }) => {
+  await createFund(page);
+  await expect(page.getByText('MACD 多空判断')).toBeVisible();
+  await page.getByRole('button', { name: '收起内容' }).click();
+  await expect(page.getByText('MACD 多空判断')).toHaveCount(0);
+  await expect(page.locator('.comparison-card')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '展开内容' })).toBeVisible();
+  await page.reload();
+  await expect(page.getByText('MACD 多空判断')).toHaveCount(0);
+  await page.getByRole('button', { name: '展开内容' }).click();
+  await expect(page.getByText('MACD 多空判断')).toBeVisible();
+  await expect(page.locator('.comparison-card', { hasText: '日 BOLL 区间位置' })).toBeVisible();
+});
+
 test('五个基准 + 当前价生成正确涨跌幅和十档阶梯', async ({ page }) => {
   await createFund(page);
   await page.getByPlaceholder('输入上轨').fill('10.800');

@@ -3,6 +3,7 @@ import { bollRangePositionRatio, bollRangePositionRatioForBands, calculatePositi
 import { formatCents, formatCurrency, formatPercent, parseMoneyCents, parseQuantity, parseScaled, priceAmountCents } from './decimal';
 import { loadAppData, saveAppData } from './storage';
 import { fetchLatestMarketData, type MarketQuote } from './market-data';
+import { macdArrangementLabel, macdMomentumLabel, macdZeroAxisLabel, type MacdMultiTimeframeState, type MacdPeriodState, type MacdTone } from './macd';
 import { createId, emptyAppData, newFund, type AppData, type Fund, type FundCategory, type FundPrices, type LadderDirection, type PriceBasisKey, type PriceSnapshot, type Trade, type TradeSide } from './types';
 
 const NAV_ITEMS = [
@@ -470,6 +471,42 @@ export default function App() {
   </div>;
 }
 
+function macdToneClass(tone: MacdTone | undefined): string {
+  switch (tone) {
+    case 'bullish': return 'macd-tone-bullish';
+    case 'bearish': return 'macd-tone-bearish';
+    case 'mixed': return 'macd-tone-mixed';
+    case 'neutral': return 'macd-tone-neutral';
+    default: return 'macd-tone-unknown';
+  }
+}
+function MacdPeriodCard({ label, state }: { label: string; state?: MacdPeriodState }) {
+  if (!state) return <div className="macd-period-card"><div className="macd-period-head"><strong>{label}</strong><span className="macd-tone-unknown">待计算</span></div><p className="macd-period-message">点击刷新行情后计算</p></div>;
+  if (state.error) return <div className="macd-period-card"><div className="macd-period-head"><strong>{label}</strong><span className="macd-tone-unknown">数据不足</span></div><p className="macd-period-message">{state.error}</p></div>;
+  return <div className="macd-period-card">
+    <div className="macd-period-head"><strong>{label}</strong><small>收盘 K 线 {state.asOfDate ?? '—'}</small></div>
+    <div className="macd-period-tags">
+      <span className={macdToneClass(state.zeroTone)}>{macdZeroAxisLabel(state)}</span>
+      <span className={macdToneClass(state.arrangementTone)}>{macdArrangementLabel(state)}</span>
+    </div>
+    <div className={'macd-momentum ' + macdToneClass(state.momentumTone)}>{macdMomentumLabel(state)}</div>
+  </div>;
+}
+function MacdPanel({ state, loading }: { state?: MacdMultiTimeframeState; loading: boolean }) {
+  const summary = state?.summary ?? (loading ? '正在刷新 MACD 数据…' : '刷新行情后计算');
+  const detail = state?.summaryDetail ?? '仅使用已收盘 K 线；固定规则生成';
+  return <div className="macd-panel">
+    <div className="macd-panel-head"><div><h3>MACD 多空判断</h3><p>MACD(12,26,9) · 月线看长期、周线看中期、日线看短期</p></div><span className="macd-rule-label">固定规则</span></div>
+    <div className="macd-summary"><strong className={macdToneClass(state?.summaryTone)}>{summary}</strong><span className={macdToneClass(state?.detailTone)}>{detail}</span></div>
+    <div className="macd-period-grid">
+      <MacdPeriodCard label="月线 · 长期" state={state?.monthly}/>
+      <MacdPeriodCard label="周线 · 中期" state={state?.weekly}/>
+      <MacdPeriodCard label="日线 · 短期" state={state?.daily}/>
+    </div>
+    <small className="macd-footnote">交叉只在收盘后确认；持续排列结合最近一次已确认交叉与当前 DIF/DEA 关系判断。橙色表示动能减弱或周期分化。</small>
+  </div>;
+}
+
 function CalculatorPage({ fund, comparisons, ladderBasis, setLadderBasis, ladderDirection, setLadderDirection, ladderRows, onPriceChange, quoteState, onRefreshQuote, onUseLatestTrade, onSaveSnapshot, snapshotNote, setSnapshotNote, onGoLedger }: {
   fund: Fund; comparisons: ReturnType<typeof compareToBases>; ladderBasis: PriceKey; setLadderBasis: (key: PriceKey) => void; ladderDirection: Direction; setLadderDirection: (dir: Direction) => void; ladderRows: ReturnType<typeof priceLadder>; onPriceChange: (key: keyof FundPrices, value: string) => void; quoteState?: QuoteViewState; onRefreshQuote: () => void; onUseLatestTrade: () => void; onSaveSnapshot: () => void; snapshotNote: string; setSnapshotNote: (value: string) => void; onGoLedger: () => void;
 }) {
@@ -494,6 +531,15 @@ function CalculatorPage({ fund, comparisons, ladderBasis, setLadderBasis, ladder
   // disagree by up to half a basis point and the rung is the truth.
   const tenthRung = ladderRows.at(-1) ?? null;
   const overRange = hasCurrent && baseValue !== null && tenthRung !== null && parseScaled(fund.prices.currentPrice) > 0n && (ladderDirection === 'up' ? parseScaled(fund.prices.currentPrice) >= tenthRung.priceScaled : parseScaled(fund.prices.currentPrice) <= tenthRung.priceScaled);
+  const [comparisonExpanded, setComparisonExpanded] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    try { return window.localStorage.getItem('fund-boll-ledger:comparison-expanded') !== 'false'; }
+    catch { return true; }
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem('fund-boll-ledger:comparison-expanded', String(comparisonExpanded)); }
+    catch { /* Local storage may be unavailable; collapse still works for this session. */ }
+  }, [comparisonExpanded]);
   return <div className="page-stack">
     <section className="panel price-reference-panel"><div className="section-title-row"><div><h2>价格基准</h2><p>修改输入后即时重新计算；历史快照需手动保存。</p></div><span className="tag">{fund.category} · {fund.tickSize || '0.001'} 元/档</span></div><div className="reference-grid"><PriceInput label="BOLL 上轨" value={fund.prices.upper} onChange={(v) => onPriceChange('upper', v)} placeholder="输入上轨"/><PriceInput label="BOLL 中轨" value={fund.prices.middle} onChange={(v) => onPriceChange('middle', v)} placeholder="输入中轨"/><PriceInput label="BOLL 下轨" value={fund.prices.lower} onChange={(v) => onPriceChange('lower', v)} placeholder="输入下轨"/><PriceInput label="昨日收盘价" value={fund.prices.previousClose} onChange={(v) => onPriceChange('previousClose', v)} placeholder="输入昨日收盘价"/><div className="reference-input last-trade-input"><PriceInput label="上一次成交价" value={fund.prices.lastTradePrice} onChange={(v) => onPriceChange('lastTradePrice', v)} placeholder="输入上一笔成交价"/><button className="text-button reference-fill" onClick={onUseLatestTrade}>取最近成交价 ↗</button></div><div className="current-price-input">
       <PriceInput label="当前价格" value={fund.prices.currentPrice} onChange={(v) => onPriceChange('currentPrice', v)} placeholder="输入你看到的最新价格" prominent/>
@@ -522,7 +568,20 @@ function CalculatorPage({ fund, comparisons, ladderBasis, setLadderBasis, ladder
         </div>
       </div>
     </div></div></section>
-    <section className="panel"><div className="section-title-row"><div><h2>当前价格对比</h2><p>五个价格基准分别比较；日、周、月 BOLL 区间位置按各自周期轨道独立计算。</p></div><span className="muted small">当前价：{fund.prices.currentPrice || '—'}</span></div><div className="comparison-grid">{comparisons.map((item) => <div key={item.key} className={`comparison-card ${item.percent === null ? '' : item.percent > 0 ? 'is-up' : item.percent < 0 ? 'is-down' : ''}`}><span>{item.label}</span><strong>{item.percentLabel}</strong><div className="comparison-foot"><span>基准 {item.base || '—'}</span><span>{item.delta !== null ? `${Number(item.delta) > 0 ? '+' : ''}${item.delta}` : '—'} 元</span></div><small>{item.location}</small></div>)}<div className="comparison-card daily-position-card"><span>日 BOLL 区间位置</span><strong className={dailyPositionTone}>{bollRangePosition === null ? '待输入有效价格/轨道' : (bollRangePosition * 100).toFixed(2) + '%'}</strong><div className="comparison-foot"><span>下轨 0%</span><span>上轨 100%</span></div><small>{bollRangePosition === null ? '需要有效现价、下轨和高于下轨的上轨' : bollRangePosition < 0 ? '当前价低于下轨 · 绿色' : bollRangePosition === 0 ? '当前价位于下轨 · 绿色' : bollRangePosition > 1 ? '当前价高于上轨 · 红色' : bollRangePosition === 1 ? '当前价位于上轨 · 红色' : '位置在下轨至上轨之间'}</small></div><div className={`comparison-card ${weeklyPositionClass}`}><span>周 BOLL 区间位置</span><strong>{weeklyBollRangePosition === null ? (weeklyBollRange ? '待输入有效现价/轨道' : '刷新后计算') : (weeklyBollRangePosition * 100).toFixed(2) + '%'}</strong><div className="comparison-foot"><span>下轨 0%</span><span>上轨 100%</span></div><small>{weeklyBollRangePosition !== null ? (weeklyBollRangePosition >= 0.5 ? '≥50% · 红色显示' : '<50% · 绿色显示') : quoteState?.quote?.weeklyBollRangeError ? `周线数据不可用：${quoteState.quote.weeklyBollRangeError}` : '需要刷新周线数据并输入有效当前价'}</small></div><div className={`comparison-card ${monthlyPositionClass}`}><span>月 BOLL 区间位置</span><strong>{monthlyBollRangePosition === null ? (monthlyBollRange ? '待输入有效现价/轨道' : '刷新后计算') : (monthlyBollRangePosition * 100).toFixed(2) + '%'}</strong><div className="comparison-foot"><span>下轨 0%</span><span>上轨 100%</span></div><small>{monthlyBollRangePosition !== null ? (monthlyBollRangePosition >= 0.5 ? '≥50% · 红色显示' : '<50% · 绿色显示') : quoteState?.quote?.monthlyBollRangeError ? `月线数据不可用：${quoteState.quote.monthlyBollRangeError}` : '需要刷新月线数据并输入有效当前价'}</small></div></div></section>
+    <section className="panel comparison-panel">
+      <div className="section-title-row comparison-section-head">
+        <div><h2>当前价格对比</h2><p>五个价格基准分别比较；日、周、月 BOLL 区间位置按各自周期轨道独立计算。</p></div>
+        <div className="comparison-head-actions"><span className="muted small">当前价：{fund.prices.currentPrice || '—'}</span>
+          <button type="button" className="button ghost comparison-toggle" aria-expanded={comparisonExpanded} aria-controls="current-price-comparison-content" onClick={() => setComparisonExpanded((value) => !value)}>
+            {comparisonExpanded ? '收起内容 −' : '展开内容 +'}
+          </button>
+        </div>
+      </div>
+      {comparisonExpanded && <div id="current-price-comparison-content" className="comparison-content">
+        <div className="comparison-grid">{comparisons.map((item) => <div key={item.key} className={`comparison-card ${item.percent === null ? '' : item.percent > 0 ? 'is-up' : item.percent < 0 ? 'is-down' : ''}`}><span>{item.label}</span><strong>{item.percentLabel}</strong><div className="comparison-foot"><span>基准 {item.base || '—'}</span><span>{item.delta !== null ? `${Number(item.delta) > 0 ? '+' : ''}${item.delta}` : '—'} 元</span></div><small>{item.location}</small></div>)}<div className="comparison-card daily-position-card"><span>日 BOLL 区间位置</span><strong className={dailyPositionTone}>{bollRangePosition === null ? '待输入有效价格/轨道' : (bollRangePosition * 100).toFixed(2) + '%'}</strong><div className="comparison-foot"><span>下轨 0%</span><span>上轨 100%</span></div><small>{bollRangePosition === null ? '需要有效现价、下轨和高于下轨的上轨' : bollRangePosition < 0 ? '当前价低于下轨 · 绿色' : bollRangePosition === 0 ? '当前价位于下轨 · 绿色' : bollRangePosition > 1 ? '当前价高于上轨 · 红色' : bollRangePosition === 1 ? '当前价位于上轨 · 红色' : '位置在下轨至上轨之间'}</small></div><div className={`comparison-card ${weeklyPositionClass}`}><span>周 BOLL 区间位置</span><strong>{weeklyBollRangePosition === null ? (weeklyBollRange ? '待输入有效现价/轨道' : '刷新后计算') : (weeklyBollRangePosition * 100).toFixed(2) + '%'}</strong><div className="comparison-foot"><span>下轨 0%</span><span>上轨 100%</span></div><small>{weeklyBollRangePosition !== null ? (weeklyBollRangePosition >= 0.5 ? '≥50% · 红色显示' : '<50% · 绿色显示') : quoteState?.quote?.weeklyBollRangeError ? `周线数据不可用：${quoteState.quote.weeklyBollRangeError}` : '需要刷新周线数据并输入有效当前价'}</small></div><div className={`comparison-card ${monthlyPositionClass}`}><span>月 BOLL 区间位置</span><strong>{monthlyBollRangePosition === null ? (monthlyBollRange ? '待输入有效现价/轨道' : '刷新后计算') : (monthlyBollRangePosition * 100).toFixed(2) + '%'}</strong><div className="comparison-foot"><span>下轨 0%</span><span>上轨 100%</span></div><small>{monthlyBollRangePosition !== null ? (monthlyBollRangePosition >= 0.5 ? '≥50% · 红色显示' : '<50% · 绿色显示') : quoteState?.quote?.monthlyBollRangeError ? `月线数据不可用：${quoteState.quote.monthlyBollRangeError}` : '需要刷新月线数据并输入有效当前价'}</small></div></div>
+        <MacdPanel state={quoteState?.quote?.macd} loading={quoteState?.status === 'loading'}/>
+      </div>}
+    </section>
     <section className="panel ladder-panel"><div className="section-title-row"><div><h2>十档价格阶梯</h2><p>每一档均以所选参考价独立计算，不使用连续复利。</p></div><span className="tag">1%—10%</span></div><div className="ladder-controls"><label className="field basis-select"><span>选择计算基准</span><select value={ladderBasis} onChange={(e) => setLadderBasis(e.target.value as PriceKey)}>{PRICE_KEYS.map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}</select></label><div className="direction-switch" role="group" aria-label="阶梯方向"><button className={ladderDirection === 'up' ? 'active rise' : ''} onClick={() => setLadderDirection('up')}>↑ 上涨 1%—10%</button><button className={ladderDirection === 'down' ? 'active fall' : ''} onClick={() => setLadderDirection('down')}>↓ 下跌 1%—10%</button></div></div><div className="ladder-status">{!fund.prices.currentPrice.trim() || current === null || current <= 0 || baseValue === null ? <span>请输入有效的当前价格（大于零）和所选基准，系统才可标记已越过档位。</span> : <><div><span className="status-label">当前相对{baseLabels[ladderBasis]}</span><strong className={currentPct! > 0 ? 'positive' : currentPct! < 0 ? 'negative' : ''}>{formatPercent(currentPct)}</strong></div><div className="next-target">{overRange ? `当前价格已超出所选方向的十档范围（实际涨跌幅 ${formatPercent(currentPct)}）` : nextRow ? `下一档：${ladderDirection === 'up' ? '+' : '−'}${nextRow.percent}% · ${nextRow.price} 元` : ladderRows.length && ladderRows.every((r) => r.reached) ? `已越过全部十档（实际涨跌幅 ${formatPercent(currentPct)}）` : '尚未到达第一档'}</div></>}</div>{ladderRows.length ? <div className="table-scroll"><table className="ladder-table"><thead><tr><th>刻度</th><th>对应价格（元）</th><th>理论档位</th><th>当前状态</th></tr></thead><tbody>{ladderRows.map((row) => <tr key={row.percent} className={`${row.reached ? 'reached-row' : ''} ${row.isNext ? 'next-row' : ''}`}><td><span className={`level-chip ${ladderDirection}`}>{ladderDirection === 'up' ? '+' : '−'}{row.percent}%</span></td><td><strong>{row.price}</strong></td><td>{ladderDirection === 'up' ? '+' : '−'}{row.percent}.00%</td><td>{row.reached ? <span className="state-pill crossed">已越过</span> : row.isNext ? <span className="state-pill next">下一档</span> : <span className="state-pill pending">尚未到达</span>}</td></tr>)}</tbody></table></div> : <div className="empty-state compact"><strong>尚未生成阶梯</strong><span>请先填写上方选择的基准价格，并检查最小价格变动单位。</span></div>}<div className="ladder-note"><span>报价单位：{fund.tickSize} 元</span><span>价格先计算，再按报价单位四舍五入。</span><span>已越过标记只用于价格定位，不构成交易信号。</span></div></section>
     <section className="snapshot-bar"><div><strong>保存今天的价格观察</strong><p>保留五个基准和当前价，便于回顾当时阶梯。每次保存都会生成一条快照。</p></div><div className="snapshot-actions"><input value={snapshotNote} onChange={(e) => setSnapshotNote(e.target.value)} placeholder="备注（可选）" aria-label="快照备注"/><button className="button primary" onClick={onSaveSnapshot}>保存价格快照</button></div></section>
     <section className="panel quick-action-panel"><div><h3>准备记一笔买入或卖出？</h3><p className="muted">成交价、份额、佣金和其他费用在交易账本中单独记录。</p></div><button className="button outline" onClick={onGoLedger}>新增交易记录 →</button></section>

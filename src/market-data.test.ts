@@ -222,6 +222,8 @@ describe('BOLL(20,2)', () => {
     expect(market.price).toBe('4.125');
     expect(market.previousClose).toBe('4.000');
     expect(market.boll?.period).toBe(20);
+    expect(market.macd).toBeDefined();
+    expect(market.macd?.daily.interval).toBe('daily');
     expect(market.weeklyBollRange).toEqual({ upper: expect.any(String), lower: expect.any(String) });
     expect(market.monthlyBollRange).toEqual({ upper: expect.any(String), lower: expect.any(String) });
     expect(market.boll?.upper).toMatch(/^\d+\.\d{3}$/);
