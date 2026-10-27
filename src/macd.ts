@@ -85,7 +85,12 @@ function isClosedLatestPeriod(
   const tradingDate = context.tradingDate;
   const last = bars.at(-1);
   if (!tradingDate || !last || intervalKey(last.date, interval) !== intervalKey(tradingDate, interval)) return true;
-  // Confirm with source Beijing time, never device time. If missing/ambiguous, fail closed.
+  // Weekly/monthly candles close with the period itself: an intraweek 15:00 stamp proves
+  // nothing about the week's close, so any bar sharing the quote's period is unconfirmed
+  // and excluded. The bar is picked up only after the quote date moves past the period.
+  if (interval !== 'daily') return false;
+  // Daily candles close at 15:00 Beijing time. Confirm with the source stamp, never device time.
+  // If missing/ambiguous, fail closed.
   const quotedDate = context.quotedAt?.match(/^(\d{4}-\d{2}-\d{2})/)?.[1];
   const timeMatch = context.quotedAt?.match(/(?:^|\s)(\d{2}):(\d{2})(?::(\d{2}))?/);
   if (quotedDate !== tradingDate || !timeMatch) return false;
