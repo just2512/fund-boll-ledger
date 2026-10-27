@@ -372,7 +372,6 @@ async function fetchIntervalCloses(code: string, market: MarketQuoteRequest['mar
   catch (eastmoneyError) {
     try { return await fetchTencentCloses(code, market, interval); }
     catch (tencentError) {
-      const intervalLabel = interval === 'daily' ? '日线' : interval === 'weekly' ? '周线' : '月线';
       throw new Error(
         `东方财富失败：${eastmoneyError instanceof Error ? eastmoneyError.message : '未知错误'}；腾讯失败：${tencentError instanceof Error ? tencentError.message : '未知错误'}。请检查网络连接。`,
       );
