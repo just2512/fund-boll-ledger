@@ -147,7 +147,7 @@ describe('manual ETF market quote refresh', () => {
     }).format(new Date(epoch * 1000));
     const buildDates = (interval: 'daily' | 'weekly' | 'monthly'): string[] => {
       let cursor = new Date(tradingDate + 'T00:00:00.000Z');
-      if (interval === 'daily') cursor.setUTCDate(cursor.getUTCDate() - 10);
+      if (interval === 'daily') cursor.setUTCDate(cursor.getUTCDate() - 69);
       if (interval === 'weekly') {
         cursor.setUTCDate(cursor.getUTCDate() - ((cursor.getUTCDay() + 6) % 7) - 7);
         cursor.setUTCDate(cursor.getUTCDate() - 59 * 7);
