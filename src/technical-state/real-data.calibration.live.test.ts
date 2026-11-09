@@ -50,5 +50,5 @@ describe('live multi-ETF BOLL historical calibration', () => {
     console.info('LIVE_TECHNICAL_CALIBRATION_JSON_BEGIN');
     console.info(JSON.stringify(report, null, 2));
     console.info('LIVE_TECHNICAL_CALIBRATION_JSON_END');
-  });
+  }, 120_000);
 });
