@@ -1,8 +1,6 @@
 import type {
   BollState,
   BollStateConfig,
-  BollBandwidthPhase,
-  BollMiddleDirection,
   BollPriceLocation,
   ConfirmedTechnicalSeries,
 } from './types';
@@ -86,7 +84,7 @@ function percentChange(current: number, previous: number | undefined): number | 
 
 function calculatePoints(series: ConfirmedTechnicalSeries): BollPoint[] {
   const points: BollPoint[] = [];
-  for ( (let index = 19; index < series.bars.length; index += 1) {
+  for (let index = 19; index < series.bars.length; index += 1) {
     const window = series.bars.slice(index - 19, index + 1);
     const mean = window.reduce((sum, bar) => sum + bar.close, 0) / 20;
     const variance = window.reduce((sum, bar) => sum + (bar.close - mean) ** 2, 0) / 20;
