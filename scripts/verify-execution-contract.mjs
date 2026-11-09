@@ -75,4 +75,28 @@ if (!currentBacktestSourceExists && ['B-01', 'B-02', 'B-03'].some((id) => matrix
 if (!currentBacktestAcceptanceWorkflowExists && matrix.requirements.find((x) => x.id === 'B-04')?.status === 'PASS') {
   throw new Error('Backtest real-data acceptance workflow is absent; B-04 cannot be PASS.');
 }
+const byId = new Map(matrix.requirements.map((item) => [item.id, item]));
+if (byId.get('B-01')?.status === 'PASS' &&
+    !(existsSync('src/backtest/market-bars.ts') && existsSync('src/backtest/market-bars.test.ts'))) {
+  throw new Error('B-01 cannot be PASS without the OHLCV parser and its tests in the current checkout.');
+}
+if (byId.get('B-02')?.status === 'PASS' &&
+    !(existsSync('src/market-data.ts') && read('src/market-data.ts').includes('fetchRawBacktestOhlcv') &&
+      existsSync('src/market-data.test.ts') && read('src/market-data.test.ts').includes('raw OHLCV backtest provider adapters'))) {
+  throw new Error('B-02 cannot be PASS without explicit provider adapters and adapter tests in the current checkout.');
+}
+if (byId.get('B-03')?.status === 'PASS' &&
+    !(existsSync('src/backtest/walk-forward.ts') && existsSync('src/backtest/walk-forward.test.ts'))) {
+  throw new Error('B-03 cannot be PASS without walk-forward implementation and tests in the current checkout.');
+}
+if (byId.get('B-04')?.status === 'PASS') {
+  const coverage = byId.get('B-04')?.providerResults;
+  if (!existsSync('src/backtest/real-data.acceptance.live.test.ts') || !currentBacktestAcceptanceWorkflowExists ||
+      coverage?.eastmoney !== 'PASS' || coverage?.baidu !== 'PASS') {
+    throw new Error('B-04 cannot be PASS until both real providers pass and their coverage is recorded.');
+  }
+}
+if (byId.get('B-04')?.status === 'BLOCKED' && !String(byId.get('B-04')?.blocker ?? '').trim()) {
+  throw new Error('BLOCKED B-04 must record its concrete blocker.');
+}
 console.log(`Execution contract verified: ${matrix.requirements.length} requirements, ${[...matrix.requirements].filter((x) => x.status === 'PASS').length} evidence-backed PASS, remaining work retained.`);
