@@ -408,3 +408,39 @@ UI 验收至少覆盖桌面、Android 窄屏、OPPO Find N2 外屏和展开内�
 | MACD EMA 历史起点敏感性 | MEASURED / NOT_FROZEN | 160 根是样本候选；历史不足时的信号语义未冻结 |
 | BOLL 阈值正式选择 | NOT_PERFORMED | 仍缺滚动样本外策略验证与参数冻结 |
 | 现有价格对比 UI 改造 | NOT_STARTED | 以上未冻结事项完成前不启动 |
+
+## 16. 2026-11-09 最新主线 CI 与下一阶段门槛复核
+
+### 最新 CI 状态
+
+- 当前 main：`bfb54447c03250647269cfd96847252394dba1b8`。
+- 主线 Frontend Checks：Run [42601345368](https://github.com/just2512/fund-boll-ledger/actions/runs/42601345368)，`completed/success`。
+  - Unit tests and production build：`success`。
+  - Browser end-to-end regression：`success`。
+- 三个定向功能分支仍保留各自最新成功证据：
+  - BOLL：Run [42540590279](https://github.com/just2512/fund-boll-ledger/actions/runs/42540590279)，head `8ae026d4dafcb8a843dc88cb90a46913bcdc7f94`。
+  - MACD：Run [42540765988](https://github.com/just2512/fund-boll-ledger/actions/runs/42540765988)，head `f401b0600d2ada6cea7c17be82049b234ec09fa6`。
+  - History replay：Run [42540768339](https://github.com/just2512/fund-boll-ledger/actions/runs/42540768339)，head `205fd479e382d9c71671e8c403b79bd75353ea65`。
+- 上述三个分支均已落后于当前 main；它们是定向 CI 修复与历史交付证据，不是应重新合并的代码基线。不得为追求“分支合并”而用旧代码覆盖 main。
+
+### 下一阶段技术边界
+
+1. **计算与重放集成已完成。** 当前 main 的 BOLL/MACD 联合计算、确认序列规范化、逐根历史重放、批量与逐根结果核对均已有代码与 CI/真实数据证据。不得重复把增加测试数量当成尚未完成的集成工作。
+2. **MACD 数值可计算与交叉信号稳定性必须分开。** 当前 MACD(12,26,9) 使用首个输入值作为 EMA seed，35 根是现有最低输出门槛；滚动敏感性研究中，35/50/75/100 根候选分别出现 428/165/21/3 个分类不一致日期，160 根候选在 1,313 个可比较日期未观察到分类不一致。160 根仍只是本次样本候选，不是已批准的生产门槛。不得在没有冻结规则前把 35 根输出包装成已验证稳定的交叉信号，也不得擅自把不足 160 根改为 UNKNOWN 或 INSUFFICIENT。
+3. **BOLL 状态参数研究不等于策略参数选择。** 现有单因素敏感性只说明标签对配置的敏感程度；事件审计的触发收盘至确认收盘变化也不是策略收益。正式参数选择仍需明确交易状态机、成交时点、退出规则、仓位/资金约束、费用和滑点，再做滚动样本外验证。
+4. **UI 硬门槛不变。** MACD 历史不足语义、信号有效性门槛、BOLL 参数选择与策略回测契约未完成前，现有价格对比模块保持 `NOT_STARTED`；不得提前修改布局、展示或交易判断。
+5. **下一步实施顺序：** 先形成 MACD 信号有效性与历史预热的可审计决策矩阵；并行完善策略回测输入/输出契约与未定义项清单；取得额外历史区间和独立数据源的验证证据；随后完成滚动样本外验证。只有上述条件有可复核的 PASS 证据后，才解除价格对比 UI 门禁。
+
+### 当前总状态
+
+| 验收项 | 状态 |
+|---|---|
+| 三个功能分支定向 CI | PASS |
+| main 计算核心与历史逐根重放 | PASS |
+| 最新 main 单测、生产构建、浏览器 E2E | PASS |
+| 四 ETF × 日/周/月真实行情逐根校准 | PASS（现有 12 组样本） |
+| MACD EMA 历史起点稳定门槛 | MEASURED / NOT_FROZEN |
+| 历史不足时 MACD 信号语义 | NOT_FROZEN |
+| BOLL 正式参数选择 | NOT_PERFORMED |
+| 策略交易/资金/成本规则 | NOT_FROZEN |
+| 现有价格对比 UI 改造 | NOT_STARTED |
