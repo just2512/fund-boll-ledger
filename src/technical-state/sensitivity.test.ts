@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { analyzeBollConfigSensitivity, buildBollSensitivityCandidates } from './sensitivity';
 import type { ConfirmedTechnicalSeries, TechnicalBar } from './types';
 
-function makeSeries(count = 120): ConfirmedTechnicalSeries {
+function makeSeries(count = 320): ConfirmedTechnicalSeries {
   const bars: TechnicalBar[] = Array.from({ length: count }, (_, index) => ({
     date: new Date(Date.UTC(2025, 0, 1 + index)).toISOString().slice(0, 10),
     close: 3 + index * 0.002 + Math.sin(index / 5) * 0.08 + Math.sin(index / 17) * 0.12,
