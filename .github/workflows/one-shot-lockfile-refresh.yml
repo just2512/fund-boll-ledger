@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - package.json
+      - .github/workflows/one-shot-lockfile-refresh.yml
 
 permissions:
   contents: write
@@ -19,8 +20,11 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/setup-node@v4
         with:
-          node-version: 22.12.0
-          cache: npm
+          node-version: 22.23.4
+      - name: Use npm with fixed Arborist peer resolution
+        run: |
+          npm install --global npm@11.6.0
+          npm --version
       - name: Regenerate lockfile from manifest
         run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
       - name: Verify patched Vitest dependency tree
