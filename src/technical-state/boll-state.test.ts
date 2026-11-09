@@ -23,15 +23,21 @@ function series(closes: number[]): ConfirmedTechnicalSeries {
 
 describe('calculateBollState', () => {
   it('calculates BOLL(20,2) from confirmed closes using population standard deviation', () => {
-    const input = series(Array.from({ length: 20 }, (_, index) => index + 1));
+    const input = series(Array.from({ length: 20 }, (_, index) => index + 21));
     const state = calculateBollState(input, config);
-    const mean = 10.5;
+    const mean = 30.5;
     const variance = Array.from({ length: 20 }, (_, index) => (index + 1 - mean) ** 2).reduce((a, b) => a + b, 0) / 20;
     const deviation = Math.sqrt(variance);
     expect(state.validity).toBe('VALID');
     expect(state.middle).toBeCloseTo(mean, 12);
     expect(state.upper).toBeCloseTo(mean + 2 * deviation, 12);
     expect(state.lower).toBeCloseTo(mean - 2 * deviation, 12);
+  });
+
+  it('rejects a non-positive lower band instead of emitting an invalid price range', () => {
+    const state = calculateBollState(series(Array.from({ length: 20 }, (_, index) => index + 1)), config);
+    expect(state.validity).toBe('INVALID');
+    expect(state.reason).toContain('下轨');
   });
 
   it('does not emit a bandwidth percentile before the configured minimum sample count', () => {
@@ -87,7 +93,8 @@ describe('calculateBollState', () => {
     const closes = Array.from({ length: 92 }, (_, index) => {
       if (index < 90) return 20 - index * 0.05;
       if (index === 90) return 18;
-      return 18.1;
+      if (index === 91) return 18.1;
+      return 18.2;
     });
     const state = calculateBollState(series(closes), config);
     expect(state.validity).toBe('VALID');
