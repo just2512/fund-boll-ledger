@@ -274,7 +274,7 @@ describe('BOLL(20,2)', () => {
     expect(market.technicalState?.daily.quoteSource).toBe('东方财富');
     expect(market.technicalState?.weekly.source).toBe('百度行情');
     expect(market.technicalState?.monthly.source).toBe('百度行情');
-    expect(market.boll?.middle).toMatch(/^\\d+\\.\\d{3}$/);
+    expect(market.boll?.middle).toMatch(/^\d+\.\d{3}$/);
     expect(market.weeklyBollRange).toEqual({ upper: expect.any(String), lower: expect.any(String) });
     expect(market.monthlyBollRange).toEqual({ upper: expect.any(String), lower: expect.any(String) });
     const baiduCall = fetchMock.mock.calls.find(([input]) => String(input).includes('finance.pae.baidu.com'));
