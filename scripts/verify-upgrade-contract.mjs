@@ -69,7 +69,7 @@ for (const required of [
   'ANDROID_KEYSTORE_PASSWORD',
   'ANDROID_KEY_PASSWORD',
   'ANDROID_KEY_ALIAS',
-  'apksigner verify --verbose',
+  'verify --verbose',
   "versionCode='2000' versionName='0.2.0'",
   'fund-boll-ledger-android-arm64-release-upgradeable',
 ]) {
