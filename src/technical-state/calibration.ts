@@ -22,6 +22,16 @@ export interface BollCalibrationMetricSet {
   closeLocationPercent: DistributionSummary;
 }
 
+export interface InvalidBandDiagnostic {
+  date: string;
+  windowStartDate: string;
+  windowEndDate: string;
+  middle: number;
+  standardDeviation: number;
+  lower: number;
+  closes: number[];
+}
+
 export interface BollCalibrationReport {
   interval: TechnicalInterval;
   historyStartDate: string;
@@ -31,6 +41,7 @@ export interface BollCalibrationReport {
   invalidBandPointCount: number;
   /** Confirmed-bar dates whose BOLL lower band is non-positive or whose bands are invalid. */
   invalidBandDates: string[];
+  invalidBandDiagnostics: InvalidBandDiagnostic[];
   metrics: BollCalibrationMetricSet;
 }
 
@@ -80,10 +91,12 @@ function calculateBollPoints(series: ConfirmedTechnicalSeries): {
   points: Array<BollPoint | undefined>;
   invalidCount: number;
   invalidDates: string[];
+  invalidDiagnostics: InvalidBandDiagnostic[];
 } {
   const points: Array<BollPoint | undefined> = Array.from({ length: series.bars.length }, () => undefined);
   let invalidCount = 0;
   const invalidDates: string[] = [];
+  const invalidDiagnostics: InvalidBandDiagnostic[] = [];
   for (let index = 19; index < series.bars.length; index += 1) {
     const window = series.bars.slice(index - 19, index + 1);
     const middle = window.reduce((sum, bar) => sum + bar.close, 0) / 20;
@@ -95,6 +108,15 @@ function calculateBollPoints(series: ConfirmedTechnicalSeries): {
     if (![middle, upper, lower, bandwidthPercent].every(Number.isFinite) || middle <= 0 || lower <= 0 || upper < lower) {
       invalidCount += 1;
       invalidDates.push(series.bars[index].date);
+      invalidDiagnostics.push({
+        date: series.bars[index].date,
+        windowStartDate: window[0].date,
+        windowEndDate: window[window.length - 1].date,
+        middle,
+        standardDeviation: deviation,
+        lower,
+        closes: window.map((bar) => bar.close),
+      });
       continue;
     }
     const width = upper - lower;
@@ -107,7 +129,7 @@ function calculateBollPoints(series: ConfirmedTechnicalSeries): {
       ...(closeLocationPercent === undefined || !Number.isFinite(closeLocationPercent) ? {} : { closeLocationPercent }),
     };
   }
-  return { points, invalidCount, invalidDates };
+  return { points, invalidCount, invalidDates, invalidDiagnostics };
 }
 
 function percentChange(current: number | undefined, previous: number | undefined): number | undefined {
@@ -125,7 +147,7 @@ export function calibrateBollHistory(series: ConfirmedTechnicalSeries): BollCali
   if (series.asOfDate !== series.bars[series.bars.length - 1]?.date) {
     throw new Error('asOfDate 与最后一根确认 K 线日期不一致');
   }
-  const { points, invalidCount, invalidDates } = calculateBollPoints(series);
+  const { points, invalidCount, invalidDates, invalidDiagnostics } = calculateBollPoints(series);
   const bandwidth = points.map((point) => point?.bandwidthPercent);
   const closeLocation = points.map((point) => point?.closeLocationPercent);
   const bandwidthChanges = (lookback: number) => points.flatMap((point, index) => {
@@ -150,6 +172,7 @@ export function calibrateBollHistory(series: ConfirmedTechnicalSeries): BollCali
     bollPointCount: validPoints.length,
     invalidBandPointCount: invalidCount,
     invalidBandDates: invalidDates,
+    invalidBandDiagnostics: invalidDiagnostics,
     metrics: {
       bandwidthPercent: required(bandwidth, '带宽'),
       bandwidthChangePercent: {
