@@ -285,3 +285,60 @@ UI 验收至少覆盖桌面、Android 窄屏、OPPO Find N2 外屏和展开内�
 - UI：`NOT_STARTED`。
 
 下一步：以共享契约冻结后的最新 `main` SHA 为共同基线创建三个分支：`feat/boll-state-engine`、`feat/macd-state-audit`、`test/technical-history-replay`。各分支只修改自身责任范围，并通过已启用的分支 CI。
+
+
+## 13. 2026-11-09 三分支 CI 修复与主线集成复核
+
+### 三个功能分支 CI
+
+| 分支 | 最新提交 | 最新定向 CI | 状态 |
+|---|---|---|---|
+| `feat/boll-state-engine` | `8ae026d4dafcb8a843dc88cb90a46913bcdc7f94` | Run `42540590279` | PASS |
+| `feat/macd-state-audit` | `f401b0600d2ada6cea7c17be82049b234ec09fa6` | Run `42540765988` | PASS |
+| `test/technical-history-replay` | `205fd479e382d9c71671e8c403b79bd75353ea65` | Run `42540768339` | PASS |
+
+早期失败日志保留。BOLL 失败来自计算样本与测试期望/连续确认条件不匹配；MACD 失败来自周线收盘边界、历史日期夹具和确认序列输入问题。修正后的分支 CI 均通过。历史重放分支最新 CI 通过。不得将早期失败记录删除或改写为从未发生。
+
+三个分支不是当前应直接合并的代码基线：它们相对最新 main 已明显落后，且主线同路径文件已存在更新版本。复核后确认 main 已包含并继续演进 BOLL、MACD、规范化、历史重放和联合计算核心；因此保留分支作为历史交付证据，不用旧分支覆盖主线。
+
+### main 集成与回归
+
+- 当前集成提交：`4f69dbc3a6a2e5715d478762a3787a142d31a754`。
+- Frontend Checks Run `42594333062`：单元测试 105 passed、2 skipped；TypeScript 类型检查与 Vite 生产构建 PASS；Playwright 浏览器 E2E 42 passed；workflow success。
+- 主线已具备 `calculateTechnicalStateSnapshot`、`normalizeConfirmedTechnicalSeries`、`replayConfirmedTechnicalSeries`、`compareBatchWithReplay`、`auditConfirmedBollMacdSeries`。BOLL/MACD 消费同一份确认收盘前缀；历史重放逐根推进；批量与逐根末项比较；来源和覆盖范围保留。
+- 新增 `describeTechnicalStateSnapshot`，描述只读取 BOLL/MACD 结构化字段，明确输出未知项和原因，不合成买卖方向。对应单元测试已进入 105 项通过结果。
+- `src/App.tsx` 尚未接入该联合计算描述；现有价格对比 UI 未进行本轮改造。
+
+### 真实行情与历史重放证据
+
+- Run `42590159663`（提交 `8de45c61b67e64be51e174600d4c337fae545f24`）真实数据验收与四 ETF 校准成功；该次验收使用的 BOLL、MACD、规范化、重放和联合引擎源码 SHA 与当前 main 相同。
+- 510300 日/周/月真实行情逐根重放通过；四只 ETF（510300、510500、159915、512100）日/周/月共 12 组真实校准通过。12 组均满足 `noFutureBars=true`，逐根结果与同起点批量结果一致。
+- 事件审计共 101 个 setup：94 confirmed、3 invalidated、4 pending。pending 不是成交；触发收盘至确认收盘变化不是策略收益；不代表完成全上市历史回测。
+- BOLL 正式阈值仍为 `thresholdSelection: NOT_PERFORMED`，不得把候选参数固化为正式配置。
+
+### 最新真实数据重试的阻塞
+
+- 新增状态描述后触发的实时校准 Run `42594333073`：510300 单标的真实验收 PASS；四 ETF 校准步骤因 510500 日线缺少可信源端交易日期而 FAIL。
+- 重试日志明确为“缺少有效的源端交易日期，无法确认最新 K 线收盘状态”。这是行情源数据完整性问题；规范化器按契约 fail closed 是正确行为。不得伪造交易日期、把盘中 K 线纳入确认序列或跳过该标的来制造绿色结果。
+- 因此，已有成功真实验收证据保留；本次重试对 510500 日线当前覆盖标记为 BLOCKED（可信源端交易日期缺失），待数据源恢复后重新验收。
+
+### 当前硬状态
+
+| 项目 | 状态 | 依据/限制 |
+|---|---|---|
+| 三个分支定向 CI | PASS | 三个分支最新 run 均成功 |
+| BOLL/MACD 计算核心进入 main | PASS | 当前 main 源码与主线回归 |
+| 历史规范化与逐根重放 | PASS | 单测、真实历史验收和无未来数据断言 |
+| 联合状态结构化输出 | PASS | `engine.ts` 与事件审计 |
+| 可追溯文字描述函数 | PASS | `describeTechnicalStateSnapshot` 与单测 |
+| main 单测/构建/浏览器 E2E | PASS | Run `42594333062` |
+| 四 ETF 最新一次实时校准 | BLOCKED | Run `42594333073` 的 510500 日线缺少可信交易日期 |
+| BOLL 阈值正式选择 | NOT_PERFORMED | 未取得足以冻结阈值的样本外依据 |
+| 现有价格对比 UI 改造 | NOT_STARTED | 未满足全部 UI 前置验收条件 |
+
+### 下一步顺序
+
+1. 保持三个分支 CI 的 PASS 证据；不把落后分支旧代码重新合入 main。
+2. 保留行情源缺少可信日期的失败记录，数据恢复后重跑四 ETF × 日/周/月校准。
+3. 继续核对 BOLL 参数敏感性和样本外稳定性；在没有证据前保持阈值未选定，状态描述必须继续显示 UNKNOWN。
+4. 完成所有计算与真实数据门槛后，再开始现有“当前价格对比”模块 UI 改造。此前不得改动该模块布局或展示逻辑。
