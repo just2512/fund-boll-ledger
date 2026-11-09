@@ -37,16 +37,19 @@ test('当前价格对比模块可整体收起、展开并保留本地选择', as
   await createFund(page);
   // 基金档案先落盘：IndexedDB 写入是 350ms 防抖 + 异步事务，toast 出现不等于数据已保存。
   await expect(page.locator('.save-state.saved')).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByText('MACD 多空判断')).toBeVisible();
+  await expect(page.getByText('MACD 状态描述')).toBeVisible();
+  await expect(page.getByText('描述性数据')).toBeVisible();
+  await expect(page.getByText(/不构成买卖建议/)).toBeVisible();
+  await expect(page.getByText('刷新行情后获取已确认历史数据').first()).toBeVisible();
   await page.getByRole('button', { name: '收起内容' }).click();
-  await expect(page.getByText('MACD 多空判断')).toHaveCount(0);
+  await expect(page.getByText('MACD 状态描述')).toHaveCount(0);
   await expect(page.locator('.comparison-card')).toHaveCount(0);
   await expect(page.getByRole('button', { name: '展开内容' })).toBeVisible();
   await page.reload();
   await expect(page.locator('.save-state.saved')).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByText('MACD 多空判断')).toHaveCount(0);
+  await expect(page.getByText('MACD 状态描述')).toHaveCount(0);
   await page.getByRole('button', { name: '展开内容' }).click();
-  await expect(page.getByText('MACD 多空判断')).toBeVisible();
+  await expect(page.getByText('MACD 状态描述')).toBeVisible();
   await expect(page.locator('.comparison-card', { hasText: '日 BOLL 区间位置' })).toBeVisible();
 });
 
