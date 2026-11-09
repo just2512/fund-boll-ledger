@@ -41,7 +41,7 @@ describe('backup validation', () => {
     expect(result.valid).toBe(false);
     if (!result.valid) {
       expect(result.errors.join(' ')).toMatch(/交易市场值无效/);
-      expect(result.errors.join(' ')).toMatch(/价格必须为空或大于零/);
+      expect(result.errors.join(' ')).toMatch(/必须为空或大于零的有效价格/);
       expect(result.errors.join(' ')).toMatch(/创建\/更新时间无效/);
     }
   });
