@@ -237,39 +237,54 @@ describe('BOLL(20,2)', () => {
     expect(market.weeklyBollRange).toBeDefined();
     expect(market.monthlyBollRange).toBeDefined();
   });
-  it('preserves a valid quote and falls back to Tencent klines when all Eastmoney BOLL periods fail', async () => {
-    const tencentKline = (period: 'day' | 'week' | 'month') => {
-      // Reuse the shared 20-bar fixture so BOLL(20,2) sees well-formed period dates; the last bar merges the live price.
-      const interval = period === 'day' ? 'daily' : period === 'week' ? 'weekly' : 'monthly';
-      const bars = intervalCloses(interval).map((line) => { const [date, close] = line.split(','); return [date, close, close, close, close, '1000']; });
-      return JSON.stringify({ code: 0, msg: '', data: { sh510300: { [period]: bars } } });
-    };
-    const fetchMock = vi.fn<typeof fetch>()
-      .mockResolvedValueOnce(eastmoneyResponse({ code: '510300', f57: '510300', f58: '沪深300ETF', f43: '4.125', f60: '4.000', f86: marketTime() }))
-      .mockResolvedValueOnce(new Response('', { status: 503 }))
-      .mockResolvedValueOnce(new Response('', { status: 503 }))
-      .mockResolvedValueOnce(new Response('', { status: 503 }))
-      // Concurrent fallbacks consume this implementation repeatedly (3 Tencent calls), so it must be unlimited.
-      .mockImplementation(async (input: RequestInfo | URL) => {
-        const url = decodeURIComponent(String(input));
-        const period = url.includes(',day,') ? 'day' : url.includes(',week,') ? 'week' : 'month';
-        return new Response(tencentKline(period as 'day' | 'week' | 'month'), { status: 200 });
+  it('preserves the Eastmoney quote and falls back to Baidu K lines when Eastmoney history fails', async () => {
+    const baiduKline = (interval: 'daily' | 'weekly' | 'monthly') => {
+      const rows = intervalCloses(interval).map((line) => {
+        const [date, close] = line.split(',');
+        return [date, close, close, close, close, '1000', '1000'].join(',');
       });
+      return new Response(JSON.stringify({
+        ResultCode: 0,
+        Result: {
+          newMarketData: {
+            keys: ['time', 'open', 'close', 'high', 'low', 'volume', 'amount'],
+            marketData: rows.join(';'),
+          },
+        },
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    };
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('push2.eastmoney.com/api/qt/stock/get?')) {
+        return eastmoneyResponse({ f57: '510300', f58: '沪深300ETF', f43: '4.125', f60: '4.000', f86: marketTime() });
+      }
+      if (url.includes('push2his.eastmoney.com')) return new Response('', { status: 503 });
+      if (url.includes('finance.pae.baidu.com/selfselect/getstockquotation')) {
+        const eprop = new URL(url).searchParams.get('eprop');
+        const interval = eprop === 'weekK' ? 'weekly' : eprop === 'monthK' ? 'monthly' : 'daily';
+        return baiduKline(interval);
+      }
+      return new Response('', { status: 404 });
+    });
     vi.stubGlobal('fetch', fetchMock);
     const market = await fetchLatestMarketData({ code: '510300', market: '沪市' });
-    // 1 quote + 3 Eastmoney klines (all 503) + 3 Tencent fallbacks = 7 fetches.
     expect(fetchMock).toHaveBeenCalledTimes(7);
     expect(market.price).toBe('4.125');
-    expect(market.technicalState?.daily.source).toBe('腾讯行情');
+    expect(market.technicalState?.daily.source).toBe('百度行情');
     expect(market.technicalState?.daily.quoteSource).toBe('东方财富');
-    expect(market.technicalState?.weekly.source).toBe('腾讯行情');
-    // All three intervals must recover from the Tencent fallback.
-    // Exact band values are covered by calculateBollBands unit tests; here we assert the fallback produced real three-decimal bands.
-    expect(market.boll?.middle).toMatch(/^\d+\.\d{3}$/);
+    expect(market.technicalState?.weekly.source).toBe('百度行情');
+    expect(market.technicalState?.monthly.source).toBe('百度行情');
+    expect(market.boll?.middle).toMatch(/^\\d+\\.\\d{3}$/);
     expect(market.weeklyBollRange).toEqual({ upper: expect.any(String), lower: expect.any(String) });
     expect(market.monthlyBollRange).toEqual({ upper: expect.any(String), lower: expect.any(String) });
+    const baiduCall = fetchMock.mock.calls.find(([input]) => String(input).includes('finance.pae.baidu.com'));
+    expect(baiduCall).toBeDefined();
+    expect(baiduCall?.[1]?.headers).toMatchObject({
+      Accept: 'application/vnd.finance-web.v1+json',
+      Referer: 'https://gushitong.baidu.com/',
+    });
   });
-  it('reports a dual-source error message when both Eastmoney and Tencent klines fail', async () => {
+  it('fails closed when both Eastmoney and Baidu K-line sources are unavailable', async () => {
     const fetchMock = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(eastmoneyResponse({ code: '510300', f57: '510300', f58: '沪深300ETF', f43: '4.125', f60: '4.000', f86: marketTime() }))
       .mockResolvedValue(new Response('', { status: 503 }));
@@ -279,13 +294,13 @@ describe('BOLL(20,2)', () => {
     expect(market.boll).toBeUndefined();
     expect(market.weeklyBollRange).toBeUndefined();
     expect(market.monthlyBollRange).toBeUndefined();
-    // The error names both sources so the user can tell this is a network-level outage, not a parsing bug.
     expect(market.bollError).toContain('东方财富失败');
-    expect(market.bollError).toContain('腾讯失败');
-    expect(market.weeklyBollRangeError).toContain('腾讯失败');
-    expect(market.monthlyBollRangeError).toContain('腾讯失败');
+    expect(market.bollError).toContain('百度失败');
+    expect(market.weeklyBollRangeError).toContain('百度失败');
+    expect(market.monthlyBollRangeError).toContain('百度失败');
     expect(market.technicalState?.daily.validity).toBe('INVALID');
     expect(market.technicalState?.daily.reason).toContain('东方财富失败');
+    expect(market.technicalState?.daily.reason).toContain('百度失败');
     expect(market.technicalState?.daily.quoteSource).toBe('东方财富');
   });
 });
