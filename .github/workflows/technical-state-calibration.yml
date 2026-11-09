@@ -26,6 +26,7 @@ on:
       - 'scripts/run-live-technical-acceptance.mjs'
       - 'scripts/run-live-technical-calibration.mjs'
       - 'package.json'
+      - 'package-lock.json'
       - '.github/workflows/technical-state-calibration.yml'
   workflow_dispatch:
 
