@@ -1,4 +1,6 @@
 import { calculateBollState } from './boll-state';
+import { summarizeDistribution } from './calibration';
+import type { DistributionSummary } from './calibration';
 import { hasNoFutureBars, replayConfirmedTechnicalSeries } from './history-replay';
 import type { BollState, BollStateConfig, ConfirmedTechnicalSeries, TechnicalInterval } from './types';
 
@@ -22,13 +24,17 @@ export interface BollSensitivityCandidateResult {
   bandwidthPhaseTransitionCount: number;
   middleDirectionTransitionCount: number;
   priceLocationTransitionCount: number;
+  bandwidthPercentileSampleCount: number;
+  bandwidthPercentileDistribution?: DistributionSummary;
 }
 
 export interface BollSensitivityPairComparison {
   leftCandidateId: string;
   rightCandidateId: string;
   comparableDates: number;
-  identicalStateDates: number;
+  identicalCategoricalStateDates: number;
+  bandwidthPercentileComparableDates: number;
+  bandwidthPercentileMeanAbsoluteDifference?: number;
 }
 
 export interface BollSensitivityReport {
@@ -69,6 +75,7 @@ function summarizeCandidate(
   let bandwidthPhaseTransitionCount = 0;
   let middleDirectionTransitionCount = 0;
   let priceLocationTransitionCount = 0;
+  const bandwidthPercentiles: number[] = [];
   let previous: BollState | undefined;
 
   for (const entry of replay) {
@@ -78,6 +85,9 @@ function summarizeCandidate(
     increment(bandwidthPhaseCounts, state.bandwidthPhase);
     increment(middleDirectionCounts, state.middleDirection);
     increment(priceLocationCounts, state.priceLocation);
+    if (state.validity === 'VALID' && state.bandwidthPercentile !== undefined) {
+      bandwidthPercentiles.push(state.bandwidthPercentile);
+    }
 
     if (state.validity === 'VALID') {
       firstValidDate ??= entry.asOfDate;
@@ -108,6 +118,8 @@ function summarizeCandidate(
       bandwidthPhaseTransitionCount,
       middleDirectionTransitionCount,
       priceLocationTransitionCount,
+      bandwidthPercentileSampleCount: bandwidthPercentiles.length,
+      ...(bandwidthPercentiles.length ? { bandwidthPercentileDistribution: summarizeDistribution(bandwidthPercentiles) } : {}),
     },
     statesByDate,
   };
@@ -138,7 +150,9 @@ export function analyzeBollConfigSensitivity(
   for (let left = 0; left < evaluated.length; left += 1) {
     for (let right = left + 1; right < evaluated.length; right += 1) {
       let comparableDates = 0;
-      let identicalStateDates = 0;
+      let identicalCategoricalStateDates = 0;
+      let bandwidthPercentileComparableDates = 0;
+      let absolutePercentileDifferenceTotal = 0;
       for (const [date, leftState] of evaluated[left].statesByDate) {
         const rightState = evaluated[right].statesByDate.get(date);
         if (!rightState || leftState.validity !== 'VALID' || rightState.validity !== 'VALID') continue;
