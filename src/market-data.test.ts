@@ -296,7 +296,7 @@ describe('BOLL(20,2)', () => {
     expect(market.macd?.daily.interval).toBe('daily');
     expect(market.technicalState?.daily.source).toBe('东方财富');
     expect(market.technicalState?.daily.quoteSource).toBe('东方财富');
-    expect(market.technicalState?.daily.boll.asOfDate).toBe(market.technicalState?.daily.macd.asOfDate);
+    expect(market.technicalState?.daily.boll.asOfDate).toBe(market.technicalState?.daily.asOfDate);
     expect(market.technicalState?.daily.confirmedBarCount).toBeGreaterThanOrEqual(20);
     expect(market.technicalState?.daily.historyStartDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(market.technicalState?.weekly.boll.validity).toBe('INSUFFICIENT');
