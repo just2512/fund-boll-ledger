@@ -112,6 +112,29 @@ describe('normalizeConfirmedTechnicalSeries', () => {
     expect(result.validity).toBe('VALID');
     if (result.validity === 'VALID') expect(result.series.asOfDate).toBe(bars[39].date);
   });
+  it('excludes the in-progress monthly candle until the quote moves into the next month', () => {
+    const bars = Array.from({ length: 20 }, (_, index) => {
+      const date = new Date(Date.UTC(2025, index, 1));
+      return { date: date.toISOString().slice(0, 10), close: 10 + index / 100 };
+    });
+    const currentMonthDate = '2026-08-15';
+    const inMonth = normalizeConfirmedTechnicalSeries({
+      interval: 'monthly', bars,
+      quote: { tradingDate: currentMonthDate, quotedAt: currentMonthDate + ' 15:00:00（北京时间）' },
+    });
+    const nextMonth = normalizeConfirmedTechnicalSeries({
+      interval: 'monthly', bars,
+      quote: { tradingDate: '2026-09-01' },
+    });
+    expect(inMonth.validity).toBe('VALID');
+    expect(nextMonth.validity).toBe('VALID');
+    if (inMonth.validity === 'VALID' && nextMonth.validity === 'VALID') {
+      expect(inMonth.series.asOfDate).toBe(bars[18].date);
+      expect(inMonth.series.excludedInProgressBar).toBe(true);
+      expect(nextMonth.series.asOfDate).toBe(bars[19].date);
+    }
+  });
+
 });
 
 describe('confirmed history replay', () => {
