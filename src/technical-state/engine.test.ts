@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculateTechnicalStateSnapshot } from './engine';
+import { calculateTechnicalStateSnapshot, describeTechnicalStateSnapshot } from './engine';
 import { compareBatchWithReplay, hasNoFutureBars, replayConfirmedTechnicalSeries } from './history-replay';
 import type { ConfirmedTechnicalSeries, TechnicalBar } from './types';
 
