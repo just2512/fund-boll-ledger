@@ -632,3 +632,23 @@ B 线未完成前，禁止将事件审计中的触发价至确认价变化解释
 3. B 线复用 A 线已验证的 BOLL/MACD 确认事件定义，但交易执行层保持独立。
 4. A/B 的代码只在验收通过后按依赖选择性集成；不整体合并陈旧分支，也不为制造并行而重复复制核心指标实现。
 5. B 线的交易决策项没有用户明确值时继续标记 MISSING；基础设施 PASS 不等于策略收益 PASS。
+
+
+## 23. 2026-11-09 当前分支与历史 B 线代码核对（执行治理补记）
+
+本节优先于第 22 节中对 B 线“已新增代码”的历史性描述，用于记录当前仓库 HEAD 的真实状态；不删除第 22 节历史记录。
+
+- 当前 main 在执行治理提交前的 HEAD 为 `8bdb64a85f4dec5360400315915960791589566d`；当前 B 分支 `feat/track-b-strategy-backtest` 也指向该提交。该提交树中不存在 `src/backtest/`、`scripts/run-live-backtest-data-acceptance.mjs` 和 `.github/workflows/backtest-data-acceptance.yml`。
+- 上述 B 线文件存在于历史提交 `374849fd632dc8b0ad47fb0ea252b297f9aa84e8`，但该历史提交与当前 HEAD 的比较结果为 diverged（当前比较为 ahead 2 / behind 76），不能整体合并；必须逐文件审计依赖并选择性恢复。
+- 历史 B 线真实 OHLCV 工作流 Run [42632718027](https://github.com/just2512/fund-boll-ledger/actions/runs/42632718027) 曾通过；随后 Run [42633127195](https://github.com/just2512/fund-boll-ledger/actions/runs/42633127195) 的东方财富数据用例通过，但百度直连与 CDN 代理均超时，整项验收失败。不能用前一次成功覆盖后一次失败，也不能反复重跑掩盖数据源可用性问题。
+- 因此，当前需求台账将 B-01 至 B-04 从历史 PASS 纠正为 MISSING：历史提交/CI 记录保留为 historicalEvidence，但当前分支不存在对应实现，不能计入当前交付。
+- B-05（百度复权口径）和 B-06（成交量单位）继续 UNKNOWN；B-07 至 B-16 按各自状态保留，不得自行补入策略参数。
+- 恢复顺序：先对历史 B 线逐文件审计并确认依赖，再从当前 main 建立新的短生命周期恢复分支；只选择性恢复经审计的实现和测试，补上执行契约检查；随后运行静态测试、类型检查、构建及真实数据验收。百度网络超时须作为真实阻塞记录，不得把失败用例改为 skip 或降低断言。
+- 在 B 线策略契约未由用户明确冻结前，不运行正式策略收益回测，不展示收益、最大资金占用或交易建议。
+
+### 本次执行治理文件
+
+- [执行契约](EXECUTION_CONTRACT.md)
+- [机器可检查需求验收台账](TECHNICAL_STATE_REQUIREMENTS.json)
+- `scripts/verify-execution-contract.mjs`，已接入前端 CI 与技术真实数据验收 CI。
+- 本次治理提交只证明执行规则检查接入 CI，不代表 B 线功能恢复或策略验收完成。
