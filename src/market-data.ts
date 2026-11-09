@@ -343,7 +343,7 @@ async function fetchEastmoneyCloses(code: string, market: MarketQuoteRequest['ma
     secid, fields1: 'f1,f2,f3,f4,f5,f6', fields2: 'f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61',
     ut: 'fa5fd1943c7b386f172d6893dbbd1d0c',
     klt: interval === 'daily' ? '101' : interval === 'weekly' ? '102' : '103',
-    fqt: '0', end: '20500101', lmt: '320', _: String(Date.now()),
+    fqt: '0', end: '20500101', lmt: '1000', _: String(Date.now()),
   });
   const raw = await requestText('https://push2his.eastmoney.com/api/qt/stock/kline/get?' + params.toString());
   let payload: unknown;
@@ -431,7 +431,7 @@ async function fetchBaiduCloses(code: string, interval: BollInterval): Promise<D
     }];
   });
   if (bars.length === 0) throw new Error('百度行情未返回可用的历史 K 线');
-  return bars.slice(-320);
+  return bars;
 }
 
  
