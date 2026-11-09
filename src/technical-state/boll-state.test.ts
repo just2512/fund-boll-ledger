@@ -83,4 +83,15 @@ describe('calculateBollState', () => {
     });
     expect(state.validity).toBe('INVALID');
   });
+  it('recognizes a confirmed middle-band turn without relying on the live quote', () => {
+    const closes = Array.from({ length: 92 }, (_, index) => {
+      if (index < 90) return 20 - index * 0.05;
+      if (index === 90) return 18;
+      return 18.1;
+    });
+    const state = calculateBollState(series(closes), config);
+    expect(state.validity).toBe('VALID');
+    expect(state.middleDirection).toBe('turning-up');
+  });
+
 });
