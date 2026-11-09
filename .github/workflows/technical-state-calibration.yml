@@ -1,0 +1,51 @@
+name: Multi-ETF Technical State Calibration
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/technical-state/calibration.ts'
+      - 'src/technical-state/calibration.test.ts'
+      - 'src/technical-state/real-data.calibration.live.test.ts'
+      - 'scripts/run-live-technical-calibration.mjs'
+      - '.github/workflows/technical-state-calibration.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  calibration:
+    name: Fetch real ETF history and summarize BOLL distributions
+    runs-on: [self-hosted, Linux, X64, wsl]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Linux toolchain
+        shell: bash
+        run: |
+          set -e
+          export PATH="/usr/bin:$PATH"
+          echo "/usr/bin" >> "$GITHUB_PATH"
+          command -v node
+          command -v npm
+          node --version
+          npm --version
+          case "$(command -v npm)" in
+            /mnt/c/*) echo "Windows npm leaked into WSL PATH"; exit 1 ;;
+          esac
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Run live multi-ETF calibration
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p artifacts
+          npm run calibrate:technical-live 2>&1 | tee artifacts/technical-state-calibration.log
+      - name: Upload calibration report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: technical-state-calibration
+          path: artifacts/technical-state-calibration.log
+          if-no-files-found: warn
+          retention-days: 30
