@@ -7,6 +7,8 @@ on:
       - 'src/technical-state/calibration.ts'
       - 'src/technical-state/calibration.test.ts'
       - 'src/technical-state/real-data.calibration.live.test.ts'
+      - 'src/technical-state/sensitivity.ts'
+      - 'src/technical-state/sensitivity.test.ts'
       - 'scripts/run-live-technical-calibration.mjs'
       - 'package.json'
       - '.github/workflows/technical-state-calibration.yml'
