@@ -281,7 +281,7 @@ describe('BOLL(20,2)', () => {
     expect(baiduCall).toBeDefined();
     expect(baiduCall?.[1]?.headers).toMatchObject({
       Accept: 'application/vnd.finance-web.v1+json',
-      Referer: 'https://gushitong.baidu.com/',
+      Referer: 'https://finance.baidu.com/',
     });
   });
   it('fails closed when both Eastmoney and Baidu K-line sources are unavailable', async () => {
