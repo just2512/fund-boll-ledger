@@ -22,7 +22,7 @@ export interface BollCalibrationMetricSet {
   closeLocationPercent: DistributionSummary;
 }
 
-export interface InvalidBandDiagnostic {
+export interface BandWindowDiagnostic {
   date: string;
   windowStartDate: string;
   windowEndDate: string;
@@ -39,9 +39,11 @@ export interface BollCalibrationReport {
   confirmedBarCount: number;
   bollPointCount: number;
   invalidBandPointCount: number;
-  /** Confirmed-bar dates whose BOLL lower band is non-positive or whose bands are invalid. */
+  /** Confirmed-bar dates where a finite BOLL lower band is zero or negative. */
+  nonPositiveLowerBandDiagnostics: BandWindowDiagnostic[];
+  /** Confirmed-bar dates whose BOLL window contains non-finite or inconsistent values. */
   invalidBandDates: string[];
-  invalidBandDiagnostics: InvalidBandDiagnostic[];
+  invalidBandDiagnostics: BandWindowDiagnostic[];
   metrics: BollCalibrationMetricSet;
 }
 
@@ -91,12 +93,14 @@ function calculateBollPoints(series: ConfirmedTechnicalSeries): {
   points: Array<BollPoint | undefined>;
   invalidCount: number;
   invalidDates: string[];
-  invalidDiagnostics: InvalidBandDiagnostic[];
+  invalidDiagnostics: BandWindowDiagnostic[];
+  nonPositiveLowerDiagnostics: BandWindowDiagnostic[];
 } {
   const points: Array<BollPoint | undefined> = Array.from({ length: series.bars.length }, () => undefined);
   let invalidCount = 0;
   const invalidDates: string[] = [];
-  const invalidDiagnostics: InvalidBandDiagnostic[] = [];
+  const invalidDiagnostics: BandWindowDiagnostic[] = [];
+  const nonPositiveLowerDiagnostics: BandWindowDiagnostic[] = [];
   for (let index = 19; index < series.bars.length; index += 1) {
     const window = series.bars.slice(index - 19, index + 1);
     const middle = window.reduce((sum, bar) => sum + bar.close, 0) / 20;
@@ -105,7 +109,7 @@ function calculateBollPoints(series: ConfirmedTechnicalSeries): {
     const upper = middle + 2 * deviation;
     const lower = middle - 2 * deviation;
     const bandwidthPercent = middle > 0 ? (upper - lower) / middle * 100 : Number.NaN;
-    if (![middle, upper, lower, bandwidthPercent].every(Number.isFinite) || middle <= 0 || lower <= 0 || upper < lower) {
+    if (![middle, upper, lower, bandwidthPercent].every(Number.isFinite) || middle <= 0 || upper < lower) {
       invalidCount += 1;
       invalidDates.push(series.bars[index].date);
       invalidDiagnostics.push({
@@ -119,6 +123,17 @@ function calculateBollPoints(series: ConfirmedTechnicalSeries): {
       });
       continue;
     }
+    if (lower <= 0) {
+      nonPositiveLowerDiagnostics.push({
+        date: series.bars[index].date,
+        windowStartDate: window[0].date,
+        windowEndDate: window[window.length - 1].date,
+        middle,
+        standardDeviation: deviation,
+        lower,
+        closes: window.map((bar) => bar.close),
+      });
+    }
     const width = upper - lower;
     const closeLocationPercent = width > 0 ? (series.bars[index].close - lower) / width * 100 : undefined;
     points[index] = {
@@ -129,7 +144,7 @@ function calculateBollPoints(series: ConfirmedTechnicalSeries): {
       ...(closeLocationPercent === undefined || !Number.isFinite(closeLocationPercent) ? {} : { closeLocationPercent }),
     };
   }
-  return { points, invalidCount, invalidDates, invalidDiagnostics };
+  return { points, invalidCount, invalidDates, invalidDiagnostics, nonPositiveLowerDiagnostics };
 }
 
 function percentChange(current: number | undefined, previous: number | undefined): number | undefined {
@@ -147,7 +162,7 @@ export function calibrateBollHistory(series: ConfirmedTechnicalSeries): BollCali
   if (series.asOfDate !== series.bars[series.bars.length - 1]?.date) {
     throw new Error('asOfDate 与最后一根确认 K 线日期不一致');
   }
-  const { points, invalidCount, invalidDates, invalidDiagnostics } = calculateBollPoints(series);
+  const { points, invalidCount, invalidDates, invalidDiagnostics, nonPositiveLowerDiagnostics } = calculateBollPoints(series);
   const bandwidth = points.map((point) => point?.bandwidthPercent);
   const closeLocation = points.map((point) => point?.closeLocationPercent);
   const bandwidthChanges = (lookback: number) => points.flatMap((point, index) => {
@@ -171,6 +186,7 @@ export function calibrateBollHistory(series: ConfirmedTechnicalSeries): BollCali
     confirmedBarCount: series.bars.length,
     bollPointCount: validPoints.length,
     invalidBandPointCount: invalidCount,
+    nonPositiveLowerBandDiagnostics: nonPositiveLowerDiagnostics,
     invalidBandDates: invalidDates,
     invalidBandDiagnostics: invalidDiagnostics,
     metrics: {
