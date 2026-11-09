@@ -26,7 +26,7 @@ describe('calculateBollState', () => {
     const input = series(Array.from({ length: 20 }, (_, index) => index + 21));
     const state = calculateBollState(input, config);
     const mean = 30.5;
-    const variance = Array.from({ length: 20 }, (_, index) => (index + 1 - mean) ** 2).reduce((a, b) => a + b, 0) / 20;
+    const variance = Array.from({ length: 20 }, (_, index) => (index + 21 - mean) ** 2).reduce((a, b) => a + b, 0) / 20;
     const deviation = Math.sqrt(variance);
     expect(state.validity).toBe('VALID');
     expect(state.middle).toBeCloseTo(mean, 12);
@@ -90,7 +90,7 @@ describe('calculateBollState', () => {
     expect(state.validity).toBe('INVALID');
   });
   it('recognizes a confirmed middle-band turn without relying on the live quote', () => {
-    const closes = Array.from({ length: 92 }, (_, index) => {
+    const closes = Array.from({ length: 93 }, (_, index) => {
       if (index < 90) return 20 - index * 0.05;
       if (index === 90) return 18;
       if (index === 91) return 18.1;
