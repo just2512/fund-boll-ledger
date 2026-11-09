@@ -182,14 +182,19 @@
       "id": "T-10",
       "area": "compatibility",
       "title": "账本数据结构与既有交易行为隔离",
-      "status": "IN_PROGRESS",
+      "status": "PASS",
       "acceptance": [
         "不修改 Fund/Trade/Snapshot 数据结构",
         "不改变交易记录、成本、盈亏和 JSON 备份语义",
         "技术状态仅作为行情刷新产生的临时派生数据"
       ],
-      "evidence": [],
-      "blocker": "治理提交没有修改产品数据模型，但仍需完成 storage.ts、类型定义、备份/恢复调用链的专项差异审计。"
+      "evidence": [
+        {
+          "commit": "6071da608cd3d190bff36fbf5fb74be67bcf84a6",
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/42643356801",
+          "note": "src/storage.ts 与 src/types.ts 相对用户指定回退基线 8bdb64a 的 blob SHA 完全一致；App.tsx 与 market-data.ts 也未修改。"
+        }
+      ]
     },
     {
       "id": "T-11",
