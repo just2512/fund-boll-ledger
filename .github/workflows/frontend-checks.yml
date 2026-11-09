@@ -26,6 +26,10 @@ jobs:
         run: npm run test:dependency-security
       - name: Verify Windows and Android upgrade contract
         run: npm run verify:upgrade-contract
+      - name: Syntax-check persistent Android signing tools
+        run: |
+          node --check scripts/configure-android-signing.mjs
+          node --check scripts/export-android-signing-secrets.mjs
       - name: Run unit tests
         run: npm run test
       - name: Type-check and production build
