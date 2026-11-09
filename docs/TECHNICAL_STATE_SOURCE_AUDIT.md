@@ -47,6 +47,7 @@
 - 首屏显示跨周期客观描述；日/周/月详细依据折叠在同一面板内。
 - `MacdPeriodCard` 展示 BOLL 轨道、BBW、历史分位、阶段、中轨方向、确认收盘位置，以及 MACD 状态。
 - `src/styles.css` 提供窄屏折叠和卡片布局；`e2e/app.spec.ts`、`e2e/foldable.spec.ts` 覆盖展开/收起和多视口宽度。
+- `.github/workflows/native-build.yml` 是手动触发的 Windows/Android 原生构建；本次未触发该工作流，因此没有声称生成 Windows 安装包或 Android APK，也没有物理设备验收结果。前端浏览器视口 E2E 不能替代原生安装包或真机验收。
 
 ## 7. 账本隔离和范围排除
 
