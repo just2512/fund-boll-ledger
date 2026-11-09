@@ -88,4 +88,18 @@ describe('combined BOLL/MACD technical state engine', () => {
     expect(after.slice(0, before.length).map((entry) => entry.result))
       .toEqual(before.map((entry) => entry.result));
   });
+
+  it('describes each indicator from its structured fields without inventing a composite trading direction', () => {
+    const snapshot = calculateTechnicalStateSnapshot(series());
+    const description = describeTechnicalStateSnapshot(snapshot);
+    expect(description).toContain('日线');
+    expect(description).toContain('BOLL(20,2)');
+    expect(description).toContain('带宽阶段 未知');
+    expect(description).toContain('中轨方向 未知');
+    expect(description).toContain('MACD(12,26,9)');
+    expect(description).toContain('DIF/DEA');
+    expect(description).toContain('不构成买卖方向或交易指令');
+    expect(description).toContain('状态阈值未配置');
+  });
+
 });
