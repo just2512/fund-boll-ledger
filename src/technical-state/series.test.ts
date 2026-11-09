@@ -18,14 +18,14 @@ describe('normalizeConfirmedTechnicalSeries', () => {
     const result = normalizeConfirmedTechnicalSeries({
       interval: 'daily',
       bars: [bars[2], bars[0], bars[1], bars[1], ...bars.slice(3)],
-      source: '腾讯行情',
+      source: '百度行情',
       quote: { tradingDate: bars[39].date, quotedAt: bars[39].date + ' 15:00:00（北京时间）' },
     });
     expect(result.validity).toBe('VALID');
     if (result.validity !== 'VALID') return;
     expect(result.series.bars).toHaveLength(40);
     expect(result.series.bars[0].date).toBe(bars[0].date);
-    expect(result.series.source).toBe('腾讯行情');
+    expect(result.series.source).toBe('百度行情');
   });
 
   it('rejects conflicting duplicate closes rather than silently using the last row', () => {
