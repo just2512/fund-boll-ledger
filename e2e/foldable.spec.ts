@@ -18,6 +18,9 @@ test('折叠屏外屏、内屏、横屏和桌面视口无页面级横向溢出',
   ];
   await page.setViewportSize(viewports[0]);
   await createFund(page);
+  await expect(page.getByText('BOLL + MACD 技术状态')).toBeVisible();
+  await page.locator('.technical-period-details summary').click();
+  await expect(page.locator('.technical-period-details')).toHaveAttribute('open');
   await page.getByPlaceholder('输入上轨').fill('10.800');
   await page.getByPlaceholder('输入中轨').fill('10.000');
   await page.getByPlaceholder('输入下轨').fill('9.200');
@@ -35,6 +38,8 @@ test('折叠屏外屏、内屏、横屏和桌面视口无页面级横向溢出',
     }));
     expect(dimensions.document, viewport.label).toBeLessThanOrEqual(dimensions.viewport + 1);
     expect(dimensions.body, viewport.label).toBeLessThanOrEqual(dimensions.viewport + 1);
+    const technicalPanel = await page.locator('.macd-panel').evaluate((el) => ({ scrollWidth: el.scrollWidth, clientWidth: el.clientWidth }));
+    expect(technicalPanel.scrollWidth, viewport.label).toBeLessThanOrEqual(technicalPanel.clientWidth + 1);
   }
 });
 
