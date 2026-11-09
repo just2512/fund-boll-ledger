@@ -70,6 +70,15 @@ describe('combined BOLL/MACD technical state engine', () => {
     }
   });
 
+  it('preserves excluded in-progress bar metadata on the final replay prefix', () => {
+    const input = { ...series(), excludedInProgressBar: true };
+    const calculate = (prefix: ConfirmedTechnicalSeries) => calculateTechnicalStateSnapshot(prefix);
+    const replay = replayConfirmedTechnicalSeries(input, calculate);
+    expect(replay.at(-1)?.series.excludedInProgressBar).toBe(true);
+    expect(replay.slice(0, -1).every((entry) => !entry.series.excludedInProgressBar)).toBe(true);
+    expect(compareBatchWithReplay(input, calculate)?.matches).toBe(true);
+  });
+
   it('keeps earlier combined indicator results unchanged when future bars are appended', () => {
     const original = series('东方财富', 80);
     const extended = series('东方财富', 100);

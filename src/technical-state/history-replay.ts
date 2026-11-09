@@ -26,7 +26,9 @@ export function replayConfirmedTechnicalSeries<T>(
       ...source,
       asOfDate: bars[bars.length - 1].date,
       bars,
-      excludedInProgressBar: false,
+      // Only the final prefix inherits the source's excluded-current-bar metadata.
+      // Earlier prefixes end on already historical bars and must not claim a newer bar was excluded.
+      excludedInProgressBar: index === source.bars.length - 1 ? source.excludedInProgressBar : false,
     };
     entries.push({
       interval: prefix.interval,
