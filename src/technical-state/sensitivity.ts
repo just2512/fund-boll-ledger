@@ -166,7 +166,6 @@ export function analyzeBollConfigSensitivity(
 }
 
 function makeConfig(
-  interval: TechnicalInterval,
   bandwidthRankLookback: number,
   middleDirectionLookback: number,
   flatTolerancePercent: number,
@@ -197,19 +196,19 @@ export function buildBollSensitivityCandidates(interval: TechnicalInterval): Bol
       : { rank: [3, 6, 12], direction: [2, 3, 6] };
   const [rankShort, rankAnchor, rankLong] = profile.rank;
   const [directionShort, directionAnchor, directionLong] = profile.direction;
-  const anchor = makeConfig(interval, rankAnchor, directionAnchor, 0.1, 3, 10);
+  const anchor = makeConfig(rankAnchor, directionAnchor, 0.1, 3, 10);
   const withConfig = (id: string, config: BollStateConfig): BollSensitivityCandidate => ({ id, config });
   return [
     withConfig('anchor-reference-only', anchor),
-    withConfig('rank-short', makeConfig(interval, rankShort, directionAnchor, 0.1, 3, 10)),
-    withConfig('rank-long', makeConfig(interval, rankLong, directionAnchor, 0.1, 3, 10)),
-    withConfig('direction-short', makeConfig(interval, rankAnchor, directionShort, 0.1, 3, 10)),
-    withConfig('direction-long', makeConfig(interval, rankAnchor, directionLong, 0.1, 3, 10)),
-    withConfig('flat-tolerance-low', makeConfig(interval, rankAnchor, directionAnchor, 0.05, 3, 10)),
-    withConfig('flat-tolerance-high', makeConfig(interval, rankAnchor, directionAnchor, 0.2, 3, 10)),
-    withConfig('confirmation-short', makeConfig(interval, rankAnchor, directionAnchor, 0.1, 2, 10)),
-    withConfig('confirmation-long', makeConfig(interval, rankAnchor, directionAnchor, 0.1, 4, 10)),
-    withConfig('near-band-short', makeConfig(interval, rankAnchor, directionAnchor, 0.1, 3, 5)),
-    withConfig('near-band-long', makeConfig(interval, rankAnchor, directionAnchor, 0.1, 3, 15)),
+    withConfig('rank-short', makeConfig(rankShort, directionAnchor, 0.1, 3, 10)),
+    withConfig('rank-long', makeConfig(rankLong, directionAnchor, 0.1, 3, 10)),
+    withConfig('direction-short', makeConfig(rankAnchor, directionShort, 0.1, 3, 10)),
+    withConfig('direction-long', makeConfig(rankAnchor, directionLong, 0.1, 3, 10)),
+    withConfig('flat-tolerance-low', makeConfig(rankAnchor, directionAnchor, 0.05, 3, 10)),
+    withConfig('flat-tolerance-high', makeConfig(rankAnchor, directionAnchor, 0.2, 3, 10)),
+    withConfig('confirmation-short', makeConfig(rankAnchor, directionAnchor, 0.1, 2, 10)),
+    withConfig('confirmation-long', makeConfig(rankAnchor, directionAnchor, 0.1, 4, 10)),
+    withConfig('near-band-short', makeConfig(rankAnchor, directionAnchor, 0.1, 3, 5)),
+    withConfig('near-band-long', makeConfig(rankAnchor, directionAnchor, 0.1, 3, 15)),
   ];
 }
