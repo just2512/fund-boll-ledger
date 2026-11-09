@@ -6,6 +6,7 @@ import { getBackupReminder } from './backup-reminder';
 import { validateAppData } from './backup-validation';
 import { fetchLatestMarketData, type MarketQuote } from './market-data';
 import { macdArrangementLabel, macdMomentumLabel, macdZeroAxisLabel, type MacdMultiTimeframeState, type MacdPeriodState, type MacdTone } from './macd';
+import type { TechnicalMultiTimeframeState, TechnicalStateSnapshot } from './technical-state/types';
 import { createId, emptyAppData, newFund, type AppData, type Fund, type FundCategory, type FundPrices, type LadderDirection, type PriceBasisKey, type PriceSnapshot, type Trade, type TradeSide } from './types';
 
 const NAV_ITEMS = [
@@ -461,30 +462,62 @@ function macdToneClass(tone: MacdTone | undefined): string {
     default: return 'macd-tone-unknown';
   }
 }
-function MacdPeriodCard({ label, state }: { label: string; state?: MacdPeriodState }) {
-  if (!state) return <div className="macd-period-card"><div className="macd-period-head"><strong>{label}</strong><span className="macd-tone-unknown">待计算</span></div><p className="macd-period-message">点击刷新行情后计算</p></div>;
-  if (state.error) return <div className="macd-period-card"><div className="macd-period-head"><strong>{label}</strong><span className="macd-tone-unknown">数据不足</span></div><p className="macd-period-message">{state.error}</p></div>;
+function macdAvailabilityLabel(state: MacdPeriodState): string {
+  switch (state.availability) {
+    case 'ready': return '可计算';
+    case 'insufficient-history': return '历史不足';
+    case 'invalid-data': return '数据无效';
+    case 'unavailable': return '数据不可用';
+  }
+}
+function macdCrossEventLabel(state: MacdPeriodState): string {
+  switch (state.crossEvent) {
+    case 'golden': return '本根新金叉';
+    case 'death': return '本根新死叉';
+    case 'none': return '本根无新交叉';
+    default: return '交叉状态未知';
+  }
+}
+function MacdPeriodCard({ label, state, technical }: { label: string; state?: MacdPeriodState; technical?: TechnicalStateSnapshot }) {
+  if (!state) return <div className="macd-period-card"><div className="macd-period-head"><strong>{label}</strong><span className="macd-tone-unknown">待计算</span></div><p className="macd-period-message">刷新行情后获取已确认历史数据</p></div>;
+  const coverage = technical
+    ? `${technical.historyStartDate ?? '—'} 至 ${technical.asOfDate ?? state.asOfDate ?? '—'} · ${technical.confirmedBarCount} 根确认 K 线`
+    : '确认历史元数据不可用';
+  const source = technical?.source ?? '未知';
+  const quoteSource = technical?.quoteSource ?? '未知';
+  const confirmation = technical?.excludedInProgressBar ? '未收盘周期已排除' : '仅使用已确认收盘数据';
   return <div className="macd-period-card">
-    <div className="macd-period-head"><strong>{label}</strong><small>收盘 K 线 {state.asOfDate ?? '—'}</small></div>
-    <div className="macd-period-tags">
-      <span className={macdToneClass(state.zeroTone)}>{macdZeroAxisLabel(state)}</span>
-      <span className={macdToneClass(state.arrangementTone)}>{macdArrangementLabel(state)}</span>
+    <div className="macd-period-head"><strong>{label}</strong><span className={state.availability === 'ready' ? 'macd-tone-neutral' : 'macd-tone-unknown'}>{macdAvailabilityLabel(state)}</span></div>
+    <div className="macd-period-meta">
+      <small>历史覆盖：{coverage}</small>
+      <small>K 线来源：{source} · 现价来源：{quoteSource}</small>
+      <small>{confirmation}</small>
     </div>
-    <div className={'macd-momentum ' + macdToneClass(state.momentumTone)}>{macdMomentumLabel(state)}</div>
+    {state.availability !== 'ready' || state.error
+      ? <p className="macd-period-message">{state.error ?? '当前周期无法计算 MACD。'}；本周期不生成交叉判断。</p>
+      : <>
+        <div className="macd-period-head"><small>最后确认日期：{state.asOfDate ?? '—'}</small><small>EMA 种子：{state.emaSeedDate ?? '—'} · {state.barsUsed ?? 0} 根</small></div>
+        <div className="macd-period-tags">
+          <span className={macdToneClass(state.zeroTone)}>{macdZeroAxisLabel(state)}</span>
+          <span className={macdToneClass(state.arrangementTone)}>{macdArrangementLabel(state)}</span>
+        </div>
+        <div className={'macd-momentum ' + macdToneClass(state.momentumTone)}>{macdMomentumLabel(state)}</div>
+        <small className="macd-period-event">{macdCrossEventLabel(state)}</small>
+      </>}
   </div>;
 }
-function MacdPanel({ state, loading }: { state?: MacdMultiTimeframeState; loading: boolean }) {
+function MacdPanel({ state, technical, loading }: { state?: MacdMultiTimeframeState; technical?: TechnicalMultiTimeframeState; loading: boolean }) {
   const summary = state?.summary ?? (loading ? '正在刷新 MACD 数据…' : '刷新行情后计算');
-  const detail = state?.summaryDetail ?? '仅使用已收盘 K 线；固定规则生成';
+  const detail = state?.summaryDetail ?? '仅展示已确认 K 线的计算状态';
   return <div className="macd-panel">
-    <div className="macd-panel-head"><div><h3>MACD 多空判断</h3><p>MACD(12,26,9) · 月线看长期、周线看中期、日线看短期</p></div><span className="macd-rule-label">固定规则</span></div>
+    <div className="macd-panel-head"><div><h3>MACD 状态描述</h3><p>MACD(12,26,9) · 分别展示月线、周线和日线的确认数据与指标状态</p></div><span className="macd-rule-label">描述性数据</span></div>
     <div className="macd-summary"><strong className={macdToneClass(state?.summaryTone)}>{summary}</strong><span className={macdToneClass(state?.detailTone)}>{detail}</span></div>
     <div className="macd-period-grid">
-      <MacdPeriodCard label="月线 · 长期" state={state?.monthly}/>
-      <MacdPeriodCard label="周线 · 中期" state={state?.weekly}/>
-      <MacdPeriodCard label="日线 · 短期" state={state?.daily}/>
+      <MacdPeriodCard label="月线" state={state?.monthly} technical={technical?.monthly}/>
+      <MacdPeriodCard label="周线" state={state?.weekly} technical={technical?.weekly}/>
+      <MacdPeriodCard label="日线" state={state?.daily} technical={technical?.daily}/>
     </div>
-    <small className="macd-footnote">交叉只在收盘后确认；持续排列结合最近一次已确认交叉与当前 DIF/DEA 关系判断。橙色表示动能减弱或周期分化。</small>
+    <small className="macd-footnote">仅描述已确认行情中的指标计算结果，不构成买卖建议。35 根是当前 MACD 数值计算下限，不代表交叉信号已通过稳定性或交易有效性验证。</small>
   </div>;
 }
 
@@ -560,7 +593,7 @@ function CalculatorPage({ fund, comparisons, ladderBasis, setLadderBasis, ladder
       </div>
       {comparisonExpanded && <div id="current-price-comparison-content" className="comparison-content">
         <div className="comparison-grid">{comparisons.map((item) => <div key={item.key} className={`comparison-card ${item.percent === null ? '' : item.percent > 0 ? 'is-up' : item.percent < 0 ? 'is-down' : ''}`}><span>{item.label}</span><strong>{item.percentLabel}</strong><div className="comparison-foot"><span>基准 {item.base || '—'}</span><span>{item.delta !== null ? `${Number(item.delta) > 0 ? '+' : ''}${item.delta}` : '—'} 元</span></div><small>{item.location}</small></div>)}<div className="comparison-card daily-position-card"><span>日 BOLL 区间位置</span><strong className={dailyPositionTone}>{bollRangePosition === null ? '待输入有效价格/轨道' : (bollRangePosition * 100).toFixed(2) + '%'}</strong><div className="comparison-foot"><span>下轨 0%</span><span>上轨 100%</span></div><small>{bollRangePosition === null ? '需要有效现价、下轨和高于下轨的上轨' : bollRangePosition < 0 ? '当前价低于下轨 · 绿色' : bollRangePosition === 0 ? '当前价位于下轨 · 绿色' : bollRangePosition > 1 ? '当前价高于上轨 · 红色' : bollRangePosition === 1 ? '当前价位于上轨 · 红色' : '位置在下轨至上轨之间'}</small></div><div className={`comparison-card ${weeklyPositionClass}`}><span>周 BOLL 区间位置</span><strong>{weeklyBollRangePosition === null ? (weeklyBollRange ? '待输入有效现价/轨道' : '刷新后计算') : (weeklyBollRangePosition * 100).toFixed(2) + '%'}</strong><div className="comparison-foot"><span>下轨 0%</span><span>上轨 100%</span></div><small>{weeklyBollRangePosition !== null ? (weeklyBollRangePosition >= 0.5 ? '≥50% · 红色显示' : '<50% · 绿色显示') : quoteState?.quote?.weeklyBollRangeError ? `周线数据不可用：${quoteState.quote.weeklyBollRangeError}` : '需要刷新周线数据并输入有效当前价'}</small></div><div className={`comparison-card ${monthlyPositionClass}`}><span>月 BOLL 区间位置</span><strong>{monthlyBollRangePosition === null ? (monthlyBollRange ? '待输入有效现价/轨道' : '刷新后计算') : (monthlyBollRangePosition * 100).toFixed(2) + '%'}</strong><div className="comparison-foot"><span>下轨 0%</span><span>上轨 100%</span></div><small>{monthlyBollRangePosition !== null ? (monthlyBollRangePosition >= 0.5 ? '≥50% · 红色显示' : '<50% · 绿色显示') : quoteState?.quote?.monthlyBollRangeError ? `月线数据不可用：${quoteState.quote.monthlyBollRangeError}` : '需要刷新月线数据并输入有效当前价'}</small></div></div>
-        <MacdPanel state={quoteState?.quote?.macd} loading={quoteState?.status === 'loading'}/>
+        <MacdPanel state={quoteState?.quote?.macd} technical={quoteState?.quote?.technicalState} loading={quoteState?.status === 'loading'}/>
       </div>}
     </section>
     <section className="panel ladder-panel"><div className="section-title-row"><div><h2>十档价格阶梯</h2><p>每一档均以所选参考价独立计算，不使用连续复利。</p></div><span className="tag">1%—10%</span></div><div className="ladder-controls"><label className="field basis-select"><span>选择计算基准</span><select value={ladderBasis} onChange={(e) => setLadderBasis(e.target.value as PriceKey)}>{PRICE_KEYS.map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}</select></label><div className="direction-switch" role="group" aria-label="阶梯方向"><button className={ladderDirection === 'up' ? 'active rise' : ''} onClick={() => setLadderDirection('up')}>↑ 上涨 1%—10%</button><button className={ladderDirection === 'down' ? 'active fall' : ''} onClick={() => setLadderDirection('down')}>↓ 下跌 1%—10%</button></div></div><div className="ladder-status">{!fund.prices.currentPrice.trim() || current === null || current <= 0 || baseValue === null ? <span>请输入有效的当前价格（大于零）和所选基准，系统才可标记已越过档位。</span> : <><div><span className="status-label">当前相对{baseLabels[ladderBasis]}</span><strong className={currentPct! > 0 ? 'positive' : currentPct! < 0 ? 'negative' : ''}>{formatPercent(currentPct)}</strong></div><div className="next-target">{overRange ? `当前价格已超出所选方向的十档范围（实际涨跌幅 ${formatPercent(currentPct)}）` : nextRow ? `下一档：${ladderDirection === 'up' ? '+' : '−'}${nextRow.percent}% · ${nextRow.price} 元` : ladderRows.length && ladderRows.every((r) => r.reached) ? `已越过全部十档（实际涨跌幅 ${formatPercent(currentPct)}）` : '尚未到达第一档'}</div></>}</div>{ladderRows.length ? <div className="table-scroll"><table className="ladder-table"><thead><tr><th>刻度</th><th>对应价格（元）</th><th>理论档位</th><th>当前状态</th></tr></thead><tbody>{ladderRows.map((row) => <tr key={row.percent} className={`${row.reached ? 'reached-row' : ''} ${row.isNext ? 'next-row' : ''}`}><td><span className={`level-chip ${ladderDirection}`}>{ladderDirection === 'up' ? '+' : '−'}{row.percent}%</span></td><td><strong>{row.price}</strong></td><td>{ladderDirection === 'up' ? '+' : '−'}{row.percent}.00%</td><td>{row.reached ? <span className="state-pill crossed">已越过</span> : row.isNext ? <span className="state-pill next">下一档</span> : <span className="state-pill pending">尚未到达</span>}</td></tr>)}</tbody></table></div> : <div className="empty-state compact"><strong>尚未生成阶梯</strong><span>请先填写上方选择的基准价格，并检查最小价格变动单位。</span></div>}<div className="ladder-note"><span>报价单位：{fund.tickSize} 元</span><span>价格先计算，再按报价单位四舍五入。</span><span>已越过标记只用于价格定位，不构成交易信号。</span></div></section>
