@@ -92,7 +92,18 @@ export function pairBollTouchesWithMacdCrosses(
     if (pending && index > pending.triggerIndex) {
       const expected = pending.setup.expectedCross;
       const opposite = expected === 'golden' ? 'death' : 'golden';
-      if (item.macdCrossEvent === expected) {
+      // Invalidation has precedence over confirmation when multiple events
+      // occur on the same confirmed bar. An opposite touch/cross must never be
+      // hidden by a matching cross on that same date.
+      if (item.macdCrossEvent === opposite) {
+        pending.setup.status = 'invalidated';
+        pending.setup.invalidationReason = 'opposite-macd-cross';
+        pending = undefined;
+      } else if (touched && touched !== pending.setup.side) {
+        pending.setup.status = 'invalidated';
+        pending.setup.invalidationReason = 'opposite-boll-touch';
+        pending = undefined;
+      } else if (item.macdCrossEvent === expected) {
         const triggerClose = pending.setup.triggerClose;
         pending.setup.status = 'confirmed';
         pending.setup.confirmationDate = item.date;
@@ -100,14 +111,6 @@ export function pairBollTouchesWithMacdCrosses(
         pending.setup.barsToCross = index - pending.triggerIndex;
         pending.setup.calendarDaysToCross = calendarDaysBetween(pending.setup.triggerDate, item.date);
         pending.setup.closeChangePercent = (item.close / triggerClose - 1) * 100;
-        pending = undefined;
-      } else if (item.macdCrossEvent === opposite) {
-        pending.setup.status = 'invalidated';
-        pending.setup.invalidationReason = 'opposite-macd-cross';
-        pending = undefined;
-      } else if (touched && touched !== pending.setup.side) {
-        pending.setup.status = 'invalidated';
-        pending.setup.invalidationReason = 'opposite-boll-touch';
         pending = undefined;
       }
     }
