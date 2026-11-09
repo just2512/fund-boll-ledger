@@ -154,3 +154,5 @@
 
 .backup-reminder{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .backup-reminder .text-button{white-space:nowrap}
+
+.technical-period-details{display:grid;gap:10px;min-width:0;border-top:1px solid #e8ecf1;padding-top:10px}.technical-period-details>summary{cursor:pointer;list-style-position:inside;color:#526074;font-size:11px;font-weight:700;padding:4px 2px}.technical-period-details[open]>summary{margin-bottom:2px}.boll-period-state{display:grid;gap:7px;min-width:0;padding:9px;border:1px solid #e8ecf1;border-radius:8px;background:#f8fafc}.boll-period-state-head{display:flex;align-items:center;justify-content:space-between;gap:8px;color:#526074;font-size:10px}.boll-period-state-head strong{color:#273143;font-size:11px}.boll-period-values{font-size:10px;color:#596579;line-height:1.5;overflow-wrap:anywhere}.boll-period-tags{display:flex;align-items:flex-start;gap:5px;flex-wrap:wrap}.boll-period-tags>span{display:inline-flex;align-items:center;padding:4px 6px;border-radius:6px;background:#eef1f4;color:#596579;font-size:9px;font-weight:650;line-height:1.4}.boll-period-note{font-size:9px;color:#87909d;line-height:1.5;overflow-wrap:anywhere}
