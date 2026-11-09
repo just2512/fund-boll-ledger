@@ -565,7 +565,7 @@ UI 验收至少覆盖桌面、Android 窄屏、OPPO Find N2 外屏和展开内�
 | setup 新触发与旧 setup 清理 | 已有基础覆盖 | 覆盖确认/失效后同日新 setup、同侧重复触轨不重置、不得重复活动 setup |
 | 历史末尾 pending | 已有基础覆盖 | 保持 pending，不虚构确认日期/成交价格；输出可解释原因 |
 | 真实行情逐根重放/批量一致 | PASS（现有样本） | 每个 as-of 前缀无未来 K 线，最终逐根结果与同起点批量结果一致 |
-| MACD 历史不足状态表达 | NOT_FROZEN | 明确区分历史不足、无效数据、缺少可信行情日期；数值不可用时交叉事件必须为 unknown，不得伪装为 none |
+| MACD 历史不足状态表达 | IMPLEMENTED / CI_PENDING | 新增 availability：ready / insufficient-history / unavailable / invalid-data；不可用时 crossEvent=unknown；保留 error 诊断文本 |
 | 描述性 UI | NOT_STARTED | 上述边界测试、状态表达契约、真实数据回归及账本隔离全部通过后，才改造现有价格对比模块 |
 
 A 线 UI 仅显示计算事实、数据来源/周期/as-of 日期、确认状态、历史覆盖和不可用原因；不显示买卖建议、策略收益或资金占用。
