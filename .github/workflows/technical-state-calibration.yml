@@ -49,6 +49,8 @@ jobs:
         run: npm ci
       - name: Verify patched dependency versions
         run: npm run test:dependency-security
+      - name: Verify execution contract and complete A/B requirements matrix
+        run: npm run verify:execution-contract
       - name: Run real-data technical acceptance (510300)
         shell: bash
         run: |
