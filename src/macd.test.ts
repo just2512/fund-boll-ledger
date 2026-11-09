@@ -119,8 +119,14 @@ describe('MACD deterministic multi-timeframe rules', () => {
     badDate[5] = { ...badDate[5], date: 'not-a-date' };
     const badClose = [...source];
     badClose[5] = { ...badClose[5], close: '0' };
-    expect(calculateMacdPeriod(badDate, 'daily', contextFor(source)).error).toContain('日期');
-    expect(calculateMacdPeriod(badClose, 'daily', contextFor(source)).error).toContain('收盘价');
+    const invalidDateState = calculateMacdPeriod(badDate, 'daily', contextFor(source));
+    const invalidCloseState = calculateMacdPeriod(badClose, 'daily', contextFor(source));
+    expect(invalidDateState.error).toContain('日期');
+    expect(invalidDateState.availability).toBe('invalid-data');
+    expect(invalidDateState.crossEvent).toBe('unknown');
+    expect(invalidCloseState.error).toContain('收盘价');
+    expect(invalidCloseState.availability).toBe('invalid-data');
+    expect(invalidCloseState.crossEvent).toBe('unknown');
   });
 
 });
