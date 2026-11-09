@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { calculateTechnicalStateSnapshot, describeTechnicalMultiTimeframeState, describeTechnicalStateSnapshot } from './engine';
 import { compareBatchWithReplay, hasNoFutureBars, replayConfirmedTechnicalSeries } from './history-replay';
+import { bollStateConfigFor } from './config';
 import type { ConfirmedTechnicalSeries, TechnicalBar } from './types';
 
 function series(source: '东方财富' | '百度行情' = '东方财富', count = 220): ConfirmedTechnicalSeries {
@@ -37,6 +38,15 @@ describe('combined BOLL/MACD technical state engine', () => {
     expect(state.boll.middleDirection).toBe('unknown');
     expect(state.boll.bandwidthPhase).toBe('unknown');
     expect(state.boll.bandwidthPercent).toBeDefined();
+  });
+
+  it('applies the empirically evaluated interval configuration to BOLL state labels', () => {
+    const snapshot = calculateTechnicalStateSnapshot(series(), bollStateConfigFor('daily'));
+    expect(snapshot.boll.validity).toBe('VALID');
+    expect(snapshot.boll.bandwidthPercentile).toBeDefined();
+    expect(snapshot.boll.bandwidthPhase).not.toBe('unknown');
+    expect(snapshot.boll.middleDirection).not.toBe('unknown');
+    expect(snapshot.boll.reason).toBeUndefined();
   });
 
   it('does not let a K-line provider switch alter confirmed BOLL or MACD state', () => {
