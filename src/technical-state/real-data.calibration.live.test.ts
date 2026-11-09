@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { fetchConfirmedTechnicalHistory, fetchLatestQuote } from '../market-data';
 import { calculateTechnicalStateSnapshot } from './engine';
 import { calibrateBollHistory } from './calibration';
+import { auditConfirmedBollMacdSeries } from './boll-macd-events';
 import { analyzeBollConfigSensitivity, buildBollSensitivityCandidates } from './sensitivity';
 import { hasNoFutureBars, replayConfirmedTechnicalSeries } from './history-replay';
 import type { BollInterval } from '../market-data';
@@ -30,6 +31,13 @@ describe('live multi-ETF BOLL historical calibration', () => {
         }
         expect(normalized.series.bars.length, `${instrument.code} ${interval} confirmed bars`).toBeGreaterThanOrEqual(35);
         const report = calibrateBollHistory(normalized.series);
+        const bollMacdEvents = auditConfirmedBollMacdSeries(normalized.series);
+        const confirmedEvents = bollMacdEvents.filter((event) => event.status === 'confirmed');
+        expect(confirmedEvents.every((event) =>
+          event.confirmationDate !== undefined && event.confirmationDate > event.triggerDate &&
+          event.barsToCross !== undefined && event.barsToCross > 0 &&
+          Number.isFinite(event.closeChangePercent),
+        )).toBe(true);
         const sensitivity = analyzeBollConfigSensitivity(
           normalized.series,
           buildBollSensitivityCandidates(interval),
@@ -57,6 +65,13 @@ describe('live multi-ETF BOLL historical calibration', () => {
           quoteSource: quote.source,
           excludedInProgressBar: normalized.series.excludedInProgressBar,
           parameterSensitivity: sensitivity,
+          bollMacdEventAudit: {
+            setupCount: bollMacdEvents.length,
+            confirmedCount: confirmedEvents.length,
+            invalidatedCount: bollMacdEvents.filter((event) => event.status === 'invalidated').length,
+            pendingCount: bollMacdEvents.filter((event) => event.status === 'pending').length,
+            setups: bollMacdEvents,
+          },
           walkForward: {
             replayedPrefixCount: replay.length,
             noFutureBars: hasNoFutureBars(replay),
