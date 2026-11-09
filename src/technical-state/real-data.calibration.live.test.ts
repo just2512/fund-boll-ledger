@@ -70,7 +70,7 @@ describe('live multi-ETF BOLL historical calibration', () => {
       .filter((entry) => entry.klineSource !== '东方财富' || entry.quoteSource !== '东方财富')
       .map((entry) => ({ code: entry.code, interval: entry.interval, klineSource: entry.klineSource, quoteSource: entry.quoteSource }));
     const report = {
-      schemaVersion: 3,
+      schemaVersion: 4,
       sourcePolicy: {
         requiredKlineSource: '东方财富',
         requiredQuoteSource: '东方财富',
