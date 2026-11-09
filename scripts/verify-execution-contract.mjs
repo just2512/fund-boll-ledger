@@ -10,6 +10,7 @@ const read = (path) => {
 
 const contract = read('docs/EXECUTION_CONTRACT.md');
 const plan = read('docs/TECHNICAL_STATE_ANALYSIS_IMPLEMENTATION_PLAN.md');
+const audit = read('docs/TECHNICAL_STATE_SOURCE_AUDIT.md');
 const matrix = JSON.parse(read('docs/TECHNICAL_STATE_REQUIREMENTS.json'));
 const packageJson = JSON.parse(read('package.json'));
 
@@ -68,18 +69,47 @@ for (const id of ['T-00','T-01','T-02','T-03','T-04','T-05','T-06','T-07','T-08'
 }
 
 const requiredSources = {
+  'T-00': ['docs/TECHNICAL_STATE_SOURCE_AUDIT.md'],
   'T-01': ['src/technical-state/series.ts', 'src/technical-state/series.test.ts'],
   'T-02': ['src/technical-state/boll-state.ts', 'src/technical-state/boll-state.test.ts'],
+  'T-03': ['src/technical-state/config.ts', 'src/technical-state/config.test.ts', 'src/market-data.ts'],
   'T-04': ['src/macd.ts', 'src/macd.test.ts'],
   'T-05': ['src/macd.ts', 'src/macd.test.ts'],
   'T-06': ['src/technical-state/engine.ts', 'src/technical-state/engine.test.ts'],
+  'T-07': ['src/technical-state/engine.ts', 'src/technical-state/engine.test.ts'],
   'T-08': ['src/technical-state/history-replay.ts', 'src/technical-state/engine.test.ts'],
+  'T-09': ['src/App.tsx', 'src/styles.css', 'e2e/app.spec.ts', 'e2e/foldable.spec.ts'],
+  'T-10': ['src/storage.ts', 'src/types.ts'],
+  'T-11': ['src/technical-state/real-data.calibration.live.test.ts', '.github/workflows/technical-state-calibration.yml'],
 };
 for (const [id, paths] of Object.entries(requiredSources)) {
   if (byId.get(id)?.status === 'PASS') {
     for (const path of paths) {
       if (!existsSync(path)) throw new Error(`${id} cannot be PASS without current source/test: ${path}`);
     }
+  }
+}
+
+
+const liveCalibration = read('src/technical-state/real-data.calibration.live.test.ts');
+if (liveCalibration.includes('auditConfirmedBollMacdSeries')) {
+  throw new Error('Strategy event pairing must not be a dependency of technical-state live calibration.');
+}
+if (!audit.includes('当前 main 不存在') || !audit.includes('账本隔离')) {
+  throw new Error('Source audit must document current scope exclusions and ledger isolation.');
+}
+if (byId.get('T-03')?.status === 'PASS' && !read('src/market-data.ts').includes('bollStateConfigFor(interval)')) {
+  throw new Error('T-03 cannot be PASS until the calibrated BOLL config is wired into the production market-data path.');
+}
+if (byId.get('T-07')?.status === 'PASS' && !read('src/technical-state/engine.ts').includes('describeTechnicalMultiTimeframeState')) {
+  throw new Error('T-07 cannot be PASS without the multi-timeframe description engine.');
+}
+if (byId.get('T-09')?.status === 'PASS') {
+  const app = read('src/App.tsx');
+  const e2e = read('e2e/app.spec.ts') + read('e2e/foldable.spec.ts');
+  if (!app.includes('technical-period-details') || !app.includes('BOLL + MACD 技术状态') ||
+      !e2e.includes('technical-period-details')) {
+    throw new Error('T-09 cannot be PASS without the folded BOLL/MACD panel and viewport E2E coverage.');
   }
 }
 
