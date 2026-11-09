@@ -11,6 +11,7 @@ const read = (path) => {
 const contract = read('docs/EXECUTION_CONTRACT.md');
 const plan = read('docs/TECHNICAL_STATE_ANALYSIS_IMPLEMENTATION_PLAN.md');
 const audit = read('docs/TECHNICAL_STATE_SOURCE_AUDIT.md');
+const calibrationReport = read('docs/BOLL_MACD_CALIBRATION_REPORT.md');
 const matrix = JSON.parse(read('docs/TECHNICAL_STATE_REQUIREMENTS.json'));
 const packageJson = JSON.parse(read('package.json'));
 
@@ -29,7 +30,7 @@ for (const rule of [
   if (!contract.includes(rule)) throw new Error(`Execution contract lost mandatory scope rule: ${rule}`);
 }
 
-for (const section of ['## 1.', '## 21.', '## 22.', '## 23.', '## 24.']) {
+for (const section of ['## 1.', '## 21.', '## 22.', '## 23.', '## 24.', '## 25.']) {
   if (!plan.includes(section)) throw new Error(`Implementation plan section missing: ${section}`);
 }
 for (const term of ['范围校正', '明确排除', 'BOLL', 'MACD', '未来数据']) {
@@ -98,6 +99,16 @@ if (liveCalibration.includes('auditConfirmedBollMacdSeries')) {
 if (!audit.includes('当前 main 不存在') || !audit.includes('账本隔离')) {
   throw new Error('Source audit must document current scope exclusions and ledger isolation.');
 }
+
+if (byId.get('T-04')?.status === 'PASS' && !read('src/macd.ts').includes('MACD_STABILITY_MIN_BARS')) {
+  throw new Error('T-04 cannot be PASS without the empirically calibrated MACD stable-history gate.');
+}
+if (byId.get('T-11')?.status === 'PASS') {
+  if (!calibrationReport.includes('42646038809') || !calibrationReport.includes('thresholdSelection')) {
+    throw new Error('T-11 cannot be PASS without the traceable multi-ETF calibration report.');
+  }
+}
+
 if (byId.get('T-03')?.status === 'PASS' && !read('src/market-data.ts').includes('bollStateConfigFor(interval)')) {
   throw new Error('T-03 cannot be PASS until the calibrated BOLL config is wired into the production market-data path.');
 }
