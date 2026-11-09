@@ -193,7 +193,8 @@ export function describeTechnicalMultiTimeframeState(
     { label: '周线', snapshot: periods.weekly },
     { label: '日线', snapshot: periods.daily },
   ];
-  const validCount = ordered.filter(({ snapshot }) => snapshot.validity === 'VALID').length;
+  const bollValidCount = ordered.filter(({ snapshot }) => snapshot.boll.validity === 'VALID').length;
+  const macdReadyCount = ordered.filter(({ snapshot }) => snapshot.macd.availability === 'ready').length;
   const describe = (select: (snapshot: TechnicalStateSnapshot) => string) =>
     ordered.map(({ label, snapshot }) => label + ' ' + select(snapshot)).join('；');
   const bandwidth = describe((snapshot) =>
@@ -206,7 +207,7 @@ export function describeTechnicalMultiTimeframeState(
     .map(({ label, snapshot }) => label + ' ' + macdCrossEventText(snapshot));
   const crossSummary = crossEvents.length ? crossEvents.join('、') : '当前无可确认的新交叉事件';
   const summary =
-    '已确认数据 ' + validCount + '/3 周期。BOLL 带宽阶段：' + bandwidth +
+    'BOLL 有效 ' + bollValidCount + '/3 周期，MACD 稳定可用 ' + macdReadyCount + '/3 周期。BOLL 带宽阶段：' + bandwidth +
     '。BOLL 中轨方向：' + middle +
     '。MACD DIF 零轴位置：' + zeroAxis +
     '。MACD 新交叉：' + crossSummary +
