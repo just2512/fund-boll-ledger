@@ -1,4 +1,4 @@
-import { calculateMacdFromConfirmedSeries, macdArrangementLabel, macdMomentumLabel, macdZeroAxisLabel, unavailableMacdPeriod } from '../macd';
+import { calculateMacdFromConfirmedSeries, insufficientMacdPeriod, macdArrangementLabel, macdMomentumLabel, macdZeroAxisLabel, minimumMacdHistoryBars, unavailableMacdPeriod } from '../macd';
 import type { MacdPeriodState } from '../macd';
 import { calculateBollState } from './boll-state';
 import type {
@@ -11,9 +11,10 @@ import type {
   TechnicalValidity,
 } from './types';
 
-function macdValidity(series: ConfirmedTechnicalSeries, macd: MacdPeriodState): TechnicalValidity {
-  if (!macd.error) return 'VALID';
-  return series.bars.length < 35 ? 'INSUFFICIENT' : 'INVALID';
+function macdValidity(_series: ConfirmedTechnicalSeries, macd: MacdPeriodState): TechnicalValidity {
+  if (macd.availability === 'ready') return 'VALID';
+  if (macd.availability === 'insufficient-history') return 'INSUFFICIENT';
+  return 'INVALID';
 }
 
 /** Calculate BOLL and MACD from exactly the same already-confirmed historical prefix. */
@@ -23,7 +24,10 @@ export function calculateTechnicalStateSnapshot(
   quoteSource?: TechnicalQuoteSource,
 ): TechnicalStateSnapshot {
   const boll = calculateBollState(series, config);
-  const macd = calculateMacdFromConfirmedSeries(series);
+  const minimumBars = minimumMacdHistoryBars(series.interval);
+  const macd = series.bars.length < minimumBars
+    ? insufficientMacdPeriod(series.interval, '已确认历史 K 线不足 ' + minimumBars + ' 根，当前周期 MACD 状态不发布')
+    : calculateMacdFromConfirmedSeries(series);
   const macdStatus = macdValidity(series, macd);
   const validity: TechnicalValidity = boll.validity !== 'VALID' ? boll.validity : macdStatus;
   const reasons = [boll.reason, macd.error].filter((value): value is string => Boolean(value));
