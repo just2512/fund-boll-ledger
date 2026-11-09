@@ -84,8 +84,8 @@ function percentChange(current: number, previous: number | undefined): number | 
   return Number.isFinite(value) ? value : undefined;
 }
 
-function calculatePoints(series: ConfirmedTechnicalSeries): BollPoint[] {
-  const points: BollPoint[] = [];
+function calculatePoints(series: ConfirmedTechnicalSeries): Array<BollPoint | undefined> {
+  const points: Array<BollPoint | undefined> = Array.from({ length: series.bars.length }, () => undefined);
   for (let index = 19; index < series.bars.length; index += 1) {
     const window = series.bars.slice(index - 19, index + 1);
     const mean = window.reduce((sum, bar) => sum + bar.close, 0) / 20;
@@ -96,7 +96,7 @@ function calculatePoints(series: ConfirmedTechnicalSeries): BollPoint[] {
     if (![mean, upper, lower].every(Number.isFinite) || mean <= 0 || lower <= 0 || upper < lower) continue;
     const bandwidthPercent = ((upper - lower) / mean) * 100;
     if (!Number.isFinite(bandwidthPercent) || bandwidthPercent < 0) continue;
-    points.push({ date: series.bars[index].date, close: series.bars[index].close, upper, middle: mean, lower, bandwidthPercent });
+    points[index] = { date: series.bars[index].date, close: series.bars[index].close, upper, middle: mean, lower, bandwidthPercent };
   }
   return points;
 }
@@ -138,19 +138,19 @@ export function calculateBollState(
 
   const points = calculatePoints(series);
   const current = points.at(-1);
-  if (!current || current.date !== series.asOfDate) return insufficient('最近一根确认 K 线无法形成有效 BOLL 轨道');
-  const bandwidths = points.map((point) => point.bandwidthPercent);
-  const bandwidthChanges = bandwidths.map((value, index) => percentChange(value, bandwidths[index - 1]));
+  if (!current || current.date !== series.asOfDate) return invalid('最近一根确认 K 线无法形成有效 BOLL 轨道');
+  const bandwidths = points.map((point) => point?.bandwidthPercent);
+  const bandwidthChanges = bandwidths.map((value, index) => value === undefined ? undefined : percentChange(value, bandwidths[index - 1]));
   const middleChanges = points.map((point, index) => {
     const prior = points[index - config.middleDirectionLookback];
-    return percentChange(point.middle, prior?.middle);
+    return point && prior ? percentChange(point.middle, prior.middle) : undefined;
   });
   const bandwidthDirections = bandwidthChanges.map((value) => classifyChange(value, config.flatTolerancePercent));
   const middleDirections = middleChanges.map((value) => classifyChange(value, config.flatTolerancePercent));
   const bandwidthPhase = classifyConfirmedTrend(bandwidthDirections, config.confirmationBars);
   const middleDirection = classifyConfirmedTrend(middleDirections, config.confirmationBars);
 
-  const rankWindow = bandwidths.slice(-config.bandwidthRankLookback);
+  const rankWindow = bandwidths.slice(-config.bandwidthRankLookback).filter((value): value is number => value !== undefined);
   const bandwidthPercentile = rankWindow.length >= config.bandwidthRankMinimumSamples
     ? rankWindow.filter((value) => value <= current.bandwidthPercent).length / rankWindow.length * 100
     : undefined;
