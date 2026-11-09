@@ -10,6 +10,8 @@ const tauri = readJson('src-tauri/tauri.conf.json');
 const cargoToml = fs.readFileSync(path.join(root, 'src-tauri/Cargo.toml'), 'utf8');
 const cargoLock = fs.readFileSync(path.join(root, 'src-tauri/Cargo.lock'), 'utf8');
 const storage = fs.readFileSync(path.join(root, 'src/storage.ts'), 'utf8');
+const androidBuild = fs.readFileSync(path.join(root, 'scripts/build-android.ps1'), 'utf8');
+const androidSigning = fs.readFileSync(path.join(root, 'scripts/configure-android-signing.mjs'), 'utf8');
 
 const cargoVersion = cargoToml.match(/^version\s*=\s*"([^"]+)"/m)?.[1];
 const cargoLockSection = cargoLock.match(/\[\[package\]\]\nname = "fund-boll-ledger"\nversion = "([^"]+)"/);
@@ -45,5 +47,11 @@ if (tauri.bundle.android.autoIncrementVersionCode !== false) {
 }
 if (!storage.includes("const DB_NAME = 'fund-boll-ledger'") || !storage.includes("const STORE_NAME = 'app-state'")) {
   throw new Error('IndexedDB database/store identity changed; a deliberate data migration is required.');
+}
+if (!androidBuild.includes('node "scripts/configure-android-signing.mjs"') || !androidBuild.includes('if (-not $Debug)')) {
+  throw new Error('Android release build must configure persistent signing; debug builds must remain separate.');
+}
+if (!androidSigning.includes("'-storetype', 'PKCS12'") || !androidSigning.includes('storeType = "PKCS12"')) {
+  throw new Error('Android persistent keystore generation and Gradle signing storeType must both explicitly use PKCS12.');
 }
 console.log(`Upgrade contract PASS: version ${tauri.version}, Android versionCode ${expectedVersionCode}, app ID ${tauri.identifier}, Windows install mode currentUser, IndexedDB identity preserved.`);
