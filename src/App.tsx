@@ -5,7 +5,7 @@ import { loadAppData, loadStorageMetadata, saveAppData, saveLastBackupAt } from 
 import { getBackupReminder } from './backup-reminder';
 import { validateAppData } from './backup-validation';
 import { fetchLatestMarketData, type MarketQuote } from './market-data';
-import { macdArrangementLabel, macdMomentumLabel, macdZeroAxisLabel, type MacdMultiTimeframeState, type MacdPeriodState, type MacdTone } from './macd';
+import { MACD_STABILITY_MIN_BARS, macdArrangementLabel, macdMomentumLabel, macdZeroAxisLabel, type MacdMultiTimeframeState, type MacdPeriodState, type MacdTone } from './macd';
 import type { TechnicalMultiTimeframeState, TechnicalStateSnapshot } from './technical-state/types';
 import { describeTechnicalMultiTimeframeState } from './technical-state/engine';
 import { createId, emptyAppData, newFund, type AppData, type Fund, type FundCategory, type FundPrices, type LadderDirection, type PriceBasisKey, type PriceSnapshot, type Trade, type TradeSide } from './types';
@@ -565,7 +565,7 @@ function MacdPanel({ state, technical, loading }: { state?: MacdMultiTimeframeSt
         <MacdPeriodCard label="日线" state={state?.daily} technical={technical?.daily}/>
       </div>
     </details>
-    <small className="macd-footnote">仅描述已确认行情中的指标计算结果，不构成买卖建议。MACD 35 根是当前数值计算下限，不代表交叉信号已通过稳定性或交易有效性验证。</small>
+    <small className="macd-footnote">仅描述已确认行情中的指标计算结果，不构成买卖建议。MACD 历史稳定性门槛：日线 {MACD_STABILITY_MIN_BARS.daily} 根、周线 {MACD_STABILITY_MIN_BARS.weekly} 根、月线 {MACD_STABILITY_MIN_BARS.monthly} 根确认 K 线；依据四只 ETF 三周期历史起点滚动敏感性，不代表交易有效性验证。</small>
   </div>;
 }
 
