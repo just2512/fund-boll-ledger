@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { analyzeMacdHistoryStartSensitivity } from './macd-seed-sensitivity';
+import { analyzeMacdHistoryStartSensitivity, analyzeMacdHistoryStartSensitivityAcrossPrefixes } from './macd-seed-sensitivity';
 import type { ConfirmedTechnicalSeries } from './types';
 
 function makeSeries(length = 120): ConfirmedTechnicalSeries {
@@ -37,6 +37,18 @@ describe('MACD history-start sensitivity', () => {
       candidate.state.crossEvent === 'golden' ||
       candidate.state.crossEvent === 'death' ||
       candidate.state.crossEvent === 'none',
+    )).toBe(true);
+  });
+
+  it('compares seed windows at every historical as-of date without using future bars', () => {
+    const series = makeSeries();
+    const report = analyzeMacdHistoryStartSensitivityAcrossPrefixes(series, [35, 50, 75, 100]);
+    expect(report.endpointCount).toBe(86);
+    expect(report.candidates.map((candidate) => candidate.sampleCount)).toEqual([85, 70, 45, 20]);
+    expect(report.candidates.every((candidate) =>
+      Number.isFinite(candidate.maxNumericDeltaBpsOfClose.dif) &&
+      Number.isFinite(candidate.maxNumericDeltaBpsOfClose.dea) &&
+      Number.isFinite(candidate.maxNumericDeltaBpsOfClose.histogram),
     )).toBe(true);
   });
 
