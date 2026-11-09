@@ -240,14 +240,16 @@ export function macdArrangementLabel(state: MacdPeriodState): string {
   }
 }
 export function macdZeroAxisLabel(state: MacdPeriodState): string {
-  if (state.error) return '数据不足';
+  if (state.availability === 'insufficient-history') return '历史不足';
+  if (state.availability !== 'ready') return state.availability === 'invalid-data' ? '数据无效' : '数据不可用';
   if (state.zeroAxis === 'above') return 'DIF 零轴上方';
   if (state.zeroAxis === 'below') return 'DIF 零轴下方';
   if (state.zeroAxis === 'at-zero') return 'DIF 位于零轴';
   return '状态不明';
 }
 export function macdMomentumLabel(state: MacdPeriodState): string {
-  if (state.error) return '数据不足';
+  if (state.availability === 'insufficient-history') return '历史不足';
+  if (state.availability !== 'ready') return state.availability === 'invalid-data' ? '数据无效' : '数据不可用';
   switch (state.momentum) {
     case 'bull-strengthening': return '多头动能增强';
     case 'bull-weakening': return '多头动能减弱';
