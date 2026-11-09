@@ -489,7 +489,7 @@ test('行情仅在手动点击时请求，东方财富成功后更新当前价�
   await expect(page.getByRole('spinbutton', { name: 'BOLL 中轨' })).not.toHaveValue('');
   await expect(page.getByRole('spinbutton', { name: 'BOLL 下轨' })).not.toHaveValue('');
   await expect(page.getByText('日涨跌 +3.13%', { exact: true })).toBeVisible();
-  await expect(page.getByText(/来源：东方财富/)).toBeVisible();
+  await expect(page.locator('.quote-refresh-meta').getByText(/来源：东方财富/)).toBeVisible();
   await expect(page.locator('.quote-refresh-meta').getByText(/BOLL\(20,2\)/)).toBeVisible();
   expect(eastmoneyCalls).toBe(1);
   expect(baiduCalls).toBe(0);
@@ -522,7 +522,7 @@ test('东方财富失败时百度自动兜底，双源都失败时保留手动�
 
   await page.getByRole('button', { name: '刷新行情' }).click();
   await expect(page.getByPlaceholder('输入你看到的最新价格')).toHaveValue('4.125');
-  await expect(page.getByText(/来源：百度行情/)).toBeVisible();
+  await expect(page.locator('.quote-refresh-meta').getByText(/来源：百度行情/)).toBeVisible();
   await expect(page.getByRole('spinbutton', { name: '昨日收盘价' })).toHaveValue('4.000');
   // 百度现价源未提供可信交易日期；不得把未确认现价并入日线计算 BOLL。
   await expect(page.getByRole('spinbutton', { name: 'BOLL 中轨' })).toHaveValue('');
@@ -647,7 +647,7 @@ test('刷新进行中用户改写现价，返回后不被行情覆盖且提示�
   await expect(page.getByText(/价格字段已手动修改/)).toBeVisible();
 
   releaseQuote!();
-  await expect(page.getByText(/来源：东方财富/)).toBeVisible();
+  await expect(page.locator('.quote-refresh-meta').getByText(/来源：东方财富/)).toBeVisible();
 
   // The quote must NOT clobber the user's manual edit.
   await expect(page.getByRole('spinbutton', { name: '当前价格' })).toHaveValue('9.888');
@@ -950,7 +950,7 @@ test('刷新行情按钮连点两次只发出一次 eastmoney 请求', async ({ 
   // 立即再点：disabled 元素的原生 click() 不会触发 handler
   await refreshButton.evaluate((button) => (button as HTMLButtonElement).click());
 
-  await expect(page.getByText(/来源：东方财富/)).toBeVisible();
+  await expect(page.locator('.quote-refresh-meta').getByText(/来源：东方财富/)).toBeVisible();
   expect(eastmoneyCalls).toBe(1);
 });
 
@@ -988,7 +988,7 @@ test('刷新进行中编辑基金代码，旧响应不写入新代码基金的�
 
   // 新代码基金的价格不被旧响应写入
   await expect(page.getByPlaceholder('输入你看到的最新价格')).toHaveValue('');
-  await expect(page.getByText(/来源：东方财富/)).toHaveCount(0);
+  await expect(page.locator('.quote-refresh-meta').getByText(/来源：东方财富/)).toHaveCount(0);
   // 旧 loading 状态不得锁死新代码的刷新按钮
   await expect(page.getByRole('button', { name: '刷新行情' })).toBeEnabled();
 });
