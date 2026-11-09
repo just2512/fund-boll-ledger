@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { fetchConfirmedTechnicalHistory, fetchLatestQuote } from '../market-data';
 import { calculateTechnicalStateSnapshot } from './engine';
 import { calibrateBollHistory } from './calibration';
+import { analyzeBollConfigSensitivity, buildBollSensitivityCandidates } from './sensitivity';
 import { hasNoFutureBars, replayConfirmedTechnicalSeries } from './history-replay';
 import type { BollInterval } from '../market-data';
 
@@ -29,6 +30,12 @@ describe('live multi-ETF BOLL historical calibration', () => {
         }
         expect(normalized.series.bars.length, `${instrument.code} ${interval} confirmed bars`).toBeGreaterThanOrEqual(35);
         const report = calibrateBollHistory(normalized.series);
+        const sensitivity = analyzeBollConfigSensitivity(
+          normalized.series,
+          buildBollSensitivityCandidates(interval),
+        );
+        expect(sensitivity.thresholdSelection).toBe('NOT_PERFORMED');
+        expect(sensitivity.candidates.every((candidate) => candidate.noFutureBars)).toBe(true);
         expect(report.confirmedBarCount).toBe(normalized.series.bars.length);
         expect(report.bollPointCount).toBeGreaterThan(0);
 
@@ -49,6 +56,7 @@ describe('live multi-ETF BOLL historical calibration', () => {
           klineSource: normalized.series.source,
           quoteSource: quote.source,
           excludedInProgressBar: normalized.series.excludedInProgressBar,
+          parameterSensitivity: sensitivity,
           walkForward: {
             replayedPrefixCount: replay.length,
             noFutureBars: hasNoFutureBars(replay),
