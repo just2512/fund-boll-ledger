@@ -41,7 +41,11 @@ describe('BOLL parameter sensitivity analysis', () => {
     expect(report.candidates.every((candidate) => candidate.noFutureBars)).toBe(true);
     expect(report.candidates.every((candidate) => candidate.replayedPrefixCount === series.bars.length)).toBe(true);
     expect(report.pairComparisons).toHaveLength(3);
+    expect(report.candidates.every((candidate) => candidate.bandwidthPercentileSampleCount > 0)).toBe(true);
+    expect(report.candidates.every((candidate) => candidate.bandwidthPercentileDistribution?.count === candidate.bandwidthPercentileSampleCount)).toBe(true);
     expect(report.pairComparisons.every((comparison) => comparison.comparableDates > 0)).toBe(true);
+    expect(report.pairComparisons.every((comparison) => comparison.bandwidthPercentileComparableDates > 0)).toBe(true);
+    expect(report.pairComparisons[0].bandwidthPercentileMeanAbsoluteDifference).toBeGreaterThan(0);
   });
 
   it('rejects duplicate candidate identifiers rather than silently overwriting comparisons', () => {
