@@ -3,6 +3,8 @@ declare const process: { env: Record<string, string | undefined> };
 import { describe, expect, it } from 'vitest';
 import { fetchConfirmedTechnicalHistory, fetchLatestQuote } from '../market-data';
 import { calculateTechnicalStateSnapshot } from './engine';
+import { bollStateConfigFor } from './config';
+import { MACD_STABILITY_MIN_BARS } from '../macd';
 import { calibrateBollHistory } from './calibration';
 import { auditConfirmedBollMacdSeries } from './boll-macd-events';
 import { analyzeBollConfigSensitivity, buildBollSensitivityCandidates } from './sensitivity';
@@ -32,7 +34,7 @@ describe('live multi-ETF BOLL historical calibration', () => {
         if (normalized.validity !== 'VALID') {
           throw new Error(`${instrument.code} ${interval} 历史不可用：${normalized.reason}`);
         }
-        expect(normalized.series.bars.length, `${instrument.code} ${interval} confirmed bars`).toBeGreaterThanOrEqual(35);
+        expect(normalized.series.bars.length, `${instrument.code} ${interval} confirmed bars`).toBeGreaterThanOrEqual(MACD_STABILITY_MIN_BARS[interval]);
         if (instrument.code === '510300' && interval === 'daily') {
           const originalFetch = globalThis.fetch;
           globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -127,12 +129,12 @@ describe('live multi-ETF BOLL historical calibration', () => {
         // real provider series. Each date must see only bars available on that date.
         const replay = replayConfirmedTechnicalSeries(
           normalized.series,
-          (prefix) => calculateTechnicalStateSnapshot(prefix, undefined, quote.source),
+          (prefix) => calculateTechnicalStateSnapshot(prefix, bollStateConfigFor(prefix.interval), quote.source),
         );
         expect(replay, `${instrument.code} ${interval} replay prefix count`).toHaveLength(normalized.series.bars.length);
         expect(hasNoFutureBars(replay), `${instrument.code} ${interval} replay must not expose future bars`).toBe(true);
         expect(replay.at(-1)?.result, `${instrument.code} ${interval} final replay must match batch calculation`)
-          .toEqual(calculateTechnicalStateSnapshot(normalized.series, undefined, quote.source));
+          .toEqual(calculateTechnicalStateSnapshot(normalized.series, bollStateConfigFor(interval), quote.source));
 
         reports.push({
           code: instrument.code,
