@@ -430,7 +430,9 @@ test('东方财富失败时百度自动兜底，双源都失败时保留手动�
   await expect(page.getByPlaceholder('输入你看到的最新价格')).toHaveValue('4.125');
   await expect(page.getByText(/来源：百度行情/)).toBeVisible();
   await expect(page.getByRole('spinbutton', { name: '昨日收盘价' })).toHaveValue('4.000');
-  await expect(page.getByRole('spinbutton', { name: 'BOLL 中轨' })).not.toHaveValue('');
+  // 百度现价源未提供可信交易日期；不得把未确认现价并入日线计算 BOLL。
+  await expect(page.getByRole('spinbutton', { name: 'BOLL 中轨' })).toHaveValue('');
+  await expect(page.getByText(/未提供可信交易日期/)).toBeVisible();
 
   await page.getByPlaceholder('输入你看到的最新价格').fill('3.500');
   await page.route('https://push2.eastmoney.com/**', async (route) => {
@@ -766,9 +768,11 @@ test('含快照的完整备份导出后重新导入可全部恢复', async ({ pa
   await expect(page.getByText('备份已载入')).toBeVisible();
   await expect(page.getByText('先建立第一只场内基金')).toBeVisible();
 
-  // 重新导入完整备份文件（用导出的原始字节）
-  page.once('dialog', (d) => d.accept());
+  // 重新导入完整备份文件（用导出的原始字节）；确认对话框内容也纳入断言。
+  let restoreDialogMessage = '';
+  page.once('dialog', (dialog) => { restoreDialogMessage = dialog.message(); void dialog.accept(); });
   await page.locator('input[type=file]').setInputFiles({ name: 'full-backup.json', mimeType: 'application/json', buffer: Buffer.from(backupText) });
+  await expect.poll(() => restoreDialogMessage).toContain('备份文件含 1 只基金、1 笔交易、1 条价格快照');
   // 基金、交易、快照全部恢复；以真实恢复后的基金记录作为完成条件，避免命中上一次导入的旧 toast。
   await expect(page.locator('.fund-list-item', { hasText: '备份基金' })).toBeVisible({ timeout: 10_000 });
   await page.getByRole('button', { name: '交易账本' }).click();
@@ -777,7 +781,7 @@ test('含快照的完整备份导出后重新导入可全部恢复', async ({ pa
   await expect(page.locator('.snapshot-card', { hasText: '恢复用快照' })).toBeVisible();
 });
 
-test('恶意备份变体被拒绝且数据不变，非法 ladderBasis 被 normalize 兜底', async ({ page }) => {
+test('恶意备份变体被拒绝且数据不变，非法 ladderBasis 不得导入', async ({ page }) => {
   await createFund(page, '防线基金', '510300');
   const alerts: string[] = [];
   page.on('dialog', (d) => {
@@ -822,11 +826,11 @@ test('恶意备份变体被拒绝且数据不变，非法 ladderBasis 被 normal
   await expect.poll(() => alerts.join('\n')).toContain('不能为负数');
   await dataUnchanged();
 
-  // 变体 4：ladderBasis 非法值 → 导入成功且 normalize 兜底为 lastTradePrice
+  // 变体 4：非法枚举必须拒绝，不能依赖 normalize 静默修复不可信备份。
   const hacked: Record<string, unknown> = { ...validFund(), ladderBasis: 'hack' };
   await importJson({ schemaVersion: 1, funds: [hacked], trades: [], snapshots: [] });
-  await expect(page.locator('.fund-list-item', { hasText: '规范化基金' })).toBeVisible();
-  await expect(page.getByLabel('选择计算基准')).toHaveValue('lastTradePrice');
+  await expect.poll(() => alerts.join('\n')).toContain('阶梯基准值无效');
+  await dataUnchanged();
 });
 
 test('刷新行情按钮连点两次只发出一次 eastmoney 请求', async ({ page }) => {
