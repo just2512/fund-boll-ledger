@@ -101,6 +101,15 @@ function calculatePoints(series: ConfirmedTechnicalSeries): Array<BollPoint | un
   return points;
 }
 
+function priceLocationWithoutThresholds(position: number | undefined): BollPriceLocation {
+  if (position === undefined || !Number.isFinite(position)) return 'unknown';
+  if (position < 0) return 'below-lower';
+  if (position > 100) return 'above-upper';
+  if (position < 50) return 'below-middle';
+  if (position > 50) return 'above-middle';
+  return 'unknown';
+}
+
 function priceLocation(position: number | undefined, nearDistance: number): BollPriceLocation {
   if (position === undefined || !Number.isFinite(position)) return 'unknown';
   if (position < 0) return 'below-lower';
@@ -115,9 +124,9 @@ function priceLocation(position: number | undefined, nearDistance: number): Boll
 /** Calculate a BOLL state from confirmed historical bars only. No quote/live price is accepted. */
 export function calculateBollState(
   series: ConfirmedTechnicalSeries,
-  config: BollStateConfig,
+  config?: BollStateConfig,
 ): BollState {
-  const configError = validateConfig(config);
+  const configError = config ? validateConfig(config) : undefined;
   if (configError) return invalid(configError);
   if (series.bars.length === 0) return insufficient('没有已确认收盘的 K 线');
   if (series.asOfDate !== series.bars[series.bars.length - 1]?.date) return invalid('asOfDate 与最后一根确认 K 线日期不一致');
@@ -140,7 +149,37 @@ export function calculateBollState(
   const current = points.at(-1);
   if (!current || current.date !== series.asOfDate) return invalid('最近一根确认 K 线无法形成有效 BOLL 轨道');
   const bandwidths = points.map((point) => point?.bandwidthPercent);
-  const bandwidthChanges = bandwidths.map((value, index) => value === undefined ? undefined : percentChange(value, bandwidths[index - 1]));
+  const bandwidthChange1 = percentChange(current.bandwidthPercent, bandwidths.at(-2));
+  const bandwidthChange3 = percentChange(current.bandwidthPercent, bandwidths.at(-4));
+  const bandwidthChange5 = percentChange(current.bandwidthPercent, bandwidths.at(-6));
+  const closeLocationPercent = current.upper === current.lower
+    ? undefined
+    : ((current.close - current.lower) / (current.upper - current.lower)) * 100;
+  const reasons: string[] = [];
+  if (current.upper === current.lower) reasons.push('BOLL 上下轨重合，无法计算收盘区间位置');
+
+  if (!config) {
+    reasons.push('状态阈值未配置：带宽分位、中轨方向和接近轨道标签保持 UNKNOWN');
+    return {
+      validity: 'VALID',
+      asOfDate: current.date,
+      upper: current.upper,
+      middle: current.middle,
+      lower: current.lower,
+      bandwidthPercent: current.bandwidthPercent,
+      ...(bandwidthChange1 === undefined ? {} : { bandwidthChange1 }),
+      ...(bandwidthChange3 === undefined ? {} : { bandwidthChange3 }),
+      ...(bandwidthChange5 === undefined ? {} : { bandwidthChange5 }),
+      bandwidthPhase: 'unknown',
+      middleDirection: 'unknown',
+      ...(closeLocationPercent === undefined ? {} : { closeLocationPercent }),
+      priceLocation: priceLocationWithoutThresholds(closeLocationPercent),
+      reason: reasons.join('；'),
+    };
+  }
+
+  const bandwidthChanges = bandwidths.map((value, index) =>
+    value === undefined ? undefined : percentChange(value, bandwidths[index - 1]));
   const middleChanges = points.map((point, index) => {
     const prior = points[index - config.middleDirectionLookback];
     return point && prior ? percentChange(point.middle, prior.middle) : undefined;
@@ -154,9 +193,6 @@ export function calculateBollState(
   const bandwidthPercentile = rankWindow.length >= config.bandwidthRankMinimumSamples
     ? rankWindow.filter((value) => value <= current.bandwidthPercent).length / rankWindow.length * 100
     : undefined;
-  const closeLocationPercent = current.upper === current.lower
-    ? undefined
-    : ((current.close - current.lower) / (current.upper - current.lower)) * 100;
   const middleChangePercent = middleChanges.at(-1);
 
   const mapBandwidthPhase = (phase: ReturnType<typeof classifyConfirmedTrend>): BollBandwidthPhase => {
@@ -174,8 +210,9 @@ export function calculateBollState(
     finalBandwidthPhase === 'contracting' && confirmedChanges.every((item) => item === 'down') ? 'contracting-persistent' :
     finalBandwidthPhase;
 
-  const mapMiddleDirection = (direction: ReturnType<typeof classifyConfirmedTrend>): BollMiddleDirection => direction;
-
+  if (bandwidthPercentile === undefined) {
+    reasons.push(`带宽分位样本不足：${rankWindow.length}/${config.bandwidthRankMinimumSamples}`);
+  }
   return {
     validity: 'VALID',
     asOfDate: current.date,
@@ -185,14 +222,14 @@ export function calculateBollState(
     bandwidthPercent: current.bandwidthPercent,
     ...(bandwidthPercentile === undefined ? {} : { bandwidthPercentile }),
     bandwidthSampleCount: rankWindow.length,
-    ...(percentChange(current.bandwidthPercent, bandwidths.at(-2)) === undefined ? {} : { bandwidthChange1: percentChange(current.bandwidthPercent, bandwidths.at(-2)) }),
-    ...(percentChange(current.bandwidthPercent, bandwidths.at(-4)) === undefined ? {} : { bandwidthChange3: percentChange(current.bandwidthPercent, bandwidths.at(-4)) }),
-    ...(percentChange(current.bandwidthPercent, bandwidths.at(-6)) === undefined ? {} : { bandwidthChange5: percentChange(current.bandwidthPercent, bandwidths.at(-6)) }),
+    ...(bandwidthChange1 === undefined ? {} : { bandwidthChange1 }),
+    ...(bandwidthChange3 === undefined ? {} : { bandwidthChange3 }),
+    ...(bandwidthChange5 === undefined ? {} : { bandwidthChange5 }),
     ...(middleChangePercent === undefined ? {} : { middleChangePercent }),
     bandwidthPhase: persistentBandwidthPhase,
-    middleDirection: mapMiddleDirection(middleDirection),
+    middleDirection,
     ...(closeLocationPercent === undefined ? {} : { closeLocationPercent }),
     priceLocation: priceLocation(closeLocationPercent, config.nearBandDistancePercent),
-    ...(bandwidthPercentile === undefined ? { reason: `带宽分位样本不足：${rankWindow.length}/${config.bandwidthRankMinimumSamples}` } : {}),
+    ...(reasons.length === 0 ? {} : { reason: reasons.join('；') }),
   };
 }

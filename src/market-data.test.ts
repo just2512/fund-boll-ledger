@@ -224,6 +224,13 @@ describe('BOLL(20,2)', () => {
     expect(market.boll?.period).toBe(20);
     expect(market.macd).toBeDefined();
     expect(market.macd?.daily.interval).toBe('daily');
+    expect(market.technicalState?.daily.source).toBe('东方财富');
+    expect(market.technicalState?.daily.quoteSource).toBe('东方财富');
+    expect(market.technicalState?.daily.boll.asOfDate).toBe(market.technicalState?.daily.macd.asOfDate);
+    expect(market.technicalState?.daily.confirmedBarCount).toBeGreaterThanOrEqual(20);
+    expect(market.technicalState?.daily.historyStartDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(market.technicalState?.weekly.boll.validity).toBe('INSUFFICIENT');
+    expect(market.technicalState?.monthly.boll.validity).toBe('INSUFFICIENT');
     expect(market.weeklyBollRange).toEqual({ upper: expect.any(String), lower: expect.any(String) });
     expect(market.monthlyBollRange).toEqual({ upper: expect.any(String), lower: expect.any(String) });
     expect(market.boll?.upper).toMatch(/^\d+\.\d{3}$/);
@@ -253,6 +260,9 @@ describe('BOLL(20,2)', () => {
     // 1 quote + 3 Eastmoney klines (all 503) + 3 Tencent fallbacks = 7 fetches.
     expect(fetchMock).toHaveBeenCalledTimes(7);
     expect(market.price).toBe('4.125');
+    expect(market.technicalState?.daily.source).toBe('腾讯行情');
+    expect(market.technicalState?.daily.quoteSource).toBe('东方财富');
+    expect(market.technicalState?.weekly.source).toBe('腾讯行情');
     // All three intervals must recover from the Tencent fallback.
     // Exact band values are covered by calculateBollBands unit tests; here we assert the fallback produced real three-decimal bands.
     expect(market.boll?.middle).toMatch(/^\d+\.\d{3}$/);
@@ -274,5 +284,8 @@ describe('BOLL(20,2)', () => {
     expect(market.bollError).toContain('腾讯失败');
     expect(market.weeklyBollRangeError).toContain('腾讯失败');
     expect(market.monthlyBollRangeError).toContain('腾讯失败');
+    expect(market.technicalState?.daily.validity).toBe('INVALID');
+    expect(market.technicalState?.daily.reason).toContain('东方财富失败');
+    expect(market.technicalState?.daily.quoteSource).toBe('东方财富');
   });
 });

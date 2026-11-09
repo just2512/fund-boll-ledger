@@ -103,11 +103,25 @@ export interface BollState {
 
 export interface TechnicalStateSnapshot {
   interval: TechnicalInterval;
-  asOfDate: string;
+  /** Absent only when no confirmed bar could be produced. */
+  asOfDate?: string;
+  /** K-line provider and spot-quote provider are tracked independently. */
+  source?: TechnicalQuoteSource;
+  quoteSource?: TechnicalQuoteSource;
+  /** Coverage metadata describes only the loaded/confirmed window. */
+  historyStartDate?: string;
+  confirmedBarCount: number;
+  excludedInProgressBar: boolean;
   boll: BollState;
-  /** Existing MACD state is retained as the source of truth until B-line audit is complete. */
   macd: MacdPeriodState;
   validity: TechnicalValidity;
+  reason?: string;
+}
+
+export interface TechnicalMultiTimeframeState {
+  daily: TechnicalStateSnapshot;
+  weekly: TechnicalStateSnapshot;
+  monthly: TechnicalStateSnapshot;
 }
 
 export interface BollStateConfig {

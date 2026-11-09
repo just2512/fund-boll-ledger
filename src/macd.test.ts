@@ -108,6 +108,7 @@ describe('MACD deterministic multi-timeframe rules', () => {
     });
     expect(summary.summary).toBe('三周期 DIF 位于零轴上方');
     expect(summary.summary).not.toBe('三周期偏多');
+    expect(summary.summaryTone).toBe('neutral');
   });
 
   it('rejects malformed dates and non-positive closes in legacy MACD input', () => {

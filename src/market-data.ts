@@ -1,4 +1,7 @@
-import { calculateMacdPeriod, summarizeMacdPeriods, unavailableMacdPeriod, type MacdMultiTimeframeState, type MacdPeriodState, type MacdInterval } from './macd';
+import { summarizeMacdPeriods, unavailableMacdPeriod, type MacdMultiTimeframeState, type MacdPeriodState, type MacdInterval } from './macd';
+import { calculateTechnicalStateSnapshot, unavailableTechnicalState } from './technical-state/engine';
+import { normalizeConfirmedTechnicalSeries } from './technical-state/series';
+import type { TechnicalMultiTimeframeState, TechnicalStateSnapshot } from './technical-state/types';
 
 export type QuoteSource = '东方财富' | '腾讯行情';
 
@@ -42,6 +45,8 @@ export interface MarketQuote {
   monthlyBollRange?: BollPositionBounds;
   monthlyBollRangeError?: string;
   macd?: MacdMultiTimeframeState;
+  /** Confirmed-history BOLL/MACD outputs; transient quote data, not persisted ledger state. */
+  technicalState?: TechnicalMultiTimeframeState;
 }
 
 export interface MarketQuoteRequest {
@@ -324,6 +329,7 @@ interface IntervalIndicators {
   boll?: BollBands;
   bollError?: string;
   macd: MacdPeriodState;
+  technicalState: TechnicalStateSnapshot;
 }
 async function fetchEastmoneyCloses(code: string, market: MarketQuoteRequest['market'], interval: BollInterval): Promise<DailyClose[]> {
   const secid = eastmoneyMarket(code, market) + '.' + code;
@@ -366,11 +372,16 @@ async function fetchTencentCloses(code: string, market: MarketQuoteRequest['mark
     return [{ date: entry[0], close: String(entry[2]) }];
   });
 }
-/** One source request per interval feeds both BOLL and MACD. */
-async function fetchIntervalCloses(code: string, market: MarketQuoteRequest['market'], interval: BollInterval): Promise<DailyClose[]> {
-  try { return await fetchEastmoneyCloses(code, market, interval); }
+interface IntervalHistory {
+  bars: DailyClose[];
+  source: QuoteSource;
+}
+
+/** One source request per interval returns both the bars and their actual provider provenance. */
+async function fetchIntervalHistory(code: string, market: MarketQuoteRequest['market'], interval: BollInterval): Promise<IntervalHistory> {
+  try { return { bars: await fetchEastmoneyCloses(code, market, interval), source: '东方财富' }; }
   catch (eastmoneyError) {
-    try { return await fetchTencentCloses(code, market, interval); }
+    try { return { bars: await fetchTencentCloses(code, market, interval), source: '腾讯行情' }; }
     catch (tencentError) {
       throw new Error(
         `东方财富失败：${eastmoneyError instanceof Error ? eastmoneyError.message : '未知错误'}；腾讯失败：${tencentError instanceof Error ? tencentError.message : '未知错误'}。请检查网络连接。`,
@@ -379,13 +390,22 @@ async function fetchIntervalCloses(code: string, market: MarketQuoteRequest['mar
   }
 }
 async function fetchIntervalIndicators(code: string, market: MarketQuoteRequest['market'], quote: MarketQuote, interval: BollInterval): Promise<IntervalIndicators> {
-  const bars = await fetchIntervalCloses(code, market, interval);
+  const history = await fetchIntervalHistory(code, market, interval);
   let boll: BollBands | undefined;
   let bollError: string | undefined;
-  try { boll = calculateBollBands(bars, quote.price, quote.tradingDate, interval); }
+  try { boll = calculateBollBands(history.bars, quote.price, quote.tradingDate, interval); }
   catch (error) { bollError = error instanceof Error ? error.message : 'BOLL 计算失败'; }
-  const macd = calculateMacdPeriod(bars, interval, { tradingDate: quote.tradingDate, quotedAt: quote.quotedAt });
-  return { boll, bollError, macd };
+
+  const normalized = normalizeConfirmedTechnicalSeries({
+    interval,
+    bars: history.bars,
+    source: history.source,
+    quote: { tradingDate: quote.tradingDate, quotedAt: quote.quotedAt, quoteSource: quote.source },
+  });
+  const technicalState = normalized.validity === 'VALID'
+    ? calculateTechnicalStateSnapshot(normalized.series, undefined, quote.source)
+    : unavailableTechnicalState(interval, normalized.validity, normalized.reason, history.source, quote.source);
+  return { boll, bollError, macd: technicalState.macd, technicalState };
 }
 
 export async function fetchLatestQuote(request: MarketQuoteRequest): Promise<MarketQuote> {
@@ -425,6 +445,13 @@ export async function fetchLatestMarketData(request: MarketQuoteRequest): Promis
     weekly: weeklyData?.macd ?? failed('weekly', weekly.status === 'rejected' ? weekly.reason : '周线指标不可用'),
     monthly: monthlyData?.macd ?? failed('monthly', monthly.status === 'rejected' ? monthly.reason : '月线指标不可用'),
   });
+  const failedTechnicalState = (interval: MacdInterval, reason: unknown): TechnicalStateSnapshot =>
+    unavailableTechnicalState(interval, 'INVALID', errorText(reason, interval + '历史 K 线不可用'), undefined, quote.source);
+  const technicalState: TechnicalMultiTimeframeState = {
+    daily: dailyData?.technicalState ?? failedTechnicalState('daily', daily.status === 'rejected' ? daily.reason : '日线指标不可用'),
+    weekly: weeklyData?.technicalState ?? failedTechnicalState('weekly', weekly.status === 'rejected' ? weekly.reason : '周线指标不可用'),
+    monthly: monthlyData?.technicalState ?? failedTechnicalState('monthly', monthly.status === 'rejected' ? monthly.reason : '月线指标不可用'),
+  };
   const dailyBollError = dailyData?.bollError ?? (daily.status === 'rejected' ? errorText(daily.reason, '日 BOLL 数据不可用，未能计算 BOLL。') : undefined);
   const weeklyBollError = weekly.status === 'rejected' ? errorText(weekly.reason, '周 BOLL 数据不可用，未能计算周 BOLL 区间位置。') : weeklyData?.bollError;
   const monthlyBollError = monthly.status === 'rejected' ? errorText(monthly.reason, '月 BOLL 数据不可用，未能计算月 BOLL 区间位置。') : monthlyData?.bollError;
@@ -437,5 +464,6 @@ export async function fetchLatestMarketData(request: MarketQuoteRequest): Promis
     ...(monthlyData?.boll ? { monthlyBollRange: { upper: monthlyData.boll.upper, lower: monthlyData.boll.lower } } : {}),
     ...(monthlyBollError ? { monthlyBollRangeError: monthlyBollError } : {}),
     macd,
+    technicalState,
   };
 }

@@ -269,7 +269,7 @@ export function summarizeMacdPeriods(
   const allBullish = axes.every((axis) => axis === 'above');
   const allBearish = axes.every((axis) => axis === 'below');
   const summary = allBullish ? '三周期 DIF 位于零轴上方' : allBearish ? '三周期 DIF 位于零轴下方' : 'DIF 零轴位置分化';
-  const summaryTone: MacdTone = allBullish ? 'bullish' : allBearish ? 'bearish' : 'mixed';
+  const summaryTone: MacdTone = allBullish || allBearish ? 'neutral' : 'mixed';
   const fresh = ordered.find((state) => state.crossEvent === 'golden' || state.crossEvent === 'death');
   let summaryDetail: string;
   let detailTone: MacdTone;
