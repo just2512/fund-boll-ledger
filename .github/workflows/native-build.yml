@@ -189,8 +189,10 @@ jobs:
         run: node scripts/configure-android-signing.mjs
       - name: Build upgrade-compatible ARM64 APK
         run: cargo tauri android build --apk --target aarch64 --ci
-      - name: Verify APK signature, application ID and version code
+      - name: Verify APK signature, application ID, version code and persistent certificate
         shell: bash
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: |
           set -euo pipefail
           BT="$ANDROID_HOME/build-tools/36.0.0"
@@ -198,6 +200,19 @@ jobs:
           test -n "$APK"
           "$BT/apksigner" verify --verbose "$APK"
           "$BT/aapt" dump badging "$APK" | grep -F "package: name='com.just2512.fundbollledger' versionCode='2000' versionName='0.2.0'"
+          STORE_FILE="$(sed -n 's/^storeFile=//p' src-tauri/gen/android/keystore.properties)"
+          KEY_ALIAS="$(sed -n 's/^keyAlias=//p' src-tauri/gen/android/keystore.properties)"
+          test -n "$STORE_FILE"
+          test -n "$KEY_ALIAS"
+          EXPECTED_CERT="$(keytool -list -v -keystore "$STORE_FILE" -alias "$KEY_ALIAS" -storepass "$ANDROID_KEYSTORE_PASSWORD" 2>/dev/null | awk '/SHA256:/{gsub(":", "", $2); print toupper($2); exit}')"
+          ACTUAL_CERT="$("$BT/apksigner" verify --print-certs "$APK" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | tr -d ':' | tr '[:lower:]' '[:upper:]' | head -1)"
+          test -n "$EXPECTED_CERT"
+          test -n "$ACTUAL_CERT"
+          if [ "$EXPECTED_CERT" != "$ACTUAL_CERT" ]; then
+            echo "APK signer certificate does not match the configured persistent keystore." >&2
+            exit 1
+          fi
+          echo "Persistent Android signing certificate fingerprint verified."
           mkdir -p artifacts
           cp "$APK" "artifacts/基金阶梯账本-0.2.0-arm64-release-upgradeable.apk"
       - uses: actions/upload-artifact@v4
