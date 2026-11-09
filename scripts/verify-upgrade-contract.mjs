@@ -61,7 +61,7 @@ if (!nativeWorkflow.includes('workflow_dispatch:')) {
 for (const required of [
   'runs-on: windows-latest',
   'name: Windows desktop installer',
-  'cargo tauri build',
+  'npm run desktop:build',
   'name: fund-boll-ledger-windows-x64',
   "if: ${{ vars.ANDROID_RELEASE_SIGNING_ENABLED == 'true' }}",
   'Configure persistent Android release signing',
