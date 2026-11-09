@@ -561,12 +561,12 @@ UI 验收至少覆盖桌面、Android 窄屏、OPPO Find N2 外屏和展开内�
 
 | 验收项 | 当前状态 | 放行条件 |
 |---|---|---|
-| 同日反向 MACD 交叉与反向 BOLL 触轨同时发生 | 已补独立测试 / CI_PENDING | 同时事件按反向 MACD 优先判失效；旧 setup 不确认，新触轨 setup 只进入 pending |
-| setup 新触发与旧 setup 清理 | 已补同日替换测试 / CI_PENDING | 旧 setup 失效后同日同侧新触轨建立新 pending；同侧重复触轨不重置旧 setup 的首次触发日期 |
-| 历史末尾 pending | 已有基础覆盖 | 保持 pending，不虚构确认日期/成交价格；输出可解释原因 |
-| 真实行情逐根重放/批量一致 | PASS（现有样本） | 每个 as-of 前缀无未来 K 线，最终逐根结果与同起点批量结果一致 |
-| MACD 历史不足状态表达 | IMPLEMENTED / CI_PENDING | 新增 availability：ready / insufficient-history / unavailable / invalid-data；不可用时 crossEvent=unknown；保留 error 诊断文本 |
-| 描述性 UI | NOT_STARTED | 上述边界测试、状态表达契约、真实数据回归及账本隔离全部通过后，才改造现有价格对比模块 |
+| 同日反向 MACD 交叉与反向 BOLL 触轨同时发生 | PASS | 同时事件按反向 MACD 优先判失效；旧 setup 不确认，新触轨 setup 只进入 pending |
+| setup 新触发与旧 setup 清理 | PASS | 旧 setup 失效后同日同侧新触轨建立新 pending；同侧重复触轨不重置旧 setup 的首次触发日期 |
+| 历史末尾 pending | PASS | 保持 pending，不虚构确认日期/成交价格；输出可解释原因 |
+| 真实行情逐根重放/批量一致 | PASS（现有样本，Run 42612801322） | 每个 as-of 前缀无未来 K 线，最终逐根结果与同起点批量结果一致 |
+| MACD 历史不足状态表达 | PASS（Run 42612801332） | 新增 availability：ready / insufficient-history / unavailable / invalid-data；不可用时 crossEvent=unknown；保留 error 诊断文本 |
+| 描述性 UI | IMPLEMENTED / CI_PENDING | 已改造现有价格对比模块中的 MACD 区域为描述性展示；补充来源/历史覆盖/as-of/确认状态；不显示交易建议；最新 UI E2E Run 42613104645 待完成 |
 
 A 线 UI 仅显示计算事实、数据来源/周期/as-of 日期、确认状态、历史覆盖和不可用原因；不显示买卖建议、策略收益或资金占用。
 
