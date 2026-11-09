@@ -32,6 +32,14 @@ describe('backup validation', () => {
     if (!result.valid) expect(result.errors.join(' ')).toMatch(/引用了不存在的基金/);
   });
 
+  it('rejects duplicate IDs within each entity collection', () => {
+    const backup = validBackup();
+    backup.trades.push({ ...backup.trades[0], id: backup.trades[0].id });
+    const result = validateAppData(backup);
+    expect(result.valid).toBe(false);
+    if (!result.valid) expect(result.errors.join(' ')).toMatch(/ID 重复/);
+  });
+
   it('rejects invalid enum values, malformed timestamps and invalid prices', () => {
     const backup = validBackup();
     backup.funds[0].market = 'UNKNOWN' as AppData['funds'][number]['market'];
