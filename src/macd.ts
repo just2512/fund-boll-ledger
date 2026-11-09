@@ -2,6 +2,7 @@ import type { ConfirmedTechnicalSeries } from './technical-state/types';
 
 export type MacdInterval = 'daily' | 'weekly' | 'monthly';
 export type MacdTone = 'bullish' | 'bearish' | 'mixed' | 'neutral' | 'unknown';
+export type MacdAvailability = 'ready' | 'insufficient-history' | 'unavailable' | 'invalid-data';
 export type MacdCrossDirection = 'golden' | 'death' | 'unknown';
 export type MacdCrossEvent = 'golden' | 'death' | 'none' | 'unknown';
 export type MacdZeroAxis = 'above' | 'below' | 'at-zero' | 'unknown';
@@ -17,6 +18,7 @@ export interface MacdBar { date: string; close: string | number }
 export interface MacdQuoteContext { tradingDate?: string; quotedAt?: string }
 export interface MacdPeriodState {
   interval: MacdInterval;
+  availability: MacdAvailability;
   asOfDate?: string;
   error?: string;
   /** Number of confirmed bars consumed by the EMA chain. */
@@ -62,15 +64,15 @@ function intervalKey(date: string, interval: MacdInterval): string {
   return parsed.toISOString().slice(0, 10);
 }
 
-function emptyPeriod(interval: MacdInterval, error: string): MacdPeriodState {
+function emptyPeriod(interval: MacdInterval, error: string, availability: MacdAvailability = 'invalid-data'): MacdPeriodState {
   return {
-    interval, error, zeroAxis: 'unknown', lineRelation: 'unknown', crossEvent: 'unknown',
+    interval, availability, error, zeroAxis: 'unknown', lineRelation: 'unknown', crossEvent: 'unknown',
     lastCross: 'unknown', arrangement: 'unknown', momentum: 'unknown',
     zeroTone: 'unknown', arrangementTone: 'unknown', momentumTone: 'unknown',
   };
 }
 export function unavailableMacdPeriod(interval: MacdInterval, error: string): MacdPeriodState {
-  return emptyPeriod(interval, error);
+  return emptyPeriod(interval, error, 'unavailable');
 }
 
 function ema(values: number[], period: number): number[] {
@@ -120,12 +122,12 @@ export function calculateMacdPeriod(
     byDate.set(bar.date, close);
   }
   const normalized = [...byDate.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([date, close]) => ({ date, close }));
-  if (normalized.length === 0) return emptyPeriod(interval, '没有可用的历史 K 线');
-  if (!context.tradingDate) return emptyPeriod(interval, '缺少可信行情日期，无法确认 K 线收盘状态');
+  if (normalized.length === 0) return emptyPeriod(interval, '没有可用的历史 K 线', 'unavailable');
+  if (!context.tradingDate) return emptyPeriod(interval, '缺少可信行情日期，无法确认 K 线收盘状态', 'unavailable');
   const latestClosed = isClosedLatestPeriod(normalized, interval, context);
   const bars = latestClosed ? normalized : normalized.slice(0, -1);
   if (bars.length < MIN_MACD_BARS) {
-    return emptyPeriod(interval, '已收盘历史 K 线不足 ' + MIN_MACD_BARS + ' 根，无法计算 MACD(12,26,9)');
+    return emptyPeriod(interval, '已收盘历史 K 线不足 ' + MIN_MACD_BARS + ' 根，无法计算 MACD(12,26,9)', 'insufficient-history');
   }
   return calculateMacdFromConfirmedSeries({
     interval,
@@ -138,7 +140,7 @@ export function calculateMacdPeriod(
 /** MACD calculation entry point for the shared, already-confirmed historical series. */
 export function calculateMacdFromConfirmedSeries(series: ConfirmedTechnicalSeries): MacdPeriodState {
   const { interval, bars } = series;
-  if (bars.length === 0) return emptyPeriod(interval, '没有已确认收盘的历史 K 线');
+  if (bars.length === 0) return emptyPeriod(interval, '没有已确认收盘的历史 K 线', 'insufficient-history');
   if (series.asOfDate !== bars[bars.length - 1]?.date) return emptyPeriod(interval, 'asOfDate 与最后一根确认 K 线日期不一致');
   let previousDate = '';
   for (const bar of bars) {
@@ -147,7 +149,7 @@ export function calculateMacdFromConfirmedSeries(series: ConfirmedTechnicalSerie
     previousDate = bar.date;
   }
   if (bars.length < MIN_MACD_BARS) {
-    return emptyPeriod(interval, '已确认历史 K 线不足 ' + MIN_MACD_BARS + ' 根，无法计算 MACD(12,26,9)');
+    return emptyPeriod(interval, '已确认历史 K 线不足 ' + MIN_MACD_BARS + ' 根，无法计算 MACD(12,26,9)', 'insufficient-history');
   }
 
   const closes = bars.map((bar) => bar.close);
@@ -195,6 +197,7 @@ export function calculateMacdFromConfirmedSeries(series: ConfirmedTechnicalSerie
 
   return {
     interval,
+    availability: 'ready',
     asOfDate: bars[lastIndex].date,
     barsUsed: bars.length,
     emaSeedDate: bars[0].date,
@@ -223,7 +226,8 @@ export function calculateMacdFromConfirmedSeries(series: ConfirmedTechnicalSerie
 const INTERVAL_LABEL: Record<MacdInterval, string> = { monthly: '月线', weekly: '周线', daily: '日线' };
 
 export function macdArrangementLabel(state: MacdPeriodState): string {
-  if (state.error) return '数据不足';
+  if (state.availability === 'insufficient-history') return '历史不足';
+  if (state.availability !== 'ready') return state.availability === 'invalid-data' ? '数据无效' : '数据不可用';
   switch (state.arrangement) {
     case 'new-golden': return '新金叉';
     case 'new-death': return '新死叉';
