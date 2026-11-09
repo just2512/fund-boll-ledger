@@ -18,10 +18,10 @@
 代码类型以 `src/technical-state/types.ts` 为准：
 
 - `TechnicalInterval`: `daily | weekly | monthly`
-- `TechnicalBar`: ISO 交易日期和未舍入的正数收盘价。
-- `TechnicalQuoteContext`: 行情源交易日期、源端时间戳（北京时间）和来源。
-- `TechnicalHistoryInput`: 某一周期的原始历史 K 线及报价上下文。
-- `ConfirmedTechnicalSeries`: 已规范化、升序、日期唯一、仅包含确认收盘 K 线的序列。
+- `TechnicalRawBar`: 上游原始字符串/数值收盘价；`TechnicalBar`: 规范化后的 ISO 交易日期和未舍入正数收盘价。
+- `TechnicalQuoteContext`: 现货报价交易日期、源端时间戳（北京时间）和现货报价来源。
+- `TechnicalHistoryInput`: 某一周期的原始历史 K 线、K 线来源（可能与现货报价来源不同）及报价上下文。
+- `ConfirmedTechnicalSeries`: 已规范化、升序、日期唯一、仅包含确认收盘 K 线的序列；其中 source 指 K 线源，不是现货报价源。
 - `TechnicalNormalizationResult`: VALID / INSUFFICIENT / INVALID 的显式结果。
 - `BollState`: BOLL 数值、带宽变化/分位、中轨方向、收盘位置和有效性。
 - `TechnicalStateSnapshot`: 某周期某交易日的 BOLL 状态与现有 MACD 状态。
@@ -79,7 +79,7 @@
 
 以下参数不可在分支中擅自硬编码，必须由调用方显式提供并记录：
 
-- 带宽分位窗口长度与最小有效样本数。
+- 带宽分位窗口长度与最小有效样本数（代码配置字段分别为 `bandwidthRankLookback`、`bandwidthRankMinimumSamples`）。
 - 中轨方向观察窗口。
 - 走平容差。
 - 状态持续/转折确认根数。
