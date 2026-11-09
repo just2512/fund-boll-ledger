@@ -1,3 +1,5 @@
+import type { ConfirmedTechnicalSeries } from './technical-state/types';
+
 export type MacdInterval = 'daily' | 'weekly' | 'monthly';
 export type MacdTone = 'bullish' | 'bearish' | 'mixed' | 'neutral' | 'unknown';
 export type MacdCrossDirection = 'golden' | 'death' | 'unknown';
@@ -17,6 +19,12 @@ export interface MacdPeriodState {
   interval: MacdInterval;
   asOfDate?: string;
   error?: string;
+  /** Number of confirmed bars consumed by the EMA chain. */
+  barsUsed?: number;
+  /** First confirmed bar used as the deterministic EMA seed. */
+  emaSeedDate?: string;
+  /** Bars beyond the current 35-bar minimum output threshold. */
+  preRollBars?: number;
   dif?: number;
   dea?: number;
   histogram?: number;
@@ -104,16 +112,42 @@ export function calculateMacdPeriod(
 ): MacdPeriodState {
   const byDate = new Map<string, number>();
   for (const bar of sourceBars) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(bar.date)) continue;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(bar.date)) return emptyPeriod(interval, 'K 线日期格式无效');
     const close = typeof bar.close === 'number' ? bar.close : Number(String(bar.close).trim());
-    if (Number.isFinite(close) && close > 0) byDate.set(bar.date, close);
+    if (!Number.isFinite(close) || close <= 0) return emptyPeriod(interval, 'K 线收盘价无效');
+    const existing = byDate.get(bar.date);
+    if (existing !== undefined && existing !== close) return emptyPeriod(interval, '同一交易日期存在冲突收盘价');
+    byDate.set(bar.date, close);
   }
-  let bars = [...byDate.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([date, close]) => ({ date, close }));
-  if (bars.length === 0) return emptyPeriod(interval, '没有可用的历史 K 线');
+  const normalized = [...byDate.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([date, close]) => ({ date, close }));
+  if (normalized.length === 0) return emptyPeriod(interval, '没有可用的历史 K 线');
   if (!context.tradingDate) return emptyPeriod(interval, '缺少可信行情日期，无法确认 K 线收盘状态');
-  if (!isClosedLatestPeriod(bars, interval, context)) bars = bars.slice(0, -1);
+  const latestClosed = isClosedLatestPeriod(normalized, interval, context);
+  const bars = latestClosed ? normalized : normalized.slice(0, -1);
   if (bars.length < MIN_MACD_BARS) {
     return emptyPeriod(interval, '已收盘历史 K 线不足 ' + MIN_MACD_BARS + ' 根，无法计算 MACD(12,26,9)');
+  }
+  return calculateMacdFromConfirmedSeries({
+    interval,
+    asOfDate: bars[bars.length - 1].date,
+    bars,
+    excludedInProgressBar: !latestClosed,
+  });
+}
+
+/** MACD calculation entry point for the shared, already-confirmed historical series. */
+export function calculateMacdFromConfirmedSeries(series: ConfirmedTechnicalSeries): MacdPeriodState {
+  const { interval, bars } = series;
+  if (bars.length === 0) return emptyPeriod(interval, '没有已确认收盘的历史 K 线');
+  if (series.asOfDate !== bars[bars.length - 1]?.date) return emptyPeriod(interval, 'asOfDate 与最后一根确认 K 线日期不一致');
+  let previousDate = '';
+  for (const bar of bars) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(bar.date) || bar.date <= previousDate) return emptyPeriod(interval, '确认序列日期无效、未排序或存在重复日期');
+    if (!Number.isFinite(bar.close) || bar.close <= 0) return emptyPeriod(interval, '确认序列包含非正数或非有限收盘价');
+    previousDate = bar.date;
+  }
+  if (bars.length < MIN_MACD_BARS) {
+    return emptyPeriod(interval, '已确认历史 K 线不足 ' + MIN_MACD_BARS + ' 根，无法计算 MACD(12,26,9)');
   }
 
   const closes = bars.map((bar) => bar.close);
@@ -160,8 +194,20 @@ export function calculateMacdPeriod(
   }
 
   return {
-    interval, asOfDate: bars[lastIndex].date, dif: currentDif, dea: currentDea, histogram: currentHistogram,
-    zeroAxis, lineRelation, crossEvent, lastCross, arrangement, momentum,
+    interval,
+    asOfDate: bars[lastIndex].date,
+    barsUsed: bars.length,
+    emaSeedDate: bars[0].date,
+    preRollBars: Math.max(0, bars.length - MIN_MACD_BARS),
+    dif: currentDif,
+    dea: currentDea,
+    histogram: currentHistogram,
+    zeroAxis,
+    lineRelation,
+    crossEvent,
+    lastCross,
+    arrangement,
+    momentum,
     zeroTone: zeroAxis === 'above' ? 'bullish' : zeroAxis === 'below' ? 'bearish' : 'neutral',
     arrangementTone:
       arrangement === 'new-golden' || arrangement === 'bull-after-golden' ? 'bullish' :
@@ -191,9 +237,9 @@ export function macdArrangementLabel(state: MacdPeriodState): string {
 }
 export function macdZeroAxisLabel(state: MacdPeriodState): string {
   if (state.error) return '数据不足';
-  if (state.zeroAxis === 'above') return '零轴上·偏多';
-  if (state.zeroAxis === 'below') return '零轴下·偏空';
-  if (state.zeroAxis === 'at-zero') return '零轴附近';
+  if (state.zeroAxis === 'above') return 'DIF 零轴上方';
+  if (state.zeroAxis === 'below') return 'DIF 零轴下方';
+  if (state.zeroAxis === 'at-zero') return 'DIF 位于零轴';
   return '状态不明';
 }
 export function macdMomentumLabel(state: MacdPeriodState): string {
@@ -222,7 +268,7 @@ export function summarizeMacdPeriods(
   const axes = ordered.map((state) => state.zeroAxis);
   const allBullish = axes.every((axis) => axis === 'above');
   const allBearish = axes.every((axis) => axis === 'below');
-  const summary = allBullish ? '三周期偏多' : allBearish ? '三周期偏空' : '多周期分化';
+  const summary = allBullish ? '三周期 DIF 位于零轴上方' : allBearish ? '三周期 DIF 位于零轴下方' : 'DIF 零轴位置分化';
   const summaryTone: MacdTone = allBullish ? 'bullish' : allBearish ? 'bearish' : 'mixed';
   const fresh = ordered.find((state) => state.crossEvent === 'golden' || state.crossEvent === 'death');
   let summaryDetail: string;
