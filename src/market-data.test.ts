@@ -140,6 +140,73 @@ describe('manual ETF market quote refresh', () => {
     expect(market.technicalState?.daily.validity).toBe('INVALID');
     expect(market.technicalState?.daily.reason).toContain('交易日期');
   });
+  it('integrates confirmed BOLL and MACD states for daily, weekly, and monthly histories', async () => {
+    const epoch = marketEpochSeconds();
+    const tradingDate = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(new Date(epoch * 1000));
+    const buildDates = (interval: 'daily' | 'weekly' | 'monthly'): string[] => {
+      let cursor = new Date(tradingDate + 'T00:00:00.000Z');
+      if (interval === 'daily') cursor.setUTCDate(cursor.getUTCDate() - 10);
+      if (interval === 'weekly') {
+        cursor.setUTCDate(cursor.getUTCDate() - ((cursor.getUTCDay() + 6) % 7) - 7);
+        cursor.setUTCDate(cursor.getUTCDate() - 59 * 7);
+      }
+      if (interval === 'monthly') {
+        cursor = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() - 61, 1));
+      }
+      return Array.from({ length: 60 }, (_, index) => {
+        const date = new Date(cursor);
+        if (interval === 'daily') date.setUTCDate(date.getUTCDate() + index);
+        if (interval === 'weekly') date.setUTCDate(date.getUTCDate() + index * 7);
+        if (interval === 'monthly') date.setUTCMonth(date.getUTCMonth() + index);
+        return date.toISOString().slice(0, 10);
+      });
+    };
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('push2.eastmoney.com/api/qt/stock/get?')) {
+        return eastmoneyResponse({
+          f57: '510300', f58: '沪深300ETF', f43: '4.125', f60: '4.000', f86: epoch,
+        });
+      }
+      if (url.includes('push2his.eastmoney.com/api/qt/stock/kline/get?')) {
+        const params = new URL(url).searchParams;
+        const interval = params.get('klt') === '102' ? 'weekly'
+          : params.get('klt') === '103' ? 'monthly' : 'daily';
+        const klines = buildDates(interval).map((date, index) => {
+          const close = (4 + index * 0.002 + Math.sin(index / 4) * 0.02).toFixed(3);
+          return [date, close, close, close, close, '0', '0', '0', '0', '0', '0'].join(',');
+        });
+        return eastmoneyResponse({ code: '510300', klines });
+      }
+      return new Response('', { status: 404 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const market = await fetchLatestMarketData({ code: '510300', market: '沪市' });
+
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(market.source).toBe('东方财富');
+    expect(market.technicalState?.daily.validity).toBe('VALID');
+    expect(market.technicalState?.weekly.validity).toBe('VALID');
+    expect(market.technicalState?.monthly.validity).toBe('VALID');
+    for (const state of [
+      market.technicalState?.daily,
+      market.technicalState?.weekly,
+      market.technicalState?.monthly,
+    ]) {
+      expect(state?.source).toBe('东方财富');
+      expect(state?.quoteSource).toBe('东方财富');
+      expect(state?.confirmedBarCount).toBe(60);
+      expect(state?.macd.error).toBeUndefined();
+      expect(state?.boll.validity).toBe('VALID');
+    }
+    expect(market.boll).toBeDefined();
+    expect(market.weeklyBollRange).toBeDefined();
+    expect(market.monthlyBollRange).toBeDefined();
+  });
+
   it('rejects invalid fund codes without making network requests', async () => {
     const fetchMock = vi.fn<typeof fetch>();
     vi.stubGlobal('fetch', fetchMock);
