@@ -70,6 +70,9 @@ for (const required of [
   'ANDROID_KEY_PASSWORD',
   'ANDROID_KEY_ALIAS',
   'verify --verbose',
+  'keytool -list -v -keystore',
+  'Signer #1 certificate SHA-256 digest',
+  'Persistent Android signing certificate fingerprint verified.',
   "versionCode='2000' versionName='0.2.0'",
   'fund-boll-ledger-android-arm64-release-upgradeable',
 ]) {
