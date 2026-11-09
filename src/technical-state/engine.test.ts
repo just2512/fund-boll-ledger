@@ -3,7 +3,7 @@ import { calculateTechnicalStateSnapshot } from './engine';
 import { compareBatchWithReplay, hasNoFutureBars, replayConfirmedTechnicalSeries } from './history-replay';
 import type { ConfirmedTechnicalSeries, TechnicalBar } from './types';
 
-function series(source: '东方财富' | '腾讯行情' = '东方财富', count = 100): ConfirmedTechnicalSeries {
+function series(source: '东方财富' | '百度行情' = '东方财富', count = 100): ConfirmedTechnicalSeries {
   const first = new Date('2025-01-01T00:00:00.000Z');
   const bars: TechnicalBar[] = Array.from({ length: count }, (_, index) => {
     const date = new Date(first);
@@ -23,12 +23,12 @@ function series(source: '东方财富' | '腾讯行情' = '东方财富', count 
 describe('combined BOLL/MACD technical state engine', () => {
   it('uses one confirmed prefix and exposes its actual source and loaded coverage', () => {
     const input = series();
-    const state = calculateTechnicalStateSnapshot(input, undefined, '腾讯行情');
+    const state = calculateTechnicalStateSnapshot(input, undefined, '百度行情');
     expect(state.asOfDate).toBe(input.asOfDate);
     expect(state.boll.asOfDate).toBe(input.asOfDate);
     expect(state.macd.asOfDate).toBe(input.asOfDate);
     expect(state.source).toBe('东方财富');
-    expect(state.quoteSource).toBe('腾讯行情');
+    expect(state.quoteSource).toBe('百度行情');
     expect(state.historyStartDate).toBe(input.bars[0].date);
     expect(state.confirmedBarCount).toBe(100);
     expect(state.excludedInProgressBar).toBe(false);
@@ -46,12 +46,12 @@ describe('combined BOLL/MACD technical state engine', () => {
     expect(cross).toBeDefined();
     if (!cross) return;
     const eastmoney = calculateTechnicalStateSnapshot(cross.series, undefined, '东方财富');
-    const tencent = calculateTechnicalStateSnapshot({ ...cross.series, source: '腾讯行情' }, undefined, '东方财富');
-    expect(eastmoney.macd.crossEvent).toBe(tencent.macd.crossEvent);
-    expect(eastmoney.macd.dif).toBeCloseTo(tencent.macd.dif!, 12);
-    expect(eastmoney.macd.dea).toBeCloseTo(tencent.macd.dea!, 12);
-    expect(eastmoney.boll.bandwidthPercent).toBeCloseTo(tencent.boll.bandwidthPercent!, 12);
-    expect(eastmoney.source).not.toBe(tencent.source);
+    const baidu = calculateTechnicalStateSnapshot({ ...cross.series, source: '百度行情' }, undefined, '东方财富');
+    expect(eastmoney.macd.crossEvent).toBe(baidu.macd.crossEvent);
+    expect(eastmoney.macd.dif).toBeCloseTo(baidu.macd.dif!, 12);
+    expect(eastmoney.macd.dea).toBeCloseTo(baidu.macd.dea!, 12);
+    expect(eastmoney.boll.bandwidthPercent).toBeCloseTo(baidu.boll.bandwidthPercent!, 12);
+    expect(eastmoney.source).not.toBe(baidu.source);
   });
 
   it('replays BOLL and MACD together without future bars and matches batch output', () => {
