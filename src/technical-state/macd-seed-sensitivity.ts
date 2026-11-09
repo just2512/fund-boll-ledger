@@ -63,8 +63,11 @@ export function analyzeMacdHistoryStartSensitivity(
   }
 
   const referenceState = calculateMacdFromConfirmedSeries(series);
-  if (referenceState.error || referenceState.dif === undefined ||
-      referenceState.dea === undefined || referenceState.histogram === undefined) {
+  const referenceDif = referenceState.dif;
+  const referenceDea = referenceState.dea;
+  const referenceHistogram = referenceState.histogram;
+  if (referenceState.error || referenceDif === undefined ||
+      referenceDea === undefined || referenceHistogram === undefined) {
     throw new Error('完整确认序列无法计算 MACD：' + (referenceState.error ?? '缺少数值结果'));
   }
   const latestClose = series.bars[series.bars.length - 1].close;
@@ -102,9 +105,9 @@ export function analyzeMacdHistoryStartSensitivity(
         emaSeedDate: state.emaSeedDate!,
         preRollBars: state.preRollBars!,
         numericDeltaBpsOfClose: {
-          dif: Math.abs(state.dif - referenceState.dif) / latestClose * 10_000,
-          dea: Math.abs(state.dea - referenceState.dea) / latestClose * 10_000,
-          histogram: Math.abs(state.histogram - referenceState.histogram) / latestClose * 10_000,
+          dif: Math.abs(state.dif - referenceDif) / latestClose * 10_000,
+          dea: Math.abs(state.dea - referenceDea) / latestClose * 10_000,
+          histogram: Math.abs(state.histogram - referenceHistogram) / latestClose * 10_000,
         },
         categoricalDifferences: [...categoricalDifferences],
         matchesCategoricalReference: categoricalDifferences.length === 0,
