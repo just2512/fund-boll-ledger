@@ -3,7 +3,7 @@ import { calculateTechnicalStateSnapshot, unavailableTechnicalState } from './te
 import { normalizeConfirmedTechnicalSeries } from './technical-state/series';
 import type { TechnicalMultiTimeframeState, TechnicalNormalizationResult, TechnicalStateSnapshot } from './technical-state/types';
 
-export type QuoteSource = '东方财富' | '腾讯行情';
+export type QuoteSource = '东方财富' | '腾讯行情' | '百度行情';
 
 export interface BollBands {
   upper: string;
@@ -178,11 +178,11 @@ function parseMarketTime(value: unknown): string | undefined {
   return parsed.time ? (parsed.date ? `${parsed.date} ${parsed.time}（北京时间）` : `${parsed.time}（北京时间）`) : (parsed.date ? `${parsed.date}（北京时间）` : undefined);
 }
 
-async function requestText(url: string, encoding: 'utf-8' | 'gbk' = 'utf-8'): Promise<string> {
+async function requestText(url: string, encoding: 'utf-8' | 'gbk' = 'utf-8', headers?: Record<string, string>): Promise<string> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    const response = await fetch(url, { cache: 'no-store', signal: controller.signal });
+    const response = await fetch(url, { cache: 'no-store', signal: controller.signal, ...(headers ? { headers } : {}) });
     if (!response.ok) throw new Error('行情服务返回 HTTP ' + response.status);
     // Tencent serves GBK; decoding must treat multi-byte sequences atomically so a GBK
     // second byte of 0x7E never masquerades as the "~" field separator.
@@ -355,23 +355,90 @@ async function fetchEastmoneyCloses(code: string, market: MarketQuoteRequest['ma
     return fields.length >= 3 ? [{ date: fields[0], close: fields[2] }] : [];
   });
 }
-async function fetchTencentCloses(code: string, market: MarketQuoteRequest['market'], interval: BollInterval): Promise<DailyClose[]> {
-  const intervalLabel = interval === 'daily' ? '日线' : interval === 'weekly' ? '周线' : '月线';
-  const period = interval === 'daily' ? 'day' : interval === 'weekly' ? 'week' : 'month';
-  const symbol = marketPrefix(code, market) + code;
-  const url = 'https://ifzq.gtimg.cn/appstock/app/kline/kline?param=' + encodeURIComponent(`${symbol},${period},,,320`) + '&_=' + Date.now();
-  const raw = await requestText(url);
-  let payload: unknown;
-  try { payload = JSON.parse(raw); } catch { throw new Error(`腾讯${intervalLabel}返回内容不是有效 JSON`); }
-  const data = (payload as { code?: unknown; data?: Record<string, unknown> | null }).data;
-  if (!data || typeof data !== 'object' || !data[symbol] || typeof data[symbol] !== 'object') throw new Error(`腾讯未返回历史${intervalLabel}`);
-  const bars = (data[symbol] as Record<string, unknown>)[period];
-  if (!Array.isArray(bars)) throw new Error(`腾讯未返回${intervalLabel}列表`);
-  return bars.flatMap((entry): DailyClose[] => {
-    if (!Array.isArray(entry) || entry.length < 3 || typeof entry[0] !== 'string') return [];
-    return [{ date: entry[0], close: String(entry[2]) }];
-  });
+function normalizeBaiduKlineDate(value: string): string {
+  const raw = value.trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
+  if (/^\d{8}$/.test(raw)) return raw.slice(0, 4) + '-' + raw.slice(4, 6) + '-' + raw.slice(6, 8);
+  const digits = raw.replace(/\D/g, '');
+  if ((digits.length === 10 || digits.length === 13) && digits === raw) {
+    const milliseconds = digits.length === 13 ? Number(digits) : Number(digits) * 1000;
+    const parts = shanghaiParts(new Date(milliseconds));
+    return parts.year + '-' + parts.month + '-' + parts.day;
+  }
+  return raw;
 }
+
+async function fetchBaiduCloses(code: string, interval: BollInterval): Promise<DailyClose[]> {
+  const period = interval === 'daily'
+    ? { eprop: 'dayK', ktype: '1' }
+    : interval === 'weekly'
+      ? { eprop: 'weekK', ktype: '2' }
+      : { eprop: 'monthK', ktype: '3' };
+  const params = new URLSearchParams({
+    all: '1',
+    isIndex: 'false',
+    isBk: 'false',
+    isBlock: 'false',
+    isFutures: 'false',
+    isStock: 'true',
+    newFormat: '1',
+    group: 'quotation_kline_ab',
+    finClientType: 'pc',
+    market_type: 'ab',
+    financeType: 'etf',
+    code,
+    query: code,
+    start_time: '',
+    eprop: period.eprop,
+    ktype: period.ktype,
+  });
+  const headers = {
+    'User-Agent': 'Mozilla/5.0',
+    Accept: 'application/vnd.finance-web.v1+json',
+    Origin: 'https://gushitong.baidu.com',
+    Referer: 'https://gushitong.baidu.com/',
+  };
+  const raw = await requestText(
+    'https://finance.pae.baidu.com/selfselect/getstockquotation?' + params.toString(),
+    'utf-8',
+    headers,
+  );
+  let payload: unknown;
+  try {
+    payload = JSON.parse(raw);
+  } catch {
+    throw new Error('百度行情 K 线返回内容不是有效 JSON');
+  }
+  if (!payload || typeof payload !== 'object') throw new Error('百度行情 K 线响应无效');
+  const envelope = payload as {
+    ResultCode?: string | number;
+    ResultMsg?: string;
+    Result?: { newMarketData?: { keys?: unknown; marketData?: unknown } };
+  };
+  if (envelope.ResultCode !== undefined && String(envelope.ResultCode) !== '0') {
+    throw new Error('百度行情 K 线业务错误：' + String(envelope.ResultMsg ?? envelope.ResultCode));
+  }
+  const marketData = envelope.Result?.newMarketData;
+  if (!marketData || !Array.isArray(marketData.keys) || typeof marketData.marketData !== 'string') {
+    throw new Error('百度行情未返回结构完整的 K 线数据');
+  }
+  const keys = marketData.keys.map((key) => String(key));
+  const dateIndex = keys.indexOf('time');
+  const closeIndex = keys.indexOf('close');
+  if (dateIndex < 0 || closeIndex < 0) throw new Error('百度行情 K 线缺少 time/close 字段');
+  const bars = marketData.marketData.split(';').flatMap((row): DailyClose[] => {
+    if (!row.trim()) return [];
+    const fields = row.split(',');
+    if (fields.length <= Math.max(dateIndex, closeIndex)) return [];
+    return [{
+      date: normalizeBaiduKlineDate(fields[dateIndex]),
+      close: fields[closeIndex],
+    }];
+  });
+  if (bars.length === 0) throw new Error('百度行情未返回可用的历史 K 线');
+  return bars.slice(-320);
+}
+
 interface IntervalHistory {
   bars: DailyClose[];
   source: QuoteSource;
@@ -381,10 +448,10 @@ interface IntervalHistory {
 async function fetchIntervalHistory(code: string, market: MarketQuoteRequest['market'], interval: BollInterval): Promise<IntervalHistory> {
   try { return { bars: await fetchEastmoneyCloses(code, market, interval), source: '东方财富' }; }
   catch (eastmoneyError) {
-    try { return { bars: await fetchTencentCloses(code, market, interval), source: '腾讯行情' }; }
-    catch (tencentError) {
+    try { return { bars: await fetchBaiduCloses(code, interval), source: '百度行情' }; }
+    catch (baiduError) {
       throw new Error(
-        `东方财富失败：${eastmoneyError instanceof Error ? eastmoneyError.message : '未知错误'}；腾讯失败：${tencentError instanceof Error ? tencentError.message : '未知错误'}。请检查网络连接。`,
+        `东方财富失败：${eastmoneyError instanceof Error ? eastmoneyError.message : '未知错误'}；百度失败：${baiduError instanceof Error ? baiduError.message : '未知错误'}。请检查网络连接。`,
       );
     }
   }
