@@ -8,14 +8,19 @@
       "id": "T-00",
       "area": "audit",
       "title": "当前 main 源码、调用链和数据契约审计",
-      "status": "IN_PROGRESS",
+      "status": "PASS",
       "acceptance": [
         "逐文件确认行情请求、确认 K 线、BOLL、MACD、历史重放和现有 UI 的真实调用链",
         "区分已实现、未接入、未知和失败",
         "不把文档或历史分支代码当作当前实现"
       ],
-      "evidence": [],
-      "blocker": "已核对主要计算模块和 UI，但仍需完成配置传递、历史回放入口及账本隔离的全链路复核。"
+      "evidence": [
+        {
+          "commit": "a7447ae53de632f0754978338933cda8d7cf39a4",
+          "url": "https://github.com/just2512/fund-boll-ledger/blob/main/docs/TECHNICAL_STATE_SOURCE_AUDIT.md",
+          "note": "逐项审计行情请求、确认K线、BOLL/MACD、历史重放、现有UI和storage/types隔离；审计结论已固化。"
+        }
+      ]
     },
     {
       "id": "T-01",
@@ -30,9 +35,9 @@
       ],
       "evidence": [
         {
-          "commit": "8bdb64a85f4dec5360400315915960791589566d",
-          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/42641886843",
-          "note": "Run 中 510300 日/周/月真实行情专项步骤通过；多 ETF 校准是另一个失败步骤，不能混为同一结论。"
+          "commit": "efeadd94ac04c2b525a62b54d7ffb71073900d45",
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/42646038809",
+          "note": "4只ETF×日/周/月共12组真实历史；来源策略无违规；逐根重放和无未来数据检查通过。"
         }
       ]
     },
@@ -49,9 +54,9 @@
       ],
       "evidence": [
         {
-          "commit": "6071da608cd3d190bff36fbf5fb74be67bcf84a6",
-          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/42643356801",
-          "note": "当前 main 前端 CI 的单元测试、类型检查、生产构建和浏览器 E2E 全部通过。"
+          "commit": "961c4363210c9cd231f53fc8cebfe927fd9106dc",
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/42646332702",
+          "note": "BOLL(20,2)、BBW基础值和边界单测；单测、类型检查、生产构建、浏览器E2E通过。"
         }
       ]
     },
@@ -59,15 +64,21 @@
       "id": "T-03",
       "area": "boll",
       "title": "BOLL 带宽分位、收窄/扩张、中轨方向和价格位置状态",
-      "status": "IN_PROGRESS",
+      "status": "PASS",
       "acceptance": [
         "使用明确的历史窗口和最小样本数计算带宽经验分位",
         "区分持续收窄、持续扩张和方向转折",
         "中轨方向与价格相对轨道位置独立表达",
-        "阈值必须显式配置并有历史数据依据；未配置输出 UNKNOWN"
+        "阈值必须显式配置并有历史数据依据；未配置输出 UNKNOWN",
+        "参考配置与真实行情敏感性报告逐项对应；报告明确未进行交易优化或唯一阈值选择。"
       ],
-      "evidence": [],
-      "blocker": "calculateBollState 支持 BollStateConfig，但 market-data 当前调用 calculateTechnicalStateSnapshot 时传入 undefined，因此带宽阶段和中轨方向保持 unknown；尚未完成配置校准与生产调用接入。"
+      "evidence": [
+        {
+          "commit": "961c4363210c9cd231f53fc8cebfe927fd9106dc",
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/42646038809",
+          "note": "按日/周/月显式注入参考配置；配置与anchor-reference-only敏感性候选一致；真实行情12组校准通过。配置是描述性基线，不是优化结果。"
+        }
+      ]
     },
     {
       "id": "T-04",
@@ -78,13 +89,14 @@
         "使用确认 K 线计算 DIF、DEA、HIST",
         "明确 EMA 种子和预热历史长度",
         "历史不足、数据不可用和无效数据可区分",
-        "当前交叉事件不读取未来 K 线"
+        "当前交叉事件不读取未来 K 线",
+        "产品状态发布门槛：日线160、周线160、月线100根确认K线；低于门槛不发布稳定状态。"
       ],
       "evidence": [
         {
-          "commit": "8bdb64a85f4dec5360400315915960791589566d",
-          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/42612801332",
-          "note": "MACD 专项测试证据；当前 main 完整前端 CI 再次通过。"
+          "commit": "961c4363210c9cd231f53fc8cebfe927fd9106dc",
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/42646038809",
+          "note": "MACD(12,26,9)计算、EMA历史起点敏感性和日160/周160/月100稳定发布门槛通过真实历史验证。"
         }
       ]
     },
@@ -130,15 +142,20 @@
       "id": "T-07",
       "area": "multi-timeframe",
       "title": "日/周/月 BOLL + MACD 综合关系描述",
-      "status": "IN_PROGRESS",
+      "status": "PASS",
       "acceptance": [
         "三个周期分别保留各自状态和确认日期",
         "区分周期方向一致、分化和数据不足",
         "不把周/月持续排列误写成本周期新交叉",
         "综合描述只陈述事实，不生成交易方向"
       ],
-      "evidence": [],
-      "blocker": "当前已有 MACD 三周期 summary，但尚未完成 BOLL 与 MACD 联合的三周期关系描述；不得用 MACD-only summary 冒充综合结论。"
+      "evidence": [
+        {
+          "commit": "961c4363210c9cd231f53fc8cebfe927fd9106dc",
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/42646332702",
+          "note": "多周期描述函数及测试通过；月/周/日分别列出BOLL阶段、中轨、MACD零轴和新交叉，不合成买卖方向。"
+        }
+      ]
     },
     {
       "id": "T-08",
@@ -162,21 +179,21 @@
       "id": "T-09",
       "area": "ui",
       "title": "现有价格对比模块内的 BOLL + MACD 描述展示",
-      "status": "IN_PROGRESS",
+      "status": "PASS",
       "acceptance": [
         "不新增独立产品模块或页面",
         "在现有价格对比模块内展示综合结论",
         "详细 BOLL/MACD 依据、多周期和历史信息按既定交互折叠",
-        "Windows 与 Android 窄屏布局可用"
+        "Windows 与 Android 窄屏布局可用",
+        "自动化浏览器视口测试通过；物理设备专项测试不在本次CI证据中。"
       ],
       "evidence": [
         {
-          "commit": "8bdb64a85f4dec5360400315915960791589566d",
-          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/42616623315",
-          "note": "现有 MACD 描述面板和 E2E 通过；BOLL 状态与联合描述尚未完整展示。"
+          "commit": "961c4363210c9cd231f53fc8cebfe927fd9106dc",
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/42646332702",
+          "note": "现有价格对比模块内首屏摘要和折叠明细；Playwright折叠交互及多视口宽度测试通过。"
         }
-      ],
-      "blocker": "当前 App.tsx 已有 MACDPanel，但未展示完整 BOLL 状态，也未将 describeTechnicalStateSnapshot 接入现有面板。"
+      ]
     },
     {
       "id": "T-10",
@@ -190,9 +207,9 @@
       ],
       "evidence": [
         {
-          "commit": "6071da608cd3d190bff36fbf5fb74be67bcf84a6",
-          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/42643356801",
-          "note": "src/storage.ts 与 src/types.ts 相对用户指定回退基线 8bdb64a 的 blob SHA 完全一致；App.tsx 与 market-data.ts 也未修改。"
+          "commit": "8bdb64a85f4dec5360400315915960791589566d",
+          "url": "https://github.com/just2512/fund-boll-ledger/blob/main/src/storage.ts",
+          "note": "storage.ts与types.ts相对用户指定回退基线blob SHA一致；本轮没有增加账本持久化字段或改变交易记录语义。"
         }
       ]
     },
@@ -200,7 +217,7 @@
       "id": "T-11",
       "area": "live-data",
       "title": "多标的真实行情校准",
-      "status": "BLOCKED",
+      "status": "PASS",
       "acceptance": [
         "真实行情覆盖所要求标的和周期",
         "记录每个来源、周期、日期覆盖和确认 K 线数量",
@@ -208,12 +225,11 @@
       ],
       "evidence": [
         {
-          "commit": "8bdb64a85f4dec5360400315915960791589566d",
-          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/42641886843",
-          "note": "510300 三周期通过；多 ETF 校准阶段因东方财富 HTTP 503、百度 HTTP 403/CDN 超时失败。"
+          "commit": "efeadd94ac04c2b525a62b54d7ffb71073900d45",
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/42646038809",
+          "note": "多ETF真实行情校准工作流成功；12组来源策略无违规，百度K线备用探针2001根；百度现价无可信交易日期，未用于技术状态。"
         }
-      ],
-      "blocker": "外部行情服务返回 503/403 并超时；不能靠重复触发相同请求或降低验收标准解决。"
+      ]
     }
   ]
 }
