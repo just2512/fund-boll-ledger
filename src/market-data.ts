@@ -524,8 +524,12 @@ async function fetchIntervalIndicators(code: string, market: MarketQuoteRequest[
   const history = await fetchIntervalHistory(code, market, interval);
   let boll: BollBands | undefined;
   let bollError: string | undefined;
-  try { boll = calculateBollBands(history.bars, quote.price, quote.tradingDate, interval); }
-  catch (error) { bollError = error instanceof Error ? error.message : 'BOLL 计算失败'; }
+  if (!quote.tradingDate) {
+    bollError = '现价源未提供可信交易日期，不能将现价合并到已确认 K 线计算 BOLL。';
+  } else {
+    try { boll = calculateBollBands(history.bars, quote.price, quote.tradingDate, interval); }
+    catch (error) { bollError = error instanceof Error ? error.message : 'BOLL 计算失败'; }
+  }
 
   const normalized = normalizeIntervalHistory(history, quote, interval);
   const technicalState = normalized.validity === 'VALID'
