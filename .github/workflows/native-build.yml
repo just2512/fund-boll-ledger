@@ -86,6 +86,22 @@ jobs:
         run: cargo tauri icon public/icon.svg
       - name: Initialize Android project
         run: cargo tauri android init --ci
+      - name: Warm Gradle distribution with transient-network retries
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd src-tauri/gen/android
+          for attempt in 1 2 3; do
+            if ./gradlew --version; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "Gradle distribution download failed (attempt $attempt/3); retrying after backoff."
+              sleep $((attempt * 20))
+            fi
+          done
+          echo "Gradle distribution could not be downloaded after 3 attempts." >&2
+          exit 1
       - name: Build ARM64 APK
         run: cargo tauri android build --apk --target aarch64 --ci
       - name: Sign ARM64 APK with debug keystore
