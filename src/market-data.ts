@@ -3,7 +3,7 @@ import { calculateTechnicalStateSnapshot, unavailableTechnicalState } from './te
 import { normalizeConfirmedTechnicalSeries } from './technical-state/series';
 import type { TechnicalMultiTimeframeState, TechnicalNormalizationResult, TechnicalStateSnapshot } from './technical-state/types';
 
-export type QuoteSource = '东方财富' | '腾讯行情' | '百度行情';
+export type QuoteSource = '东方财富' | '百度行情';
 
 export interface BollBands {
   upper: string;
@@ -178,24 +178,40 @@ function parseMarketTime(value: unknown): string | undefined {
   return parsed.time ? (parsed.date ? `${parsed.date} ${parsed.time}（北京时间）` : `${parsed.time}（北京时间）`) : (parsed.date ? `${parsed.date}（北京时间）` : undefined);
 }
 
-async function requestText(url: string, encoding: 'utf-8' | 'gbk' = 'utf-8', headers?: Record<string, string>): Promise<string> {
+async function requestText(url: string, headers?: Record<string, string>): Promise<string> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
     const response = await fetch(url, { cache: 'no-store', signal: controller.signal, ...(headers ? { headers } : {}) });
     if (!response.ok) throw new Error('行情服务返回 HTTP ' + response.status);
-    // Tencent serves GBK; decoding must treat multi-byte sequences atomically so a GBK
-    // second byte of 0x7E never masquerades as the "~" field separator.
-    if (encoding === 'gbk') {
-      const buffer = await response.arrayBuffer();
-      return new TextDecoder('gbk').decode(buffer);
-    }
     return await response.text();
   } catch (error) {
     if (controller.signal.aborted) throw new Error('行情请求超时');
     throw error;
   } finally {
     clearTimeout(timeout);
+  }
+}
+
+async function requestBaiduText(path: string, params: URLSearchParams): Promise<string> {
+  const headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0.0.0 Safari/537.36',
+    Accept: 'application/vnd.finance-web.v1+json',
+    Referer: 'https://finance.baidu.com/',
+  };
+  const query = params.toString();
+  try {
+    return await requestText('https://finance.pae.baidu.com' + path + '?' + query, headers);
+  } catch (directError) {
+    const proxyUrl = 'https://sp0.baidu.com/5LMDcjW6BwF3otqbppnN2DJv/finance.pae.baidu.com' + path + '?' + query;
+    try {
+      return await requestText(proxyUrl, headers);
+    } catch (proxyError) {
+      throw new Error(
+        '百度直连失败：' + (directError instanceof Error ? directError.message : '未知错误') +
+        '；百度 CDN 代理失败：' + (proxyError instanceof Error ? proxyError.message : '未知错误'),
+      );
+    }
   }
 }
 
@@ -248,17 +264,6 @@ async function fetchEastmoneyQuote(code: string, market: MarketQuoteRequest['mar
   return createQuote(code, name, row.f43, row.f60, row.f86, '东方财富');
 }
 
-async function fetchTencentQuote(code: string, market: MarketQuoteRequest['market']): Promise<MarketQuote> {
-  const symbol = marketPrefix(code, market) + code;
-  const raw = await requestText('https://qt.gtimg.cn/q=' + symbol + '&_=' + String(Date.now()), 'gbk');
-  const match = raw.match(/=\s*"([\s\S]*?)"\s*;/);
-  if (!match) throw new Error('腾讯行情返回格式无法识别');
-  const fields = match[1].split('~');
-  if (String(fields[2] ?? '').trim() !== code) throw new Error('腾讯行情返回代码与当前基金不一致');
-  if (fields.length < 33) throw new Error('腾讯行情字段不完整');
-  const name = fields[1]?.trim() || undefined;
-  return createQuote(code, name, fields[3], fields[4], fields[30], '腾讯行情');
-}
 
 function intervalPeriodKey(date: string, interval: BollInterval): string {
   if (interval === 'daily') return date;
@@ -392,26 +397,7 @@ async function fetchBaiduCloses(code: string, interval: BollInterval): Promise<D
     eprop: period.eprop,
     ktype: period.ktype,
   });
-  const headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0.0.0 Safari/537.36',
-    Accept: 'application/vnd.finance-web.v1+json',
-    Referer: 'https://finance.baidu.com/',
-  };
-  const query = params.toString();
-  let raw: string;
-  try {
-    raw = await requestText('https://finance.pae.baidu.com/selfselect/getstockquotation?' + query, 'utf-8', headers);
-  } catch (directError) {
-    const proxyUrl = 'https://sp0.baidu.com/5LMDcjW6BwF3otqbppnN2DJv/finance.pae.baidu.com/selfselect/getstockquotation?' + query;
-    try {
-      raw = await requestText(proxyUrl, 'utf-8', headers);
-    } catch (proxyError) {
-      throw new Error(
-        '百度直连失败：' + (directError instanceof Error ? directError.message : '未知错误') +
-        '；百度 CDN 代理失败：' + (proxyError instanceof Error ? proxyError.message : '未知错误'),
-      );
-    }
-  }
+  const raw = await requestBaiduText('/selfselect/getstockquotation', params);
   let payload: unknown;
   try {
     payload = JSON.parse(raw);
@@ -446,6 +432,66 @@ async function fetchBaiduCloses(code: string, interval: BollInterval): Promise<D
   });
   if (bars.length === 0) throw new Error('百度行情未返回可用的历史 K 线');
   return bars.slice(-320);
+}
+
+ 
+async function fetchBaiduQuote(code: string): Promise<MarketQuote> {
+  const params = new URLSearchParams({
+    code,
+    market_type: 'ab',
+    financeType: 'etf',
+    group: 'quotation_minute_ab',
+    pointType: 'string',
+    new_Format: '1',
+    finClientType: 'pc',
+    query: code,
+  });
+  const raw = await requestBaiduText('/vapi/v1/getquotation', params);
+  let payload: unknown;
+  try {
+    payload = JSON.parse(raw);
+  } catch {
+    throw new Error('百度行情现价返回内容不是有效 JSON');
+  }
+  if (!payload || typeof payload !== 'object') throw new Error('百度行情未返回现价对象');
+  const envelope = payload as {
+    ResultCode?: string | number;
+    ResultMsg?: string;
+    Result?: {
+      code?: unknown;
+      name?: unknown;
+      stockInfo?: { code?: unknown; name?: unknown };
+      cur?: { price?: unknown; increase?: unknown; ratio?: unknown };
+    };
+  };
+  if (envelope.ResultCode !== undefined && String(envelope.ResultCode) !== '0') {
+    throw new Error('百度行情现价业务错误：' + String(envelope.ResultMsg ?? envelope.ResultCode));
+  }
+  const result = envelope.Result;
+  const cur = result?.cur;
+  if (!cur) throw new Error('百度行情未返回最新价');
+  const returnedCode = result?.code ?? result?.stockInfo?.code;
+  if (returnedCode !== undefined && String(returnedCode).trim() !== code) {
+    throw new Error('百度行情返回代码与当前基金不一致');
+  }
+  const price = parsePositiveNumber(cur.price, '百度最新价');
+  const increaseText = String(cur.increase ?? '').replace(/,/g, '').trim();
+  const increase = increaseText ? Number(increaseText) : Number.NaN;
+  const ratioText = String(cur.ratio ?? '').replace('%', '').replace(/,/g, '').trim();
+  const ratio = ratioText ? Number(ratioText) : Number.NaN;
+  const previousClose = Number.isFinite(increase)
+    ? price - increase
+    : Number.isFinite(ratio) && ratio !== -100
+      ? price / (1 + ratio / 100)
+      : Number.NaN;
+  if (!Number.isFinite(previousClose) || previousClose <= 0) {
+    throw new Error('百度行情缺少可用的涨跌额/涨跌幅，无法还原昨收');
+  }
+  const nameValue = result?.name ?? result?.stockInfo?.name;
+  const name = typeof nameValue === 'string' && nameValue.trim() ? nameValue.trim() : undefined;
+  // The documented quote payload does not provide a trusted source timestamp.
+  // Keep quotedAt/tradingDate empty so downstream close confirmation fails closed.
+  return createQuote(code, name, price, previousClose, undefined, '百度行情');
 }
 
 interface IntervalHistory {
@@ -498,11 +544,11 @@ export async function fetchLatestQuote(request: MarketQuoteRequest): Promise<Mar
     eastmoneyError = error instanceof Error ? error : new Error('东方财富请求失败');
   }
   try {
-    return await fetchTencentQuote(code, request.market);
+    return await fetchBaiduQuote(code);
   } catch (error) {
-    const tencentError = error instanceof Error ? error : new Error('腾讯行情请求失败');
+    const baiduError = error instanceof Error ? error : new Error('百度行情请求失败');
     // Surface both source failures so "wrong code" and "network down" are distinguishable.
-    throw new Error(`东方财富失败：${eastmoneyError.message}；腾讯失败：${tencentError.message}。请检查基金代码或网络连接。`);
+    throw new Error(`东方财富失败：${eastmoneyError.message}；百度失败：${baiduError.message}。请检查基金代码或网络连接。`);
   }
 }
 
