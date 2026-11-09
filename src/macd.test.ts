@@ -20,7 +20,8 @@ describe('MACD deterministic multi-timeframe rules', () => {
     const shortBars = barsWithReversal().slice(0, 30);
     const state = calculateMacdPeriod(shortBars, 'daily', contextFor(shortBars));
     expect(state.error).toContain('不足');
-    expect(macdArrangementLabel(state)).toBe('数据不足');
+    expect(state.availability).toBe('insufficient-history');
+    expect(macdArrangementLabel(state)).toBe('历史不足');
   });
   it('excludes the active intraday candle for cross confirmation', () => {
     const source = barsWithReversal();
@@ -68,8 +69,9 @@ describe('MACD deterministic multi-timeframe rules', () => {
     const daily = unavailableMacdPeriod('daily', 'fixture error');
     const result = summarizeMacdPeriods({ monthly, weekly, daily });
     expect(result.summary).toBe('MACD 数据不完整');
-    expect(macdZeroAxisLabel(monthly)).toBe('数据不足');
-    expect(macdMomentumLabel(daily)).toBe('数据不足');
+    expect(monthly.availability).toBe('unavailable');
+    expect(macdZeroAxisLabel(monthly)).toBe('数据不可用');
+    expect(macdMomentumLabel(daily)).toBe('数据不可用');
   });
   it('exposes the existing calculation through a confirmed-series entry point and records EMA seed metadata', () => {
     const source = barsWithReversal();
