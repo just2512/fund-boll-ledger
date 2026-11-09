@@ -8,63 +8,141 @@
       "track": "A",
       "title": "技术状态历史逐根重放与未来数据隔离",
       "status": "PASS",
-      "acceptance": ["每个 as-of 前缀只向正式计算引擎提供当时可见的确认 K 线", "noFutureBars=true", "同起点逐根结果与批量计算结果一致"],
-      "evidence": [{"commit": "8bdb64a85f4dec5360400315915960791589566d", "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/42612801322"}]
+      "acceptance": [
+        "每个 as-of 前缀只向正式计算引擎提供当时可见的确认 K 线",
+        "noFutureBars=true",
+        "同起点逐根结果与批量计算结果一致"
+      ],
+      "evidence": [
+        {
+          "commit": "8bdb64a85f4dec5360400315915960791589566d",
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/42612801322"
+        }
+      ]
     },
     {
       "id": "A-02",
       "track": "A",
       "title": "MACD 历史不足与无效数据语义",
       "status": "PASS",
-      "acceptance": ["ready、insufficient-history、unavailable、invalid-data 可区分", "不可用时 crossEvent=unknown", "保留诊断原因"],
-      "evidence": [{"commit": "8bdb64a85f4dec5360400315915960791589566d", "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/42612801332"}]
+      "acceptance": [
+        "ready、insufficient-history、unavailable、invalid-data 可区分",
+        "不可用时 crossEvent=unknown",
+        "保留诊断原因"
+      ],
+      "evidence": [
+        {
+          "commit": "8bdb64a85f4dec5360400315915960791589566d",
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/42612801332"
+        }
+      ]
     },
     {
       "id": "A-03",
       "track": "A",
       "title": "现有价格对比模块内的描述性技术状态 UI",
       "status": "PASS",
-      "acceptance": ["只展示指标事实、来源、周期、as-of、确认状态、历史覆盖和不可用原因", "不展示未经验证的交易建议、收益或资金占用", "桌面与窄屏 E2E 通过"],
-      "evidence": [{"commit": "8bdb64a85f4dec5360400315915960791589566d", "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/42616623315"}]
+      "acceptance": [
+        "只展示指标事实、来源、周期、as-of、确认状态、历史覆盖和不可用原因",
+        "不展示未经验证的交易建议、收益或资金占用",
+        "桌面与窄屏 E2E 通过"
+      ],
+      "evidence": [
+        {
+          "commit": "8bdb64a85f4dec5360400315915960791589566d",
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/42616623315"
+        }
+      ]
     },
     {
       "id": "B-01",
       "track": "B",
       "title": "原始 OHLCV 解析与数据有效性契约",
-      "status": "PASS",
-      "acceptance": ["解析 OHLCV 并验证 OHLC 合法性、日期顺序、复权口径和成交量单位字段", "不把 close-only 指标序列当作可成交回测数据"],
-      "evidence": [{"commit": "8bdb64a85f4dec5360400315915960791589566d", "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/42617568143"}]
+      "status": "MISSING",
+      "acceptance": [
+        "解析 OHLCV 并验证 OHLC 合法性、日期顺序、复权口径和成交量单位字段",
+        "不把 close-only 指标序列当作可成交回测数据"
+      ],
+      "evidence": [],
+      "historicalEvidence": [
+        {
+          "commit": "374849fd632dc8b0ad47fb0ea252b297f9aa84e8",
+          "note": "Implementation existed in this historical divergent commit, but its files are absent from current main and current B branch head."
+        }
+      ]
     },
     {
       "id": "B-02",
       "track": "B",
       "title": "行情源显式选择与原始 OHLCV 获取",
-      "status": "PASS",
-      "acceptance": ["东方财富与百度可分别显式请求", "回测数据请求不隐式切源", "保留来源与源端原始字段"],
-      "evidence": [{"commit": "8bdb64a85f4dec5360400315915960791589566d", "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/42617568143"}]
+      "status": "MISSING",
+      "acceptance": [
+        "东方财富与百度可分别显式请求",
+        "回测数据请求不隐式切源",
+        "保留来源与源端原始字段"
+      ],
+      "evidence": [],
+      "historicalEvidence": [
+        {
+          "commit": "374849fd632dc8b0ad47fb0ea252b297f9aa84e8",
+          "note": "Implementation existed in this historical divergent commit, but its files are absent from current main and current B branch head."
+        }
+      ]
     },
     {
       "id": "B-03",
       "track": "B",
       "title": "时间序列 walk-forward 窗口基础设施",
-      "status": "PASS",
-      "acceptance": ["支持 rolling 与 expanding 窗口", "训练和 OOS 区间按时间连续切分", "不随机打乱且不输出不完整 OOS 窗口"],
-      "evidence": [{"commit": "8bdb64a85f4dec5360400315915960791589566d", "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/42635981675"}]
+      "status": "MISSING",
+      "acceptance": [
+        "支持 rolling 与 expanding 窗口",
+        "训练和 OOS 区间按时间连续切分",
+        "不随机打乱且不输出不完整 OOS 窗口"
+      ],
+      "evidence": [],
+      "historicalEvidence": [
+        {
+          "commit": "374849fd632dc8b0ad47fb0ea252b297f9aa84e8",
+          "note": "Implementation existed in this historical divergent commit, but its files are absent from current main and current B branch head."
+        }
+      ]
     },
     {
       "id": "B-04",
       "track": "B",
       "title": "双行情源真实 OHLCV 数据验收",
-      "status": "PASS",
-      "acceptance": ["取得东方财富和百度真实历史 OHLCV", "明确已确认 K 线数量与日期覆盖", "真实数据工作流成功并保留验收记录"],
-      "evidence": [{"commit": "8bdb64a85f4dec5360400315915960791589566d", "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/42617568143"}]
+      "status": "MISSING",
+      "acceptance": [
+        "取得东方财富和百度真实历史 OHLCV",
+        "明确已确认 K 线数量与日期覆盖",
+        "真实数据工作流成功并保留验收记录"
+      ],
+      "evidence": [],
+      "historicalEvidence": [
+        {
+          "commit": "374849fd632dc8b0ad47fb0ea252b297f9aa84e8",
+          "note": "Implementation existed in this historical divergent commit, but its files are absent from current main and current B branch head."
+        },
+        {
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/42632718027",
+          "note": "Earlier real-data acceptance run passed on historical B code."
+        },
+        {
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/42633127195",
+          "note": "Latest inspected run failed because Baidu direct and CDN requests both timed out."
+        }
+      ]
     },
     {
       "id": "B-05",
       "track": "B",
       "title": "百度 OHLCV 复权口径核实",
       "status": "UNKNOWN",
-      "acceptance": ["取得可核实的接口文档或源端证据", "确认复权口径及历史调整行为", "未确认前不得用于策略收益计算"],
+      "acceptance": [
+        "取得可核实的接口文档或源端证据",
+        "确认复权口径及历史调整行为",
+        "未确认前不得用于策略收益计算"
+      ],
       "evidence": []
     },
     {
@@ -72,7 +150,11 @@
       "track": "B",
       "title": "成交量单位与换算口径核实",
       "status": "UNKNOWN",
-      "acceptance": ["取得源端字段定义或权威样本", "确认原始单位和换算规则", "未确认前只保留 provider-native 原值"],
+      "acceptance": [
+        "取得源端字段定义或权威样本",
+        "确认原始单位和换算规则",
+        "未确认前只保留 provider-native 原值"
+      ],
       "evidence": []
     },
     {
@@ -80,7 +162,11 @@
       "track": "B",
       "title": "触轨 setup 超时和跨周期计数契约",
       "status": "MISSING",
-      "acceptance": ["明确超时根数", "明确跨周期、停牌和缺失交易日的计数语义", "补齐边界测试并保留历史逐根一致性"],
+      "acceptance": [
+        "明确超时根数",
+        "明确跨周期、停牌和缺失交易日的计数语义",
+        "补齐边界测试并保留历史逐根一致性"
+      ],
       "evidence": []
     },
     {
@@ -88,7 +174,11 @@
       "track": "B",
       "title": "入场时点、订单与成交价格契约",
       "status": "MISSING",
-      "acceptance": ["明确确认后下单时点和可成交时点", "明确成交价来源", "明确停牌、缺失、涨跌停及不可成交处理"],
+      "acceptance": [
+        "明确确认后下单时点和可成交时点",
+        "明确成交价来源",
+        "明确停牌、缺失、涨跌停及不可成交处理"
+      ],
       "evidence": []
     },
     {
@@ -96,7 +186,11 @@
       "track": "B",
       "title": "退出规则及冲突优先级",
       "status": "MISSING",
-      "acceptance": ["明确止盈、止损、反向信号和时间退出规则", "明确同日多条件冲突的优先级", "为每种退出路径提供测试"],
+      "acceptance": [
+        "明确止盈、止损、反向信号和时间退出规则",
+        "明确同日多条件冲突的优先级",
+        "为每种退出路径提供测试"
+      ],
       "evidence": []
     },
     {
@@ -104,7 +198,11 @@
       "track": "B",
       "title": "初始资金、单笔投入与总资金占用契约",
       "status": "MISSING",
-      "acceptance": ["明确初始资金和单笔投入规则", "明确现金不足、并发信号、持仓上限和资金分配", "能逐日重建现金与持仓"],
+      "acceptance": [
+        "明确初始资金和单笔投入规则",
+        "明确现金不足、并发信号、持仓上限和资金分配",
+        "能逐日重建现金与持仓"
+      ],
       "evidence": []
     },
     {
@@ -112,7 +210,11 @@
       "track": "B",
       "title": "ETF 交易单位和份额取整契约",
       "status": "MISSING",
-      "acceptance": ["按标的实际申报单位处理数量", "明确余款和不足一手的处理", "提供交易单位边界测试"],
+      "acceptance": [
+        "按标的实际申报单位处理数量",
+        "明确余款和不足一手的处理",
+        "提供交易单位边界测试"
+      ],
       "evidence": []
     },
     {
@@ -120,7 +222,12 @@
       "track": "B",
       "title": "策略费用、最低费用、滑点及公司行为口径",
       "status": "MISSING",
-      "acceptance": ["明确佣金、最低费用及生效日期", "明确滑点模型", "明确分红拆分等公司行为和价格复权口径", "不得直接套用账本估算费率冒充策略成本"],
+      "acceptance": [
+        "明确佣金、最低费用及生效日期",
+        "明确滑点模型",
+        "明确分红拆分等公司行为和价格复权口径",
+        "不得直接套用账本估算费率冒充策略成本"
+      ],
       "evidence": []
     },
     {
@@ -128,7 +235,11 @@
       "track": "B",
       "title": "训练窗口、OOS 窗口与参数选择契约",
       "status": "MISSING",
-      "acceptance": ["明确 rolling/expanding 选择方式和窗口长度", "训练期选参与 OOS 验证严格分离", "OOS 结果不得反向调参"],
+      "acceptance": [
+        "明确 rolling/expanding 选择方式和窗口长度",
+        "训练期选参与 OOS 验证严格分离",
+        "OOS 结果不得反向调参"
+      ],
       "evidence": []
     },
     {
@@ -136,7 +247,11 @@
       "track": "B",
       "title": "策略交易模拟与逐笔账务重建",
       "status": "NOT_STARTED",
-      "acceptance": ["只使用已冻结策略契约", "输出订单、成交、未成交、现金、持仓和费用轨迹", "逐笔结果可由输入行情和规则复算"],
+      "acceptance": [
+        "只使用已冻结策略契约",
+        "输出订单、成交、未成交、现金、持仓和费用轨迹",
+        "逐笔结果可由输入行情和规则复算"
+      ],
       "evidence": []
     },
     {
@@ -144,7 +259,11 @@
       "track": "B",
       "title": "滚动样本外验证与结果审计",
       "status": "NOT_STARTED",
-      "acceptance": ["严格按时间切分训练和 OOS", "保留各窗口、各标的完整结果", "不以训练期表现代替 OOS 结论"],
+      "acceptance": [
+        "严格按时间切分训练和 OOS",
+        "保留各窗口、各标的完整结果",
+        "不以训练期表现代替 OOS 结论"
+      ],
       "evidence": []
     },
     {
@@ -152,7 +271,12 @@
       "track": "B",
       "title": "回测交付物与可复核报告",
       "status": "NOT_STARTED",
-      "acceptance": ["输出逐笔交易", "输出资金/持仓轨迹、最大资金占用和回撤", "输出费用、滑点和未成交订单明细", "结果可按数据和策略配置复现"],
+      "acceptance": [
+        "输出逐笔交易",
+        "输出资金/持仓轨迹、最大资金占用和回撤",
+        "输出费用、滑点和未成交订单明细",
+        "结果可按数据和策略配置复现"
+      ],
       "evidence": []
     }
   ]
