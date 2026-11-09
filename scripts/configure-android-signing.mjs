@@ -103,6 +103,13 @@ if (!gradle.includes('create("release")')) {
 `;
   gradle = gradle.slice(0, index) + block + gradle.slice(index);
 }
+const storeFileAssignment = '            storeFile = file(keystoreProperties["storeFile"] as String)';
+if (!gradle.includes('storeType = "PKCS12"')) {
+  if (!gradle.includes(storeFileAssignment)) {
+    throw new Error('Android release signing config has no recognized storeFile assignment; refusing to guess where to inject keystore format.');
+  }
+  gradle = gradle.replace(storeFileAssignment, storeFileAssignment + '\\n            storeType = "PKCS12"');
+}
 const releasePattern = /getByName\("release"\)\s*\{/;
 const releaseMatch = releasePattern.exec(gradle);
 if (!releaseMatch) throw new Error('生成的 app/build.gradle.kts 中找不到 release buildType，拒绝生成未签名的升级包。');
