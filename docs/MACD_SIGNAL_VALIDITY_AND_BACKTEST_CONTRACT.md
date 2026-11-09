@@ -137,3 +137,22 @@
 - 历史获取窗口：8da3c43dbbce2e7a8a917e525c3021ae29419046
 - 400 根保留回归测试：225a2e6de449c59fdb93803bfc5c36a39a8d5c9a
 - frontend CI：Runs [42603763736](https://github.com/just2512/fund-boll-ledger/actions/runs/42603763736) 和 [42603816671](https://github.com/just2512/fund-boll-ledger/actions/runs/42603816671)，均完整 success。
+
+
+## 10. MACD 计算可用性状态契约（2026-11-09）
+
+在保留既有 `error` 文本字段兼容性的前提下，`MacdPeriodState.availability` 提供机器可读状态：
+
+| availability | 适用条件 | 数值/交叉字段 | 描述性标签 |
+|---|---|---|---|
+| `ready` | 输入确认序列有效且达到现有 35 根最低计算要求 | 输出 DIF/DEA/柱体与事件字段 | 按实际计算状态显示 |
+| `insufficient-history` | 确认 K 线不足 35 根，或没有已确认收盘历史 | 不输出数值；交叉事件为 `unknown` | 历史不足 |
+| `unavailable` | 没有可用历史或缺少可信行情日期，无法判定收盘确认 | 不输出数值；交叉事件为 `unknown` | 数据不可用 |
+| `invalid-data` | 日期、价格、重复日期冲突、as-of 或确认序列结构无效 | 不输出数值；交叉事件为 `unknown` | 数据无效 |
+
+约束：
+- 35 根仍是既有数值计算下限，不代表信号稳定；本次没有把 160 根候选改成生产门槛。
+- `availability` 描述计算输入是否可用，不代表交易信号有效性；后者仍须独立样本外验证。
+- `error` 保留具体诊断文本；展示层不得仅凭 `error` 是否存在而把历史不足、来源不可用和数据无效混成同一种状态。
+- 所有不可用状态下 `crossEvent` 必须是 `unknown`，不能用 `none` 表示“没有发生交叉”。
+- 此状态字段不改变基金账本实体、交易记录和 JSON 备份结构。
