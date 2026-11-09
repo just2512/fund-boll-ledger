@@ -108,7 +108,7 @@ if (!gradle.includes('storeType = "PKCS12"')) {
   if (!gradle.includes(storeFileAssignment)) {
     throw new Error('Android release signing config has no recognized storeFile assignment; refusing to guess where to inject keystore format.');
   }
-  gradle = gradle.replace(storeFileAssignment, storeFileAssignment + '\\n            storeType = "PKCS12"');
+  gradle = gradle.replace(storeFileAssignment, storeFileAssignment + '\n            storeType = "PKCS12"');
 }
 const releasePattern = /getByName\("release"\)\s*\{/;
 const releaseMatch = releasePattern.exec(gradle);
