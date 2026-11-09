@@ -41,12 +41,6 @@ function intervalCloses(interval: 'daily' | 'weekly' | 'monthly'): string[] {
 function eastmoneyResponse(data: Record<string, unknown> | null): Response {
   return new Response(JSON.stringify({ data }), { status: 200, headers: { 'Content-Type': 'application/json' } });
 }
-function tencentResponse(code = '510300'): Response {
-  const fields = Array.from({ length: 50 }, () => '');
-  fields[0] = '1'; fields[1] = '沪深300ETF'; fields[2] = code; fields[3] = '4.125'; fields[4] = '4.000';
-  fields[30] = marketTime(); fields[32] = '3.13';
-  return new Response('v_sh' + code + '="' + fields.join('~') + '";', { status: 200, headers: { 'Content-Type': 'text/plain; charset=GBK' } });
-}
 
 describe('manual ETF market quote refresh', () => {
   it('uses Eastmoney first and derives daily change from the same quote snapshot', async () => {
@@ -98,53 +92,53 @@ describe('manual ETF market quote refresh', () => {
     const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(epoch * 1000));
     expect(quote.tradingDate).toBe(parts.split('/').reverse().join('-'));
   });
-  it('keeps a 6-digit hhmmss stamp dateless so no ghost trading date is forged', async () => {
-    const fields = Array.from({ length: 50 }, () => '');
-    fields[0] = '1'; fields[1] = '沪深300ETF'; fields[2] = '510300'; fields[3] = '4.125'; fields[4] = '4.000';
-    fields[30] = '150030'; fields[32] = '3.13';
-    const tencent = new Response('v_sh510300="' + fields.join('~') + '";', { status: 200, headers: { 'Content-Type': 'text/plain; charset=GBK' } });
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(eastmoneyResponse(null)).mockResolvedValueOnce(tencent);
-    vi.stubGlobal('fetch', fetchMock);
-    const quote = await fetchLatestQuote({ code: '510300', market: '沪市' });
-    expect(quote.quotedAt).toBe('15:00:30（北京时间）');
-    // Dateless stamps must never be stamped with today: a weekend refresh must not
-    // inject a ghost non-trading-day bar into the BOLL window.
-    expect(quote.tradingDate).toBeUndefined();
-  });
-  it('decodes GBK Tencent payloads so multi-byte names cannot forge the ~ separator', async () => {
-    // GBK 0x5526 (唦) encodes to 0x86 0x7E: its second byte equals the '~' separator byte.
-    // The mock must therefore serve REAL GBK bytes; decoding them atomically keeps field
-    // alignment intact, while a naive UTF-8 text() read would split the name and shift fields.
-    const fields = Array.from({ length: 50 }, () => '');
-    fields[0] = '1'; fields[1] = '唦深300ETF'; fields[2] = '510300'; fields[3] = '4.125'; fields[4] = '4.000';
-    fields[30] = marketTime(); fields[32] = '3.13';
-    const textPart = 'v_sh510300="' + fields.join('~') + '";';
-    // Rebuild the byte stream with GBK encoding for the CJK name field:
-    // 唦 -> 0x86 0x7E (second byte == '~' 0x7E), 深 -> 0xC9 0xEE.
-    const nameStart = textPart.indexOf('唦深300ETF');
-    const gbkBytes: number[] = [];
-    for (const ch of textPart.slice(0, nameStart)) gbkBytes.push(ch.charCodeAt(0));
-    gbkBytes.push(0x86, 0x7e, 0xc9, 0xee);
-    for (const ch of '300ETF') gbkBytes.push(ch.charCodeAt(0));
-    for (const ch of textPart.slice(nameStart + '唦深300ETF'.length)) gbkBytes.push(ch.charCodeAt(0));
-    const tencentGbk = new Response(new Uint8Array(gbkBytes).buffer, { status: 200, headers: { 'Content-Type': 'text/html; charset=GBK' } });
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(eastmoneyResponse(null)).mockResolvedValueOnce(tencentGbk);
-    vi.stubGlobal('fetch', fetchMock);
-    const quote = await fetchLatestQuote({ code: '510300', market: '沪市' });
-    expect(quote.source).toBe('腾讯行情');
-    expect(quote.name).toBe('唦深300ETF');
-    expect(quote.price).toBe('4.125');
-    expect(quote.changePercent).toBe(3.13);
-  });
-  it('falls back to Tencent when Eastmoney returns no valid row', async () => {
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(eastmoneyResponse(null)).mockResolvedValueOnce(tencentResponse());
+  it('falls back to Baidu for quote price and previous close without inventing a source timestamp', async () => {
+    const baidu = new Response(JSON.stringify({
+      ResultCode: 0,
+      Result: {
+        code: '510300',
+        name: '沪深300ETF',
+        cur: { price: '4.125', increase: '+0.125', ratio: '+3.13%' },
+      },
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(eastmoneyResponse(null)).mockResolvedValueOnce(baidu);
     vi.stubGlobal('fetch', fetchMock);
     const quote = await fetchLatestQuote({ code: '510300', market: '沪市' });
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(String(fetchMock.mock.calls[1][0])).toContain('qt.gtimg.cn/q=sh510300');
-    expect(quote.source).toBe('腾讯行情');
+    expect(String(fetchMock.mock.calls[1][0])).toContain('/vapi/v1/getquotation?');
+    expect(String(fetchMock.mock.calls[1][0])).toContain('financeType=etf');
+    expect(quote.source).toBe('百度行情');
+    expect(quote.name).toBe('沪深300ETF');
     expect(quote.price).toBe('4.125');
+    expect(quote.previousClose).toBe('4.000');
     expect(quote.changePercent).toBe(3.13);
+    expect(quote.quotedAt).toBeUndefined();
+    expect(quote.tradingDate).toBeUndefined();
+  });
+  it('does not calculate live BOLL from a Baidu quote without a trusted trading date', async () => {
+    const baidu = new Response(JSON.stringify({
+      ResultCode: 0,
+      Result: { code: '510300', cur: { price: '4.125', increase: '+0.125', ratio: '+3.13%' } },
+    }), { status: 200 });
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('push2.eastmoney.com/api/qt/stock/get?')) return eastmoneyResponse(null);
+      if (url.includes('/vapi/v1/getquotation?')) return baidu.clone();
+      if (url.includes('push2his.eastmoney.com')) {
+        const period = url.includes('klt=102') ? 'weekly' : url.includes('klt=103') ? 'monthly' : 'daily';
+        const klines = intervalCloses(period).map((line) => { const [date, close] = line.split(','); return [date, close, close, close, close, '0', '0', '0', '0', '0', '0'].join(','); });
+        return eastmoneyResponse({ code: '510300', klines });
+      }
+      return new Response('', { status: 404 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const market = await fetchLatestMarketData({ code: '510300', market: '沪市' });
+    expect(market.source).toBe('百度行情');
+    expect(market.tradingDate).toBeUndefined();
+    expect(market.boll).toBeUndefined();
+    expect(market.bollError).toContain('可信交易日期');
+    expect(market.technicalState?.daily.validity).toBe('INVALID');
+    expect(market.technicalState?.daily.reason).toContain('交易日期');
   });
   it('rejects invalid fund codes without making network requests', async () => {
     const fetchMock = vi.fn<typeof fetch>();
@@ -156,7 +150,7 @@ describe('manual ETF market quote refresh', () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(new Response('', { status: 503 })).mockResolvedValueOnce(new Response('invalid response', { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
     // Both sources' own failure reasons must survive into the final message.
-    await expect(fetchLatestQuote({ code: '510300', market: '沪市' })).rejects.toThrow('东方财富失败：行情服务返回 HTTP 503；腾讯失败：腾讯行情返回格式无法识别');
+    await expect(fetchLatestQuote({ code: '510300', market: '沪市' })).rejects.toThrow('东方财富失败：行情服务返回 HTTP 503；百度失败：百度行情现价返回内容不是有效 JSON');
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
