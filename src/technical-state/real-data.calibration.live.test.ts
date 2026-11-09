@@ -3,10 +3,9 @@ declare const process: { env: Record<string, string | undefined> };
 import { describe, expect, it } from 'vitest';
 import { fetchConfirmedTechnicalHistory, fetchLatestQuote } from '../market-data';
 import { calculateTechnicalStateSnapshot } from './engine';
-import { bollStateConfigFor } from './config';
+import { BOLL_STATE_CONFIG_BY_INTERVAL, BOLL_STATE_CONFIG_VERSION, bollStateConfigFor } from './config';
 import { MACD_STABILITY_MIN_BARS } from '../macd';
 import { calibrateBollHistory } from './calibration';
-import { auditConfirmedBollMacdSeries } from './boll-macd-events';
 import { analyzeBollConfigSensitivity, buildBollSensitivityCandidates } from './sensitivity';
 import { analyzeMacdHistoryStartSensitivity, analyzeMacdHistoryStartSensitivityAcrossPrefixes } from './macd-seed-sensitivity';
 import { hasNoFutureBars, replayConfirmedTechnicalSeries } from './history-replay';
@@ -24,7 +23,7 @@ const intervals: BollInterval[] = ['daily', 'weekly', 'monthly'];
 describe('live multi-ETF BOLL historical calibration', () => {
   (runLive ? it : it.skip)('collects real confirmed history, checks rolling replay boundaries, and emits descriptive distributions without selecting thresholds', async () => {
     const reports = [];
-    let baiduFallbackProbe: { source: string | undefined; confirmedBars: number; eventSetupCount: number; bollParameterSensitivity: ReturnType<typeof analyzeBollConfigSensitivity>; macdSeedRollingSensitivity: ReturnType<typeof analyzeMacdHistoryStartSensitivityAcrossPrefixes> } | undefined;
+    let baiduFallbackProbe: { source: string | undefined; confirmedBars: number; bollParameterSensitivity: ReturnType<typeof analyzeBollConfigSensitivity>; macdSeedRollingSensitivity: ReturnType<typeof analyzeMacdHistoryStartSensitivityAcrossPrefixes> } | undefined;
     let baiduQuoteProbe: { source: string; price: string; previousClose: string; hasTrustedTradingDate: boolean } | undefined;
     for (const instrument of instruments) {
       const request = { code: instrument.code, market: instrument.market };
@@ -49,7 +48,6 @@ describe('live multi-ETF BOLL historical calibration', () => {
             }
             expect(baiduHistory.series.source).toBe('百度行情');
             expect(baiduHistory.series.bars.length).toBeGreaterThanOrEqual(35);
-            const baiduEvents = auditConfirmedBollMacdSeries(baiduHistory.series);
             const baiduBollParameterSensitivity = analyzeBollConfigSensitivity(
               baiduHistory.series,
               buildBollSensitivityCandidates('daily'),
@@ -65,7 +63,6 @@ describe('live multi-ETF BOLL historical calibration', () => {
             baiduFallbackProbe = {
               source: baiduHistory.series.source,
               confirmedBars: baiduHistory.series.bars.length,
-              eventSetupCount: baiduEvents.length,
               bollParameterSensitivity: baiduBollParameterSensitivity,
               macdSeedRollingSensitivity: baiduMacdSeedRollingSensitivity,
             };
@@ -100,13 +97,6 @@ describe('live multi-ETF BOLL historical calibration', () => {
         }
 
         const report = calibrateBollHistory(normalized.series);
-        const bollMacdEvents = auditConfirmedBollMacdSeries(normalized.series);
-        const confirmedEvents = bollMacdEvents.filter((event) => event.status === 'confirmed');
-        expect(confirmedEvents.every((event) =>
-          event.confirmationDate !== undefined && event.confirmationDate > event.triggerDate &&
-          event.barsToCross !== undefined && event.barsToCross > 0 &&
-          Number.isFinite(event.closeChangePercent),
-        )).toBe(true);
         const sensitivity = analyzeBollConfigSensitivity(
           normalized.series,
           buildBollSensitivityCandidates(interval),
@@ -145,13 +135,6 @@ describe('live multi-ETF BOLL historical calibration', () => {
           parameterSensitivity: sensitivity,
           macdSeedSensitivity,
           macdSeedRollingSensitivity,
-          bollMacdEventAudit: {
-            setupCount: bollMacdEvents.length,
-            confirmedCount: confirmedEvents.length,
-            invalidatedCount: bollMacdEvents.filter((event) => event.status === 'invalidated').length,
-            pendingCount: bollMacdEvents.filter((event) => event.status === 'pending').length,
-            setups: bollMacdEvents,
-          },
           walkForward: {
             replayedPrefixCount: replay.length,
             noFutureBars: hasNoFutureBars(replay),
@@ -177,6 +160,7 @@ describe('live multi-ETF BOLL historical calibration', () => {
       instruments: instruments.map(({ code }) => code),
       intervals,
       thresholdSelection: 'NOT_PERFORMED',
+      productionDisplayConfig: { version: BOLL_STATE_CONFIG_VERSION, status: 'REFERENCE_BASELINE_NOT_OPTIMIZED', byInterval: BOLL_STATE_CONFIG_BY_INTERVAL },
       replayMethod: 'CONFIRMED_PREFIX_ONE_BAR_AT_A_TIME',
       baiduFallbackProbe,
       baiduQuoteProbe,
