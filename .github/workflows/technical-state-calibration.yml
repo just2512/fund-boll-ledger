@@ -18,22 +18,13 @@ permissions:
 jobs:
   calibration:
     name: Fetch real ETF history and summarize BOLL distributions
-    runs-on: [self-hosted, Linux, X64, wsl]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Verify Linux toolchain
-        shell: bash
+      - name: Verify GitHub-hosted toolchain
         run: |
-          set -e
-          export PATH="/usr/bin:$PATH"
-          echo "/usr/bin" >> "$GITHUB_PATH"
-          command -v node
-          command -v npm
           node --version
           npm --version
-          case "$(command -v npm)" in
-            /mnt/c/*) echo "Windows npm leaked into WSL PATH"; exit 1 ;;
-          esac
       - name: Install locked dependencies
         run: npm ci
       - name: Run live multi-ETF calibration
