@@ -91,7 +91,7 @@ function calculatePoints(series: ConfirmedTechnicalSeries): BollPoint[] {
     const deviation = Math.sqrt(variance);
     const upper = mean + 2 * deviation;
     const lower = mean - 2 * deviation;
-    if (![mean, upper, lower].every(Number.isFinite) || mean <= 0 || upper < lower) continue;
+    if (![mean, upper, lower].every(Number.isFinite) || mean <= 0 || lower <= 0 || upper < lower) continue;
     const bandwidthPercent = ((upper - lower) / mean) * 100;
     if (!Number.isFinite(bandwidthPercent) || bandwidthPercent < 0) continue;
     points.push({ date: series.bars[index].date, close: series.bars[index].close, upper, middle: mean, lower, bandwidthPercent });
