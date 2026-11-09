@@ -1,4 +1,4 @@
-name: Frontend Checks (self-hosted)
+name: Frontend Checks (GitHub-hosted)
 
 on:
   push:
@@ -13,22 +13,13 @@ permissions:
 jobs:
   frontend:
     name: Unit tests and production build
-    runs-on: [self-hosted, Linux, X64, wsl]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Verify Linux toolchain
-        shell: bash
+      - name: Verify GitHub-hosted toolchain
         run: |
-          set -e
-          export PATH="/usr/bin:$PATH"
-          echo "/usr/bin" >> "$GITHUB_PATH"
-          command -v node
-          command -v npm
           node --version
           npm --version
-          case "$(command -v npm)" in
-            /mnt/c/*) echo "Windows npm leaked into WSL PATH"; exit 1 ;;
-          esac
       - name: Install locked dependencies
         run: npm ci
       - name: Run unit tests
