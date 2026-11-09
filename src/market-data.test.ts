@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { calculateBollBands, fetchLatestMarketData, fetchLatestQuote } from './market-data';
+import { calculateBollBands, fetchConfirmedTechnicalHistory, fetchLatestMarketData, fetchLatestQuote } from './market-data';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -363,5 +363,74 @@ describe('BOLL(20,2)', () => {
     expect(market.technicalState?.daily.reason).toContain('东方财富失败');
     expect(market.technicalState?.daily.reason).toContain('百度失败');
     expect(market.technicalState?.daily.quoteSource).toBe('东方财富');
+  });
+});
+
+
+describe('extended confirmed market history', () => {
+  const quoteForHistory = () => {
+    const today = new Date();
+    return {
+      code: '510300',
+      price: '4.125',
+      previousClose: '4.000',
+      changePercent: 3.13,
+      source: '东方财富' as const,
+      tradingDate: dateIso(today),
+      fetchedAt: today.toISOString(),
+    };
+  };
+
+  const extendedRows = () => {
+    const today = new Date();
+    return Array.from({ length: 400 }, (_, index) => {
+      const date = new Date(today);
+      date.setDate(today.getDate() - 400 + index);
+      return { date: dateIso(date), close: (4 + index * 0.0001).toFixed(4) };
+    });
+  };
+
+  it('requests up to 1000 Eastmoney bars and retains more than the former 320-bar cap', async () => {
+    const rows = extendedRows();
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(eastmoneyResponse({
+      code: '510300',
+      klines: rows.map(({ date, close }) => [date, close, close, close, close, '0', '0', '0', '0', '0', '0'].join(',')),
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    const result = await fetchConfirmedTechnicalHistory(
+      { code: '510300', market: '沪市' },
+      'daily',
+      quoteForHistory(),
+    );
+    expect(String(fetchMock.mock.calls[0][0])).toContain('lmt=1000');
+    expect(result.validity).toBe('VALID');
+    if (result.validity === 'VALID') expect(result.series.bars).toHaveLength(400);
+  });
+
+  it('retains more than 320 Baidu bars after Eastmoney history failure', async () => {
+    const rows = extendedRows();
+    const payload = {
+      ResultCode: 0,
+      Result: {
+        newMarketData: {
+          keys: ['time', 'open', 'close', 'high', 'low', 'volume', 'amount'],
+          marketData: rows.map(({ date, close }) => [date, close, close, close, close, '1000', '1000'].join(',')).join(';'),
+        },
+      },
+    };
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response('', { status: 503 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(payload), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const result = await fetchConfirmedTechnicalHistory(
+      { code: '510300', market: '沪市' },
+      'daily',
+      quoteForHistory(),
+    );
+    expect(result.validity).toBe('VALID');
+    if (result.validity === 'VALID') {
+      expect(result.series.source).toBe('百度行情');
+      expect(result.series.bars).toHaveLength(400);
+    }
   });
 });
