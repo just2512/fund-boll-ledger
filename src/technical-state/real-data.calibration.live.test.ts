@@ -32,7 +32,6 @@ describe('live multi-ETF BOLL historical calibration', () => {
         reports.push({
           code: instrument.code,
           market: instrument.market,
-          interval,
           klineSource: normalized.series.source,
           quoteSource: quote.source,
           excludedInProgressBar: normalized.series.excludedInProgressBar,
