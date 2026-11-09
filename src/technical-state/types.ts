@@ -16,12 +16,14 @@ export interface TechnicalQuoteContext {
   tradingDate?: string;
   /** Source timestamp including Beijing time when supplied by the source. */
   quotedAt?: string;
-  source?: TechnicalQuoteSource;
+  quoteSource?: TechnicalQuoteSource;
 }
 
 export interface TechnicalHistoryInput {
   interval: TechnicalInterval;
   bars: readonly TechnicalBar[];
+  /** Actual provider used for these K lines; may differ from the spot quote provider. */
+  source?: TechnicalQuoteSource;
   quote: TechnicalQuoteContext;
 }
 
@@ -31,6 +33,7 @@ export interface ConfirmedTechnicalSeries {
   asOfDate: string;
   /** Ascending, unique, normalized bars; current/in-progress bars are excluded. */
   bars: readonly TechnicalBar[];
+  /** Provider used for the K-line series, not necessarily the spot quote provider. */
   source?: TechnicalQuoteSource;
   /** True when the latest source bar was excluded because its period is still open. */
   excludedInProgressBar: boolean;
@@ -112,4 +115,6 @@ export interface BollStateConfig {
   flatTolerancePercent: number;
   /** Number of consecutive directional observations required for persistent/turning labels. */
   confirmationBars: number;
+  /** Distance from an outer band, in percent of band width, used for near-band labels. */
+  nearBandDistancePercent: number;
 }
