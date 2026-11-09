@@ -3,7 +3,7 @@ import { calculateTechnicalStateSnapshot, describeTechnicalMultiTimeframeState, 
 import { compareBatchWithReplay, hasNoFutureBars, replayConfirmedTechnicalSeries } from './history-replay';
 import type { ConfirmedTechnicalSeries, TechnicalBar } from './types';
 
-function series(source: '东方财富' | '百度行情' = '东方财富', count = 100): ConfirmedTechnicalSeries {
+function series(source: '东方财富' | '百度行情' = '东方财富', count = 220): ConfirmedTechnicalSeries {
   const first = new Date('2025-01-01T00:00:00.000Z');
   const bars: TechnicalBar[] = Array.from({ length: count }, (_, index) => {
     const date = new Date(first);
@@ -30,27 +30,21 @@ describe('combined BOLL/MACD technical state engine', () => {
     expect(state.source).toBe('东方财富');
     expect(state.quoteSource).toBe('百度行情');
     expect(state.historyStartDate).toBe(input.bars[0].date);
-    expect(state.confirmedBarCount).toBe(100);
+    expect(state.confirmedBarCount).toBe(220);
     expect(state.excludedInProgressBar).toBe(false);
-    expect(state.macd.barsUsed).toBe(100);
+    expect(state.macd.barsUsed).toBe(220);
     expect(state.validity).toBe('VALID');
     expect(state.boll.middleDirection).toBe('unknown');
     expect(state.boll.bandwidthPhase).toBe('unknown');
     expect(state.boll.bandwidthPercent).toBeDefined();
   });
 
-  it('does not let a K-line provider switch create or erase a MACD event', () => {
+  it('does not let a K-line provider switch alter confirmed BOLL or MACD state', () => {
     const input = series();
-    const entries = replayConfirmedTechnicalSeries(input, (prefix) => calculateTechnicalStateSnapshot(prefix));
-    const cross = entries.find((entry) => entry.result.macd.crossEvent === 'golden' || entry.result.macd.crossEvent === 'death');
-    expect(cross).toBeDefined();
-    if (!cross) return;
-    const eastmoney = calculateTechnicalStateSnapshot(cross.series, undefined, '东方财富');
-    const baidu = calculateTechnicalStateSnapshot({ ...cross.series, source: '百度行情' }, undefined, '东方财富');
-    expect(eastmoney.macd.crossEvent).toBe(baidu.macd.crossEvent);
-    expect(eastmoney.macd.dif).toBeCloseTo(baidu.macd.dif!, 12);
-    expect(eastmoney.macd.dea).toBeCloseTo(baidu.macd.dea!, 12);
-    expect(eastmoney.boll.bandwidthPercent).toBeCloseTo(baidu.boll.bandwidthPercent!, 12);
+    const eastmoney = calculateTechnicalStateSnapshot(input, undefined, '东方财富');
+    const baidu = calculateTechnicalStateSnapshot({ ...input, source: '百度行情' }, undefined, '东方财富');
+    expect(eastmoney.macd).toEqual(baidu.macd);
+    expect(eastmoney.boll).toEqual(baidu.boll);
     expect(eastmoney.source).not.toBe(baidu.source);
   });
 
@@ -61,13 +55,10 @@ describe('combined BOLL/MACD technical state engine', () => {
     expect(hasNoFutureBars(entries)).toBe(true);
     const comparison = compareBatchWithReplay(input, calculate);
     expect(comparison?.matches).toBe(true);
-    const events = entries.filter((entry) => entry.result.macd.crossEvent === 'golden' || entry.result.macd.crossEvent === 'death');
-    expect(events.length).toBeGreaterThan(0);
-    expect(events.length).toBeLessThanOrEqual(1);
-    for (const event of events) {
-      const later = entries.filter((entry) => entry.asOfDate > event.asOfDate);
-      expect(later.every((entry) => entry.result.macd.crossEvent === 'none')).toBe(true);
-    }
+    expect(entries.slice(0, 159).every((entry) => entry.result.macd.availability === 'insufficient-history')).toBe(true);
+    expect(entries.slice(159).every((entry) => entry.result.macd.availability === 'ready')).toBe(true);
+    expect(entries.at(-1)?.result.macd.crossEvent).toBe('none');
+    expect(['golden', 'death']).toContain(entries.at(-1)?.result.macd.lastCross);
   });
 
   it('preserves excluded in-progress bar metadata on the final replay prefix', () => {
@@ -80,8 +71,8 @@ describe('combined BOLL/MACD technical state engine', () => {
   });
 
   it('keeps earlier combined indicator results unchanged when future bars are appended', () => {
-    const original = series('东方财富', 80);
-    const extended = series('东方财富', 100);
+    const original = series('东方财富', 180);
+    const extended = series('东方财富', 220);
     const calculate = (prefix: ConfirmedTechnicalSeries) => calculateTechnicalStateSnapshot(prefix);
     const before = replayConfirmedTechnicalSeries(original, calculate);
     const after = replayConfirmedTechnicalSeries(extended, calculate);
@@ -108,7 +99,7 @@ describe('combined BOLL/MACD technical state engine', () => {
     const weekly = { ...base, interval: 'weekly' as const, macd: { ...base.macd, interval: 'weekly' as const, crossEvent: 'golden' as const } };
     const daily = { ...base, interval: 'daily' as const, macd: { ...base.macd, interval: 'daily' as const } };
     const description = describeTechnicalMultiTimeframeState({ monthly, weekly, daily });
-    expect(description.summary).toContain('已确认数据 3/3 周期');
+    expect(description.summary).toContain('BOLL 有效 3/3 周期，MACD 稳定可用 3/3 周期');
     expect(description.summary).toContain('BOLL 带宽阶段：月线 未知');
     expect(description.summary).toContain('周线 新金叉');
     expect(description.summary).toContain('各周期独立描述，不合成为买卖方向');
