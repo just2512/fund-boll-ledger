@@ -72,7 +72,7 @@ describe('combined BOLL/MACD technical state engine', () => {
 
   it('keeps earlier combined indicator results unchanged when future bars are appended', () => {
     const original = series('东方财富', 80);
-    const extended = series('腾讯行情', 100);
+    const extended = series('东方财富', 100);
     const calculate = (prefix: ConfirmedTechnicalSeries) => calculateTechnicalStateSnapshot(prefix);
     const before = replayConfirmedTechnicalSeries(original, calculate);
     const after = replayConfirmedTechnicalSeries(extended, calculate);

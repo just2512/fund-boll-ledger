@@ -28,7 +28,7 @@ function intervalCloses(interval: 'daily' | 'weekly' | 'monthly'): string[] {
   const now = new Date();
   let dates: string[];
   if (interval === 'daily') {
-    dates = dailyCloses().map((line) => line.split(',')[0]);
+    dates = Array.from({ length: 50 }, (_, index) => { const date = new Date(now); date.setDate(now.getDate() - (49 - index)); return dateIso(date); });
   } else if (interval === 'weekly') {
     const monday = new Date(now);
     monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
