@@ -137,3 +137,17 @@
 .filter-actions>div{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:38px}
 @media(max-width:1180px){.form-grid.filters-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:480px){.form-grid.filters-grid{grid-template-columns:1fr}}
+
+/* 历史快照的基准价变化 */
+.snapshot-change{margin-top:12px;padding:12px;border:1px solid #e8edf3;border-radius:9px;background:#fafbfd}
+.snapshot-change-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.snapshot-change-head strong{font-size:10px;color:#526176}
+.snapshot-change-head span,.snapshot-change-empty{font-size:9px;color:var(--muted)}
+.snapshot-change-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.snapshot-change-grid>div{display:grid;gap:6px;min-width:0}
+.snapshot-change-grid>div>span{font-size:9px;color:#8993a2}
+.snapshot-change-grid>div>strong{font-size:10px;font-weight:600;line-height:1.5;overflow-wrap:anywhere;color:#475467}
+.snapshot-change-empty{margin:0;line-height:1.6}
+@media(max-width:1180px){.snapshot-change-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:820px){.snapshot-change-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:480px){.snapshot-change-head{align-items:flex-start;flex-direction:column}.snapshot-change-grid{grid-template-columns:1fr 1fr}}

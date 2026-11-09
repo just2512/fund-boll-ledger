@@ -177,7 +177,7 @@ test('跨基金交易筛选后编辑和删除仍保持原基金关联', async ({
   await page.getByRole('button', { name: '保存交易' }).click();
   await expect(page.getByText('交易明细已保存')).toBeVisible();
   await expect(page.locator('.metric', { hasText: '当前持仓' }).locator('strong')).toHaveText('100 份');
-  await expect(page.locator('tbody').getByText('基金乙')).toBeVisible();
+  await expect(page.locator('tbody').getByText('基金乙').first()).toBeVisible();
 
   // 删除基金乙交易后，只影响基金乙；基金甲仍有原来的 100 份。
   page.once('dialog', (dialog) => dialog.accept());
@@ -209,15 +209,35 @@ test('统一固定费率自动估算佣金和其他费用，并按分四舍五�
   await page.getByRole('button', { name: '取消' }).click();
 });
 
-test('价格快照保存后出现在历史页', async ({ page }) => {
+test('历史快照按同基金上一条记录展示五个价格基准变化', async ({ page }) => {
   await createFund(page, '快照基金', '510300');
   await page.getByPlaceholder('输入上轨').fill('1.050');
+  await page.getByPlaceholder('输入中轨').fill('1.000');
+  await page.getByPlaceholder('输入下轨').fill('0.950');
+  await page.getByPlaceholder('输入昨日收盘价').fill('0.980');
+  await page.getByPlaceholder('输入上一笔成交价').fill('0.990');
   await page.getByPlaceholder('输入你看到的最新价格').fill('1.000');
-  await page.getByPlaceholder('备注（可选）').fill('测试快照');
+  await page.getByPlaceholder('备注（可选）').fill('第一条快照');
   await page.getByRole('button', { name: '保存价格快照' }).click();
   await expect(page.getByText('已保存')).toBeVisible();
+
+  await page.getByPlaceholder('输入上轨').fill('1.150');
+  await page.getByPlaceholder('输入中轨').fill('1.100');
+  await page.getByPlaceholder('输入下轨').fill('1.050');
+  await page.getByPlaceholder('输入昨日收盘价').fill('1.080');
+  await page.getByPlaceholder('输入上一笔成交价').fill('1.090');
+  await page.getByPlaceholder('备注（可选）').fill('第二条快照');
+  await page.getByRole('button', { name: '保存价格快照' }).click();
+  await expect(page.getByText('已保存')).toBeVisible();
+
   await page.getByRole('button', { name: '历史与备份' }).click();
-  await expect(page.getByText('测试快照')).toBeVisible();
+  await expect(page.locator('.snapshot-card')).toHaveCount(2);
+  const latest = page.locator('.snapshot-card').first();
+  await expect(latest).toContainText('第二条快照');
+  await expect(latest).toContainText('较上一条同基金快照变化');
+  await expect(latest.locator('.snapshot-change-grid > div')).toHaveCount(5);
+  await expect(latest).toContainText('+0.100 元');
+  await expect(latest).toContainText('+9.52%');
 });
 
 test('JSON 导出、CSV 导出与导入恢复', async ({ page }) => {
@@ -261,7 +281,10 @@ test('拒绝结构非法的备份文件（不崩白屏）', async ({ page }) => 
     snapshots: [{ id: 's1', fundId: 'x', createdAt: '2026-01-01T00:00:00.000Z', tradingDate: '2026-01-01', prices: { upper: '', middle: '', lower: '', previousClose: '', lastTradePrice: '', currentPrice: '' }, tickSize: '0.001', note: { evil: true } }],
   };
   await page.locator('input[type=file]').setInputFiles({ name: 'bad.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(bad)) });
-  await expect.poll(() => msg).toContain('文件结构不符合');
+  await expect.poll(() => msg).toContain('备份校验失败，未导入任何数据');
+  expect(msg).toContain('阶梯基准值无效');
+  expect(msg).toContain('交易日期无效');
+  expect(msg).toContain('备注必须是字符串');
   await expect(page.locator('.fund-list-item', { hasText: '受保护基金' })).toBeVisible();
 });
 
@@ -325,21 +348,13 @@ function currentMarketEpoch(): number {
   return Math.floor(Date.now() / 1000);
 }
 
-function mockTencentQuote(code = '510300'): string {
-  const fields = Array.from({ length: 50 }, () => '');
-  fields[0] = '1';
-  fields[1] = '沪深300ETF';
-  fields[2] = code;
-  fields[3] = '4.125';
-  fields[4] = '4.000';
-  fields[30] = currentMarketTimestamp();
-  fields[32] = '3.13';
-  return 'v_sh' + code + '="' + fields.join('~') + '";';
+function mockBaiduQuote(code = '510300'): string {
+  return JSON.stringify({ ResultCode: '0', Result: { code, name: '沪深300ETF', cur: { price: '4.125', increase: '0.125', ratio: '3.13' } } });
 }
 
 test('行情仅在手动点击时请求，东方财富成功后更新当前价与当日涨跌幅', async ({ page }) => {
   let eastmoneyCalls = 0;
-  let tencentCalls = 0;
+  let baiduCalls = 0;
   await page.route('https://push2.eastmoney.com/**', async (route) => {
     eastmoneyCalls += 1;
     await route.fulfill({
@@ -349,9 +364,9 @@ test('行情仅在手动点击时请求，东方财富成功后更新当前价�
       body: JSON.stringify({ data: { f57: '510300', f58: '沪深300ETF', f43: '4.125', f60: '4.000', f86: currentMarketEpoch() } }),
     });
   });
-  await page.route('https://qt.gtimg.cn/**', async (route) => {
-    tencentCalls += 1;
-    await route.fulfill({ status: 200, contentType: 'text/plain', headers: { 'access-control-allow-origin': '*' }, body: mockTencentQuote() });
+  await page.route('https://finance.pae.baidu.com/vapi/v1/getquotation**', async (route) => {
+    baiduCalls += 1;
+    await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: mockBaiduQuote() });
   });
   await page.route('https://push2his.eastmoney.com/**', async (route) => {
     const today = new Date();
@@ -372,7 +387,7 @@ test('行情仅在手动点击时请求，东方财富成功后更新当前价�
   await createFund(page, '行情测试 ETF', '510300');
 
   expect(eastmoneyCalls).toBe(0);
-  expect(tencentCalls).toBe(0);
+  expect(baiduCalls).toBe(0);
   await page.getByRole('button', { name: '刷新行情' }).click();
   await expect(page.getByPlaceholder('输入你看到的最新价格')).toHaveValue('4.125');
   await expect(page.getByRole('spinbutton', { name: '昨日收盘价' })).toHaveValue('4.000');
@@ -383,16 +398,16 @@ test('行情仅在手动点击时请求，东方财富成功后更新当前价�
   await expect(page.getByText(/来源：东方财富/)).toBeVisible();
   await expect(page.locator('.quote-refresh-meta').getByText(/BOLL\(20,2\)/)).toBeVisible();
   expect(eastmoneyCalls).toBe(1);
-  expect(tencentCalls).toBe(0);
+  expect(baiduCalls).toBe(0);
 });
 
-test('东方财富失败时腾讯自动兜底，双源都失败时保留手动价格', async ({ page }) => {
+test('东方财富失败时百度自动兜底，双源都失败时保留手动价格', async ({ page }) => {
   await createFund(page, '双源测试 ETF', '510300');
   await page.route('https://push2.eastmoney.com/**', async (route) => {
     await route.fulfill({ status: 503, headers: { 'access-control-allow-origin': '*' }, body: 'unavailable' });
   });
-  await page.route('https://qt.gtimg.cn/**', async (route) => {
-    await route.fulfill({ status: 200, contentType: 'text/plain', headers: { 'access-control-allow-origin': '*' }, body: mockTencentQuote() });
+  await page.route('https://finance.pae.baidu.com/vapi/v1/getquotation**', async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: mockBaiduQuote() });
   });
   await page.route('https://push2his.eastmoney.com/**', async (route) => {
     const today = new Date();
@@ -413,7 +428,7 @@ test('东方财富失败时腾讯自动兜底，双源都失败时保留手动�
 
   await page.getByRole('button', { name: '刷新行情' }).click();
   await expect(page.getByPlaceholder('输入你看到的最新价格')).toHaveValue('4.125');
-  await expect(page.getByText(/来源：腾讯行情/)).toBeVisible();
+  await expect(page.getByText(/来源：百度行情/)).toBeVisible();
   await expect(page.getByRole('spinbutton', { name: '昨日收盘价' })).toHaveValue('4.000');
   await expect(page.getByRole('spinbutton', { name: 'BOLL 中轨' })).not.toHaveValue('');
 
@@ -421,7 +436,10 @@ test('东方财富失败时腾讯自动兜底，双源都失败时保留手动�
   await page.route('https://push2.eastmoney.com/**', async (route) => {
     await route.fulfill({ status: 503, headers: { 'access-control-allow-origin': '*' }, body: 'unavailable' });
   });
-  await page.route('https://qt.gtimg.cn/**', async (route) => {
+  await page.route('https://finance.pae.baidu.com/**', async (route) => {
+    await route.fulfill({ status: 503, headers: { 'access-control-allow-origin': '*' }, body: 'unavailable' });
+  });
+  await page.route('https://sp0.baidu.com/**', async (route) => {
     await route.fulfill({ status: 503, headers: { 'access-control-allow-origin': '*' }, body: 'unavailable' });
   });
   await page.getByRole('button', { name: '刷新行情' }).click();
@@ -521,7 +539,8 @@ test('刷新进行中用户改写现价，返回后不被行情覆盖且提示�
       body: JSON.stringify({ data: { f57: '510300', f58: '沪深300ETF', f43: '4.125', f60: '4.000', f86: currentMarketEpoch() } }),
     });
   });
-  await page.route('https://qt.gtimg.cn/**', (route) => route.fulfill({ status: 503, body: 'down' }));
+  await page.route('https://finance.pae.baidu.com/**', (route) => route.fulfill({ status: 503, body: 'down' }));
+  await page.route('https://sp0.baidu.com/**', (route) => route.fulfill({ status: 503, body: 'down' }));
   await page.route('https://push2his.eastmoney.com/**', (route) => route.fulfill({ status: 503, body: 'down' }));
   await createFund(page, '手动编辑竞态 ETF', '510300');
 
@@ -576,7 +595,8 @@ test('BOLL 区间位置显示 0%/100%/超界与无效输入的诚实降级', asy
 
 test('周/月 BOLL 区间位置独立取轨道并按 50% 分色，日 BOLL 按 0/100% 分色', async ({ page }) => {
   await page.route('https://push2.eastmoney.com/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ data: { f57: '510300', f58: '沪深300ETF', f43: '10.000', f60: '10.000', f86: currentMarketEpoch() } }) }));
-  await page.route('https://qt.gtimg.cn/**', (route) => route.fulfill({ status: 503, body: 'down' }));
+  await page.route('https://finance.pae.baidu.com/**', (route) => route.fulfill({ status: 503, body: 'down' }));
+  await page.route('https://sp0.baidu.com/**', (route) => route.fulfill({ status: 503, body: 'down' }));
   await page.route('https://push2his.eastmoney.com/**', async (route) => {
     const klt = new URL(route.request().url()).searchParams.get('klt');
     const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(currentMarketEpoch() * 1000));
@@ -749,10 +769,8 @@ test('含快照的完整备份导出后重新导入可全部恢复', async ({ pa
   // 重新导入完整备份文件（用导出的原始字节）
   page.once('dialog', (d) => d.accept());
   await page.locator('input[type=file]').setInputFiles({ name: 'full-backup.json', mimeType: 'application/json', buffer: Buffer.from(backupText) });
-  await expect(page.getByText('备份已载入')).toBeVisible();
-
-  // 基金、交易、快照全部恢复
-  await expect(page.locator('.fund-list-item', { hasText: '备份基金' })).toBeVisible();
+  // 基金、交易、快照全部恢复；以真实恢复后的基金记录作为完成条件，避免命中上一次导入的旧 toast。
+  await expect(page.locator('.fund-list-item', { hasText: '备份基金' })).toBeVisible({ timeout: 10_000 });
   await page.getByRole('button', { name: '交易账本' }).click();
   await expect(page.locator('.metric', { hasText: '当前持仓' }).locator('strong')).toHaveText('100 份');
   await page.getByRole('button', { name: '历史与备份' }).click();
@@ -791,17 +809,17 @@ test('恶意备份变体被拒绝且数据不变，非法 ladderBasis 被 normal
 
   // 变体 1：trade.fundId 指向不存在的基金
   await importJson({ schemaVersion: 1, funds: [validFund()], trades: [validTrade('ghost')], snapshots: [] });
-  await expect.poll(() => alerts.join('\n')).toContain('文件结构不符合');
+  await expect.poll(() => alerts.join('\n')).toContain('引用了不存在的基金');
   await dataUnchanged();
 
   // 变体 2：两条相同 fund.id
   await importJson({ schemaVersion: 1, funds: [validFund(), validFund()], trades: [], snapshots: [] });
-  await expect.poll(() => alerts.join('\n')).toContain('文件结构不符合');
+  await expect.poll(() => alerts.join('\n')).toContain('ID 重复');
   await dataUnchanged();
 
   // 变体 3：负数佣金
   await importJson({ schemaVersion: 1, funds: [validFund()], trades: [validTrade('f1', { commission: '-1' })], snapshots: [] });
-  await expect.poll(() => alerts.join('\n')).toContain('文件结构不符合');
+  await expect.poll(() => alerts.join('\n')).toContain('不能为负数');
   await dataUnchanged();
 
   // 变体 4：ladderBasis 非法值 → 导入成功且 normalize 兜底为 lastTradePrice
@@ -822,7 +840,8 @@ test('刷新行情按钮连点两次只发出一次 eastmoney 请求', async ({ 
       body: JSON.stringify({ data: { f57: '510300', f58: '沪深300ETF', f43: '4.125', f60: '4.000', f86: currentMarketEpoch() } }),
     });
   });
-  await page.route('https://qt.gtimg.cn/**', (route) => route.fulfill({ status: 503, body: 'down' }));
+  await page.route('https://finance.pae.baidu.com/**', (route) => route.fulfill({ status: 503, body: 'down' }));
+  await page.route('https://sp0.baidu.com/**', (route) => route.fulfill({ status: 503, body: 'down' }));
   await page.route('https://push2his.eastmoney.com/**', (route) => route.fulfill({ status: 503, body: 'down' }));
   await createFund(page, '连点测试 ETF', '510300');
 
@@ -851,7 +870,8 @@ test('刷新进行中编辑基金代码，旧响应不写入新代码基金的�
       body: JSON.stringify({ data: { f57: '510300', f58: '沪深300ETF', f43: '4.125', f60: '4.000', f86: currentMarketEpoch() } }),
     });
   });
-  await page.route('https://qt.gtimg.cn/**', (route) => route.fulfill({ status: 503, body: 'down' }));
+  await page.route('https://finance.pae.baidu.com/**', (route) => route.fulfill({ status: 503, body: 'down' }));
+  await page.route('https://sp0.baidu.com/**', (route) => route.fulfill({ status: 503, body: 'down' }));
   await page.route('https://push2his.eastmoney.com/**', (route) => route.fulfill({ status: 503, body: 'down' }));
   await createFund(page, '改码竞态 ETF', '510300');
 
@@ -933,7 +953,7 @@ test('编辑交易回填正确、保存后数量更新且费用不被自动估�
   await page.getByLabel('成交数量（份，整数）').fill('200');
   await page.getByRole('button', { name: '保存交易' }).click();
   await expect(page.getByText('交易明细已保存')).toBeVisible();
-  await expect(page.locator('tbody tr').first().locator('td').nth(3)).toHaveText('200');
+  await expect(page.locator('tbody tr').first().locator('td').nth(4)).toHaveText('200');
 
   await page.getByRole('button', { name: '编辑', exact: true }).click();
   await expect(page.getByLabel('成交数量（份，整数）')).toHaveValue('200');

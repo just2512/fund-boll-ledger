@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { bollRangePositionRatio, bollRangePositionRatioForBands, calculatePosition, compareToBases, currentValueCents, estimateCommission, estimateOtherFee, PRICE_KEYS, priceLadder, unrealizedPnlCents, type Direction, type PriceKey } from './calculations';
-import { formatCents, formatCurrency, formatPercent, parseMoneyCents, parseQuantity, parseScaled, priceAmountCents } from './decimal';
+import { formatCents, formatCurrency, formatPercent, formatScaled, parseMoneyCents, parseQuantity, parseScaled, percentHundredths, priceAmountCents } from './decimal';
 import { loadAppData, saveAppData } from './storage';
 import { validateAppData } from './backup-validation';
 import { fetchLatestMarketData, type MarketQuote } from './market-data';
@@ -609,10 +609,38 @@ function PortfolioPage({ funds, trades, onSelect }: { funds: Fund[]; trades: Tra
     <section className="panel"><div className="section-title-row"><div><h2>基金持仓汇总</h2><p>选中基金可进入价格计算；当前参考价为空时，该基金浮动盈亏不应视为有效结果。</p></div><span className="tag">共 {funds.length} 只基金</span></div><div className="table-scroll"><table><thead><tr><th>基金</th><th>代码</th><th>持仓份额</th><th>剩余成本</th><th>当前参考价</th><th>参考市值</th><th>已实现盈亏</th><th>浮动盈亏</th><th>操作</th></tr></thead><tbody>{positions.map(({ fund, position }) => { const unrealized = unrealizedPnlCents(fund.prices.currentPrice, position); const marketValue = currentValueCents(fund.prices.currentPrice, position.quantity); return <tr key={fund.id}><td><strong>{fund.name}</strong><small className="table-sub">{fund.category}</small></td><td>{fund.code || '—'}</td><td>{position.quantity.toString()}</td><td>{formatCurrency(position.costBasisCents)}</td><td>{fund.prices.currentPrice || '—'}</td><td>{marketValue === null ? '—' : formatCurrency(marketValue)}</td><td className={position.realizedCents > 0n ? 'positive' : position.realizedCents < 0n ? 'negative' : ''}>{formatCurrency(position.realizedCents)}</td><td className={unrealized !== null && unrealized > 0n ? 'positive' : unrealized !== null && unrealized < 0n ? 'negative' : ''}>{unrealized === null ? '—' : formatCurrency(unrealized)}</td><td><button className="text-button" onClick={() => onSelect(fund.id)}>打开</button></td></tr>; })}</tbody></table></div><div className="ledger-footnote"><span>持仓成本与已实现盈亏由交易明细推算；数据完整性取决于交易记录是否齐全。</span><span>浮动盈亏使用你手动输入的当前价格。</span></div></section></div>;
 }
 
+function snapshotPriceChange(current: string, previous: string, tickSize: string): string {
+  if (!current.trim() || !previous.trim()) return '缺少价格，无法比较';
+  try {
+    const currentValue = parseScaled(current);
+    const previousValue = parseScaled(previous);
+    const difference = currentValue - previousValue;
+    const decimals = Math.max(0, Math.min(6, (tickSize.split('.')[1] || '').length));
+    const delta = `${difference > 0n ? '+' : ''}${formatScaled(difference, decimals)} 元`;
+    return `${delta} · ${formatPercent(percentHundredths(currentValue, previousValue))}`;
+  } catch {
+    return '价格格式异常，无法比较';
+  }
+}
+
 function HistoryPage({ data, filter, setFilter, onDeleteSnapshot, onExportCsv, onExportJson, onImport, onDeleteFund }: { data: AppData; filter: string; setFilter: (value: string) => void; onDeleteSnapshot: (id: string) => void; onExportCsv: () => void; onExportJson: () => void; onImport: () => void; onDeleteFund: () => void }) {
-  const filteredSnapshots = data.snapshots.filter((s) => filter === 'all' ? true : s.fundId === filter).slice().sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const previousSnapshots = useMemo(() => {
+    const grouped = new Map<string, PriceSnapshot[]>();
+    for (const snapshot of data.snapshots) {
+      const group = grouped.get(snapshot.fundId) ?? [];
+      group.push(snapshot);
+      grouped.set(snapshot.fundId, group);
+    }
+    const previous = new Map<string, PriceSnapshot>();
+    for (const group of grouped.values()) {
+      group.sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+      for (let index = 1; index < group.length; index += 1) previous.set(group[index].id, group[index - 1]);
+    }
+    return previous;
+  }, [data.snapshots]);
+  const filteredSnapshots = data.snapshots.filter((s) => filter === 'all' ? true : s.fundId === filter).slice().sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id));
   const fundName = (id: string) => data.funds.find((f) => f.id === id)?.name ?? '（基金已删除）';
-  return <div className="page-stack"><section className="panel"><div className="section-title-row"><div><h2>价格历史快照</h2><p>快照由你主动保存，保留当时录入的基准价、当前价、报价单位和备注。</p></div><label className="field filter-field"><span>筛选基金</span><select value={filter} onChange={(e) => setFilter(e.target.value)}><option value="all">全部基金</option>{data.funds.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}</select></label></div>{filteredSnapshots.length === 0 ? <div className="empty-state"><div className="empty-icon">↻</div><strong>还没有价格快照</strong><span>在“价格计算”页填写价格后点击“保存价格快照”。</span></div> : <div className="snapshot-list">{filteredSnapshots.map((snapshot) => <article className="snapshot-card" key={snapshot.id}><div className="snapshot-title"><div><strong>{fundName(snapshot.fundId)}</strong><span className="muted">{snapshot.tradingDate} · {new Date(snapshot.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></div><button className="text-button danger-text" onClick={() => onDeleteSnapshot(snapshot.id)}>删除</button></div><div className="snapshot-values"><span>上轨<strong>{snapshot.prices.upper || '—'}</strong></span><span>中轨<strong>{snapshot.prices.middle || '—'}</strong></span><span>下轨<strong>{snapshot.prices.lower || '—'}</strong></span><span>昨收<strong>{snapshot.prices.previousClose || '—'}</strong></span><span>上次成交<strong>{snapshot.prices.lastTradePrice || '—'}</strong></span><span>当前价<strong>{snapshot.prices.currentPrice || '—'}</strong></span></div>{snapshot.note && <p className="snapshot-note">备注：{snapshot.note}</p>}</article>)}</div>}</section>
+  return <div className="page-stack"><section className="panel"><div className="section-title-row"><div><h2>价格历史快照</h2><p>快照由你主动保存，保留当时录入的基准价、当前价、报价单位和备注。</p></div><label className="field filter-field"><span>筛选基金</span><select value={filter} onChange={(e) => setFilter(e.target.value)}><option value="all">全部基金</option>{data.funds.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}</select></label></div>{filteredSnapshots.length === 0 ? <div className="empty-state"><div className="empty-icon">↻</div><strong>还没有价格快照</strong><span>在“价格计算”页填写价格后点击“保存价格快照”。</span></div> : <div className="snapshot-list">{filteredSnapshots.map((snapshot) => <article className="snapshot-card" key={snapshot.id}><div className="snapshot-title"><div><strong>{fundName(snapshot.fundId)}</strong><span className="muted">{snapshot.tradingDate} · {new Date(snapshot.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></div><button className="text-button danger-text" onClick={() => onDeleteSnapshot(snapshot.id)}>删除</button></div><div className="snapshot-values"><span>上轨<strong>{snapshot.prices.upper || '—'}</strong></span><span>中轨<strong>{snapshot.prices.middle || '—'}</strong></span><span>下轨<strong>{snapshot.prices.lower || '—'}</strong></span><span>昨收<strong>{snapshot.prices.previousClose || '—'}</strong></span><span>上次成交<strong>{snapshot.prices.lastTradePrice || '—'}</strong></span><span>当前价<strong>{snapshot.prices.currentPrice || '—'}</strong></span></div><div className="snapshot-change"><div className="snapshot-change-head"><strong>较上一条同基金快照变化</strong><span>{previousSnapshots.get(snapshot.id) ? `对比 ${previousSnapshots.get(snapshot.id)!.tradingDate}` : '暂无上一条同基金快照'}</span></div>{previousSnapshots.has(snapshot.id) ? <div className="snapshot-change-grid">{PRICE_KEYS.map(({ key, label }) => <div key={key}><span>{label}</span><strong>{snapshotPriceChange(snapshot.prices[key], previousSnapshots.get(snapshot.id)!.prices[key], snapshot.tickSize)}</strong></div>)}</div> : <p className="snapshot-change-empty">该基金首次保存的快照作为比较起点，后续快照将显示五个价格基准的变化。</p>}</div>{snapshot.note && <p className="snapshot-note">备注：{snapshot.note}</p>}</article>)}</div>}</section>
     <section className="panel backup-panel"><div className="section-title-row"><div><h2>数据备份与迁移</h2><p>建议定期备份 JSON。CSV 用于查看交易明细，不包含完整档案和价格快照。</p></div><span className="tag">本地数据</span></div><div className="backup-grid"><div className="backup-card"><div className="backup-icon">↓</div><div><strong>完整 JSON 备份</strong><p>包括基金档案、费用规则、全部交易明细和价格快照。可用于恢复。</p></div><button className="button primary" onClick={onExportJson}>导出 JSON</button></div><div className="backup-card"><div className="backup-icon">≡</div><div><strong>交易明细 CSV</strong><p>可用 Excel 打开检查成交价格、数量、费用和备注。</p></div><button className="button outline" onClick={onExportCsv}>导出 CSV</button></div><div className="backup-card"><div className="backup-icon">↑</div><div><strong>从备份恢复</strong><p>导入会替换当前设备全部数据。请先导出当前备份。</p></div><button className="button outline" onClick={onImport}>选择 JSON 文件</button></div></div><div className="important-note"><strong>跨设备提示</strong><p>当前版本采用 IndexedDB 本地存储。Windows 和安卓各自存储一份数据，不会自动同步。需要跨设备共享时，请导出 JSON，并在另一设备导入。云端同步不属于当前首版，避免未经授权把交易账本上传到服务器。</p></div></section>
     <section className="panel destructive-panel"><div><h2>基金数据管理</h2><p className="muted">此操作会删除当前选中基金、对应交易和全部价格快照。请先下载完整备份。</p></div><button className="button danger-button" onClick={onDeleteFund}>删除当前基金及关联记录</button></section>
   </div>;
