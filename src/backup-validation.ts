@@ -28,7 +28,7 @@ function isValidCalendarDate(value: unknown): value is string {
 
 function isPositiveDecimal(value: unknown): value is string {
   if (typeof value !== 'string' || !value.trim()) return false;
-  return parseScaled(value) > 0n;
+  try { return parseScaled(value) > 0n; } catch { return false; }
 }
 
 function validatePrices(value: unknown, label: string, errors: string[]): boolean {
