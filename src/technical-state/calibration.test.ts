@@ -41,26 +41,40 @@ describe('BOLL calibration distribution summaries', () => {
     expect(() => summarizeDistribution([Number.NaN, Number.POSITIVE_INFINITY])).toThrow('空');
   });
 
-  it('reports exact confirmed-bar dates for mathematically invalid lower bands', () => {
+  it('retains finite BOLL points when the theoretical lower band is non-positive', () => {
     const closes = [
       ...Array.from({ length: 20 }, (_, index) => index + 1),
       ...Array.from({ length: 80 }, (_, index) => 100 + index / 10),
     ];
     const report = calibrateBollHistory(series(closes));
-    expect(report.invalidBandPointCount).toBeGreaterThan(0);
-    expect(report.invalidBandDates).toContain('2025-01-20');
-    expect(report.invalidBandDates.length).toBe(report.invalidBandPointCount);
-    expect(report.invalidBandDiagnostics).toHaveLength(report.invalidBandPointCount);
-    expect(report.invalidBandDiagnostics[0]).toMatchObject({
-      date: report.invalidBandDates[0],
+    expect(report.nonPositiveLowerBandDiagnostics.length).toBeGreaterThan(0);
+    expect(report.nonPositiveLowerBandDiagnostics[0]).toMatchObject({
+      date: '2025-01-20',
       windowStartDate: expect.any(String),
       windowEndDate: expect.any(String),
       middle: expect.any(Number),
       standardDeviation: expect.any(Number),
       lower: expect.any(Number),
     });
-    expect(report.invalidBandDiagnostics[0].lower).toBeLessThanOrEqual(0);
+    expect(report.nonPositiveLowerBandDiagnostics[0].lower).toBeLessThanOrEqual(0);
+    expect(report.nonPositiveLowerBandDiagnostics[0].closes).toHaveLength(20);
+    expect(report.invalidBandPointCount).toBe(0);
+    expect(report.invalidBandDates).toEqual([]);
+    expect(report.bollPointCount).toBe(81);
+  });
+
+  it('rejects non-finite windows and records their exact confirmed-bar dates', () => {
+    const closes = [
+      ...Array.from({ length: 20 }, (_, index) => 10 + index / 100),
+      Number.NaN,
+      ...Array.from({ length: 60 }, (_, index) => 10.2 + index / 100),
+    ];
+    const report = calibrateBollHistory(series(closes));
+    expect(report.invalidBandPointCount).toBe(20);
+    expect(report.invalidBandDates[0]).toBe('2025-01-21');
+    expect(report.invalidBandDates.length).toBe(report.invalidBandPointCount);
+    expect(report.invalidBandDiagnostics).toHaveLength(report.invalidBandPointCount);
     expect(report.invalidBandDiagnostics[0].closes).toHaveLength(20);
-    expect(report.bollPointCount + report.invalidBandPointCount).toBe(81);
+    expect(report.bollPointCount + report.invalidBandPointCount).toBe(62);
   });
 });
