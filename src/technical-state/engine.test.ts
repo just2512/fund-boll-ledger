@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculateTechnicalStateSnapshot, describeTechnicalStateSnapshot } from './engine';
+import { calculateTechnicalStateSnapshot, describeTechnicalMultiTimeframeState, describeTechnicalStateSnapshot } from './engine';
 import { compareBatchWithReplay, hasNoFutureBars, replayConfirmedTechnicalSeries } from './history-replay';
 import type { ConfirmedTechnicalSeries, TechnicalBar } from './types';
 
@@ -100,6 +100,22 @@ describe('combined BOLL/MACD technical state engine', () => {
     expect(description).toContain('DIF/DEA');
     expect(description).toContain('不构成买卖方向或交易指令');
     expect(description).toContain('状态阈值未配置');
+  });
+
+  it('summarizes BOLL and MACD independently across month, week and day without a composite trade direction', () => {
+    const base = calculateTechnicalStateSnapshot(series());
+    const monthly = { ...base, interval: 'monthly' as const, macd: { ...base.macd, interval: 'monthly' as const } };
+    const weekly = { ...base, interval: 'weekly' as const, macd: { ...base.macd, interval: 'weekly' as const, crossEvent: 'golden' as const } };
+    const daily = { ...base, interval: 'daily' as const, macd: { ...base.macd, interval: 'daily' as const } };
+    const description = describeTechnicalMultiTimeframeState({ monthly, weekly, daily });
+    expect(description.summary).toContain('已确认数据 3/3 周期');
+    expect(description.summary).toContain('BOLL 带宽阶段：月线 未知');
+    expect(description.summary).toContain('周线 新金叉');
+    expect(description.summary).toContain('各周期独立描述，不合成为买卖方向');
+    expect(description.detail).toContain('月线');
+    expect(description.detail).toContain('周线');
+    expect(description.detail).toContain('日线');
+    expect(description.detail).toContain('不构成买卖方向或交易指令');
   });
 
 });
