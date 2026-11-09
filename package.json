@@ -19,7 +19,8 @@
     "test:technical-live": "node scripts/run-live-technical-acceptance.mjs",
     "calibrate:technical-live": "node scripts/run-live-technical-calibration.mjs",
     "test:dependency-security": "node scripts/verify-dependency-security.mjs",
-    "verify:upgrade-contract": "node scripts/verify-upgrade-contract.mjs"
+    "verify:upgrade-contract": "node scripts/verify-upgrade-contract.mjs",
+    "verify:execution-contract": "node scripts/verify-execution-contract.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",
