@@ -21,6 +21,7 @@ const intervals: BollInterval[] = ['daily', 'weekly', 'monthly'];
 describe('live multi-ETF BOLL historical calibration', () => {
   (runLive ? it : it.skip)('collects real confirmed history, checks rolling replay boundaries, and emits descriptive distributions without selecting thresholds', async () => {
     const reports = [];
+    let baiduFallbackProbe: { source: string | undefined; confirmedBars: number; eventSetupCount: number } | undefined;
     for (const instrument of instruments) {
       const request = { code: instrument.code, market: instrument.market };
       const quote = await fetchLatestQuote(request);
@@ -30,6 +31,31 @@ describe('live multi-ETF BOLL historical calibration', () => {
           throw new Error(`${instrument.code} ${interval} 历史不可用：${normalized.reason}`);
         }
         expect(normalized.series.bars.length, `${instrument.code} ${interval} confirmed bars`).toBeGreaterThanOrEqual(35);
+        if (instrument.code === '510300' && interval === 'daily') {
+          const originalFetch = globalThis.fetch;
+          globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+            const url = input instanceof Request ? input.url : String(input);
+            if (url.includes('push2his.eastmoney.com')) return new Response('', { status: 503 });
+            return originalFetch(input, init);
+          };
+          try {
+            const baiduHistory = await fetchConfirmedTechnicalHistory(request, interval, quote);
+            if (baiduHistory.validity !== 'VALID') {
+              throw new Error('百度备用 K 线实测失败：' + baiduHistory.reason);
+            }
+            expect(baiduHistory.series.source).toBe('百度行情');
+            expect(baiduHistory.series.bars.length).toBeGreaterThanOrEqual(35);
+            const baiduEvents = auditConfirmedBollMacdSeries(baiduHistory.series);
+            baiduFallbackProbe = {
+              source: baiduHistory.series.source,
+              confirmedBars: baiduHistory.series.bars.length,
+              eventSetupCount: baiduEvents.length,
+            };
+          } finally {
+            globalThis.fetch = originalFetch;
+          }
+        }
+
         const report = calibrateBollHistory(normalized.series);
         const bollMacdEvents = auditConfirmedBollMacdSeries(normalized.series);
         const confirmedEvents = bollMacdEvents.filter((event) => event.status === 'confirmed');
@@ -96,6 +122,7 @@ describe('live multi-ETF BOLL historical calibration', () => {
       intervals,
       thresholdSelection: 'NOT_PERFORMED',
       replayMethod: 'CONFIRMED_PREFIX_ONE_BAR_AT_A_TIME',
+      baiduFallbackProbe,
       reports,
     };
     console.info('LIVE_TECHNICAL_CALIBRATION_JSON_BEGIN');
