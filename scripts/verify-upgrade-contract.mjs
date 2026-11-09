@@ -54,4 +54,31 @@ if (!androidBuild.includes('node "scripts/configure-android-signing.mjs"') || !a
 if (!androidSigning.includes("'-storetype', 'PKCS12'") || !androidSigning.includes('storeType = "PKCS12"')) {
   throw new Error('Android persistent keystore generation and Gradle signing storeType must both explicitly use PKCS12.');
 }
+const nativeWorkflow = fs.readFileSync(path.join(root, '.github/workflows/native-build.yml'), 'utf8');
+if (!nativeWorkflow.includes('workflow_dispatch:')) {
+  throw new Error('Native build workflow must remain explicitly manually triggerable.');
+}
+for (const required of [
+  'runs-on: windows-latest',
+  'name: Windows desktop installer',
+  'cargo tauri build',
+  'name: fund-boll-ledger-windows-x64',
+  "if: ${{ vars.ANDROID_RELEASE_SIGNING_ENABLED == 'true' }}",
+  'Configure persistent Android release signing',
+  'ANDROID_KEYSTORE_BASE64',
+  'ANDROID_KEYSTORE_PASSWORD',
+  'ANDROID_KEY_PASSWORD',
+  'ANDROID_KEY_ALIAS',
+  'apksigner verify --verbose',
+  "versionCode='2000' versionName='0.2.0'",
+  'fund-boll-ledger-android-arm64-release-upgradeable',
+]) {
+  if (!nativeWorkflow.includes(required)) {
+    throw new Error(`Native build upgrade-safety contract missing: ${required}`);
+  }
+}
+if (!nativeWorkflow.includes('name: Android ARM64 ephemeral-signed smoke APK (not upgradeable)')) {
+  throw new Error('Android debug smoke artifact must be explicitly distinguished from upgrade-compatible release APKs.');
+}
+
 console.log(`Upgrade contract PASS: version ${tauri.version}, Android versionCode ${expectedVersionCode}, app ID ${tauri.identifier}, Windows install mode currentUser, IndexedDB identity preserved.`);
