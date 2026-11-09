@@ -1,4 +1,4 @@
-name: Multi-ETF Technical State Calibration
+name: Live Technical Acceptance and Multi-ETF Calibration
 
 on:
   push:
@@ -14,13 +14,16 @@ on:
       - 'src/technical-state/boll-state.ts'
       - 'src/technical-state/boll-state.test.ts'
       - 'src/technical-state/engine.ts'
+      - 'src/technical-state/engine.test.ts'
       - 'src/technical-state/boll-macd-events.ts'
       - 'src/technical-state/boll-macd-events.test.ts'
       - 'src/technical-state/calibration.ts'
       - 'src/technical-state/calibration.test.ts'
+      - 'src/technical-state/real-data.acceptance.live.test.ts'
       - 'src/technical-state/real-data.calibration.live.test.ts'
       - 'src/technical-state/sensitivity.ts'
       - 'src/technical-state/sensitivity.test.ts'
+      - 'scripts/run-live-technical-acceptance.mjs'
       - 'scripts/run-live-technical-calibration.mjs'
       - 'package.json'
       - '.github/workflows/technical-state-calibration.yml'
@@ -31,7 +34,7 @@ permissions:
 
 jobs:
   calibration:
-    name: Fetch real ETF history and summarize BOLL distributions
+    name: Real-data acceptance and multi-ETF calibration
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -41,17 +44,24 @@ jobs:
           npm --version
       - name: Install locked dependencies
         run: npm ci
+      - name: Run real-data technical acceptance (510300)
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p artifacts
+          npm run test:technical-live 2>&1 | tee artifacts/technical-state-acceptance.log
       - name: Run live multi-ETF calibration
+        if: always()
         shell: bash
         run: |
           set -o pipefail
           mkdir -p artifacts
           npm run calibrate:technical-live 2>&1 | tee artifacts/technical-state-calibration.log
-      - name: Upload calibration report
+      - name: Upload live technical reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: technical-state-calibration
-          path: artifacts/technical-state-calibration.log
+          name: live-technical-acceptance-and-calibration
+          path: artifacts/*.log
           if-no-files-found: warn
           retention-days: 30
