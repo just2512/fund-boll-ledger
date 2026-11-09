@@ -145,17 +145,18 @@ describe('manual ETF market quote refresh', () => {
     const tradingDate = new Intl.DateTimeFormat('en-CA', {
       timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit',
     }).format(new Date(epoch * 1000));
+    const expectedBars = { daily: 220, weekly: 180, monthly: 120 } as const;
     const buildDates = (interval: 'daily' | 'weekly' | 'monthly'): string[] => {
       let cursor = new Date(tradingDate + 'T00:00:00.000Z');
-      if (interval === 'daily') cursor.setUTCDate(cursor.getUTCDate() - 69);
+      if (interval === 'daily') cursor.setUTCDate(cursor.getUTCDate() - expectedBars.daily);
       if (interval === 'weekly') {
         cursor.setUTCDate(cursor.getUTCDate() - ((cursor.getUTCDay() + 6) % 7) - 7);
-        cursor.setUTCDate(cursor.getUTCDate() - 59 * 7);
+        cursor.setUTCDate(cursor.getUTCDate() - (expectedBars.weekly - 1) * 7);
       }
       if (interval === 'monthly') {
-        cursor = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() - 61, 1));
+        cursor = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() - expectedBars.monthly, 1));
       }
-      return Array.from({ length: 60 }, (_, index) => {
+      return Array.from({ length: expectedBars[interval] }, (_, index) => {
         const date = new Date(cursor);
         if (interval === 'daily') date.setUTCDate(date.getUTCDate() + index);
         if (interval === 'weekly') date.setUTCDate(date.getUTCDate() + index * 7);
@@ -198,7 +199,7 @@ describe('manual ETF market quote refresh', () => {
     ]) {
       expect(state?.source).toBe('东方财富');
       expect(state?.quoteSource).toBe('东方财富');
-      expect(state?.confirmedBarCount).toBe(60);
+      expect(state?.confirmedBarCount).toBe(expectedBars[state!.interval]);
       expect(state?.macd.error).toBeUndefined();
       expect(state?.boll.validity).toBe('VALID');
     }
