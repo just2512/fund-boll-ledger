@@ -1,6 +1,7 @@
 import { summarizeMacdPeriods, unavailableMacdPeriod, type MacdMultiTimeframeState, type MacdPeriodState, type MacdInterval } from './macd';
 import { calculateTechnicalStateSnapshot, unavailableTechnicalState } from './technical-state/engine';
 import { normalizeConfirmedTechnicalSeries } from './technical-state/series';
+import { bollStateConfigFor } from './technical-state/config';
 import type { TechnicalMultiTimeframeState, TechnicalNormalizationResult, TechnicalStateSnapshot } from './technical-state/types';
 
 export type QuoteSource = '东方财富' | '百度行情';
@@ -533,7 +534,7 @@ async function fetchIntervalIndicators(code: string, market: MarketQuoteRequest[
 
   const normalized = normalizeIntervalHistory(history, quote, interval);
   const technicalState = normalized.validity === 'VALID'
-    ? calculateTechnicalStateSnapshot(normalized.series, undefined, quote.source)
+    ? calculateTechnicalStateSnapshot(normalized.series, bollStateConfigFor(interval), quote.source)
     : unavailableTechnicalState(interval, normalized.validity, normalized.reason, history.source, quote.source);
   return { boll, bollError, macd: technicalState.macd, technicalState };
 }
