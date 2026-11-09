@@ -1,3 +1,5 @@
+declare const process: { env: Record<string, string | undefined> };
+
 import { describe, expect, it } from 'vitest';
 import { fetchConfirmedTechnicalHistory, fetchLatestQuote } from '../market-data';
 import { calculateTechnicalStateSnapshot } from './engine';
