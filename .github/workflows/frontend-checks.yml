@@ -28,3 +28,20 @@ jobs:
         run: npm run test
       - name: Type-check and production build
         run: npm run build
+
+  e2e:
+    name: Browser end-to-end regression
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+      - name: Run browser end-to-end tests
+        run: npx playwright test
