@@ -157,13 +157,21 @@ export function analyzeBollConfigSensitivity(
         const rightState = evaluated[right].statesByDate.get(date);
         if (!rightState || leftState.validity !== 'VALID' || rightState.validity !== 'VALID') continue;
         comparableDates += 1;
-        if (stateSignature(leftState) === stateSignature(rightState)) identicalStateDates += 1;
+        if (stateSignature(leftState) === stateSignature(rightState)) identicalCategoricalStateDates += 1;
+        if (leftState.bandwidthPercentile !== undefined && rightState.bandwidthPercentile !== undefined) {
+          bandwidthPercentileComparableDates += 1;
+          absolutePercentileDifferenceTotal += Math.abs(leftState.bandwidthPercentile - rightState.bandwidthPercentile);
+        }
       }
       pairComparisons.push({
         leftCandidateId: candidates[left].id,
         rightCandidateId: candidates[right].id,
         comparableDates,
-        identicalStateDates,
+        identicalCategoricalStateDates,
+        bandwidthPercentileComparableDates,
+        ...(bandwidthPercentileComparableDates ? {
+          bandwidthPercentileMeanAbsoluteDifference: absolutePercentileDifferenceTotal / bandwidthPercentileComparableDates,
+        } : {}),
       });
     }
   }
