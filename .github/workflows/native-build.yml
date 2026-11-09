@@ -47,7 +47,7 @@ jobs:
   # Android ARM64 APK on a GitHub-hosted Linux runner. All toolchains are
   # provisioned in the job.
   android:
-    if: github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'ci: run one-shot Android ARM64 acceptance'
+    if: github.event_name == 'push'
     name: Android ARM64 APK (GitHub-hosted)
     runs-on: ubuntu-24.04
     steps:
