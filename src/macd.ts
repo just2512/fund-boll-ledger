@@ -114,7 +114,10 @@ export function calculateMacdPeriod(
   for (const bar of sourceBars) {
     if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(bar.date)) continue;
     const close = typeof bar.close === 'number' ? bar.close : Number(String(bar.close).trim());
-    if (Number.isFinite(close) && close > 0) byDate.set(bar.date, close);
+    if (!Number.isFinite(close) || close <= 0) continue;
+    const existing = byDate.get(bar.date);
+    if (existing !== undefined && existing !== close) return emptyPeriod(interval, '同一交易日期存在冲突收盘价');
+    byDate.set(bar.date, close);
   }
   const normalized = [...byDate.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([date, close]) => ({ date, close }));
   if (normalized.length === 0) return emptyPeriod(interval, '没有可用的历史 K 线');
@@ -265,7 +268,7 @@ export function summarizeMacdPeriods(
   const axes = ordered.map((state) => state.zeroAxis);
   const allBullish = axes.every((axis) => axis === 'above');
   const allBearish = axes.every((axis) => axis === 'below');
-  const summary = allBullish ? '三周期偏多' : allBearish ? '三周期偏空' : '多周期分化';
+  const summary = allBullish ? '三周期 DIF 位于零轴上方' : allBearish ? '三周期 DIF 位于零轴下方' : 'DIF 零轴位置分化';
   const summaryTone: MacdTone = allBullish ? 'bullish' : allBearish ? 'bearish' : 'mixed';
   const fresh = ordered.find((state) => state.crossEvent === 'golden' || state.crossEvent === 'death');
   let summaryDetail: string;
