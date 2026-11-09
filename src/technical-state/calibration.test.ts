@@ -50,6 +50,17 @@ describe('BOLL calibration distribution summaries', () => {
     expect(report.invalidBandPointCount).toBeGreaterThan(0);
     expect(report.invalidBandDates).toContain('2025-01-20');
     expect(report.invalidBandDates.length).toBe(report.invalidBandPointCount);
+    expect(report.invalidBandDiagnostics).toHaveLength(report.invalidBandPointCount);
+    expect(report.invalidBandDiagnostics[0]).toMatchObject({
+      date: report.invalidBandDates[0],
+      windowStartDate: expect.any(String),
+      windowEndDate: expect.any(String),
+      middle: expect.any(Number),
+      standardDeviation: expect.any(Number),
+      lower: expect.any(Number),
+    });
+    expect(report.invalidBandDiagnostics[0].lower).toBeLessThanOrEqual(0);
+    expect(report.invalidBandDiagnostics[0].closes).toHaveLength(20);
     expect(report.bollPointCount + report.invalidBandPointCount).toBe(81);
   });
 });
