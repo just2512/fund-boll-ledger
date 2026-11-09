@@ -102,6 +102,29 @@ describe('confirmed BOLL touch then MACD cross event audit', () => {
     expect(result[1].confirmationDate).toBeUndefined();
   });
 
+
+  it('invalidates the old setup when an opposite MACD cross and opposite touch occur on the same bar', () => {
+    const result = pairBollTouchesWithMacdCrosses('daily', [
+      observation('2026-01-05', 9.8, { bollLower: 10 }),
+      observation('2026-01-06', 12.2, { bollUpper: 12, macdCrossEvent: 'death' }),
+      observation('2026-01-07', 12.1),
+    ]);
+    expect(result).toHaveLength(2);
+    expect(result[0]).toMatchObject({
+      side: 'lower',
+      status: 'invalidated',
+      invalidationReason: 'opposite-macd-cross',
+    });
+    expect(result[0].confirmationDate).toBeUndefined();
+    expect(result[1]).toMatchObject({
+      side: 'upper',
+      status: 'pending',
+      expectedCross: 'death',
+      triggerDate: '2026-01-06',
+    });
+    expect(result[1].confirmationDate).toBeUndefined();
+  });
+
   it('keeps the first touch date when the same side is touched repeatedly', () => {
     const result = pairBollTouchesWithMacdCrosses('daily', [
       observation('2026-01-05', 9.8, { bollLower: 10 }),
