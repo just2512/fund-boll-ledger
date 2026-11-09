@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 const read = (path) => {
   try { return readFileSync(path, 'utf8'); }
@@ -32,6 +32,7 @@ const requiredPlanSections = [
   '## 9. 执行状态记录',
   '## 21.',
   '## 22.',
+  '## 23.',
 ];
 for (const section of requiredPlanSections) {
   if (!plan.includes(section)) throw new Error(`Implementation baseline section missing: ${section}`);
@@ -66,4 +67,12 @@ for (const requiredId of ['A-01', 'A-02', 'A-03', 'B-01', 'B-02', 'B-03', 'B-04'
   if (!ids.has(requiredId)) throw new Error(`Required baseline item was removed: ${requiredId}`);
 }
 
+const currentBacktestSourceExists = existsSync('src/backtest/market-bars.ts') && existsSync('src/backtest/walk-forward.ts');
+const currentBacktestAcceptanceWorkflowExists = existsSync('.github/workflows/backtest-data-acceptance.yml');
+if (!currentBacktestSourceExists && ['B-01', 'B-02', 'B-03'].some((id) => matrix.requirements.find((x) => x.id === id)?.status === 'PASS')) {
+  throw new Error('Backtest source is absent from the current checkout; B-01/B-02/B-03 cannot be PASS.');
+}
+if (!currentBacktestAcceptanceWorkflowExists && matrix.requirements.find((x) => x.id === 'B-04')?.status === 'PASS') {
+  throw new Error('Backtest real-data acceptance workflow is absent; B-04 cannot be PASS.');
+}
 console.log(`Execution contract verified: ${matrix.requirements.length} requirements, ${[...matrix.requirements].filter((x) => x.status === 'PASS').length} evidence-backed PASS, remaining work retained.`);
