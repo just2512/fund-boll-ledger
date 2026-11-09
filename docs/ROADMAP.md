@@ -19,8 +19,8 @@
 - [x] Android ARM64 APK 构建脚本
 - [x] 手动触发的 Windows / Android 构建工作流，避免 push 自动耗费 Actions 用量
 - [x] 折叠屏外屏、展开内屏、横屏、桌面视口回归测试
-- [ ] 在可用 Windows 工具链上跑通完整原生构建
-- [ ] 在 Android API 36 环境跑通 ARM64 APK 构建
+- [x] 在 GitHub-hosted Windows 工具链上完成完整原生构建（EXE + NSIS Artifact；Actions run `42576011666`）
+- [x] 在 GitHub-hosted Android API 36 环境完成 ARM64 APK 构建与签名（Artifact；Actions run `42576011666`）
 - [ ] 在 OPPO Find N2 PUG110 实机验证 Android 系统、软键盘和折叠切换
 - [ ] 按真实东方财富交割单核对佣金与其他费用
 
