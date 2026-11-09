@@ -25,7 +25,7 @@ export interface MacdPeriodState {
   barsUsed?: number;
   /** First confirmed bar used as the deterministic EMA seed. */
   emaSeedDate?: string;
-  /** Bars beyond the current 35-bar minimum output threshold. */
+  /** Bars beyond the 35-bar formula minimum used by the EMA seed calculation. */
   preRollBars?: number;
   dif?: number;
   dea?: number;
@@ -54,6 +54,21 @@ const FAST_PERIOD = 12;
 const SLOW_PERIOD = 26;
 const SIGNAL_PERIOD = 9;
 const MIN_MACD_BARS = SLOW_PERIOD + SIGNAL_PERIOD;
+
+/** Empirically observed stability gate from 4 ETFs × 3 intervals, rolling seed comparison. */
+export const MACD_STABILITY_MIN_BARS: Readonly<Record<MacdInterval, number>> = {
+  daily: 160,
+  weekly: 160,
+  monthly: 100,
+};
+
+export function minimumMacdHistoryBars(interval: MacdInterval): number {
+  return MACD_STABILITY_MIN_BARS[interval];
+}
+
+export function insufficientMacdPeriod(interval: MacdInterval, error: string): MacdPeriodState {
+  return emptyPeriod(interval, error, 'insufficient-history');
+}
 
 function intervalKey(date: string, interval: MacdInterval): string {
   if (interval === 'daily') return date;
@@ -126,8 +141,9 @@ export function calculateMacdPeriod(
   if (!context.tradingDate) return emptyPeriod(interval, '缺少可信行情日期，无法确认 K 线收盘状态', 'unavailable');
   const latestClosed = isClosedLatestPeriod(normalized, interval, context);
   const bars = latestClosed ? normalized : normalized.slice(0, -1);
-  if (bars.length < MIN_MACD_BARS) {
-    return emptyPeriod(interval, '已收盘历史 K 线不足 ' + MIN_MACD_BARS + ' 根，无法计算 MACD(12,26,9)', 'insufficient-history');
+  const minimumStableBars = minimumMacdHistoryBars(interval);
+  if (bars.length < minimumStableBars) {
+    return insufficientMacdPeriod(interval, '已确认历史 K 线不足 ' + minimumStableBars + ' 根，当前周期 MACD 状态不发布');
   }
   return calculateMacdFromConfirmedSeries({
     interval,
