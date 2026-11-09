@@ -112,7 +112,7 @@ export function calculateMacdPeriod(
 ): MacdPeriodState {
   const byDate = new Map<string, number>();
   for (const bar of sourceBars) {
-    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(bar.date)) continue;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(bar.date)) continue;
     const close = typeof bar.close === 'number' ? bar.close : Number(String(bar.close).trim());
     if (!Number.isFinite(close) || close <= 0) continue;
     const existing = byDate.get(bar.date);
@@ -142,7 +142,7 @@ export function calculateMacdFromConfirmedSeries(series: ConfirmedTechnicalSerie
   if (series.asOfDate !== bars[bars.length - 1]?.date) return emptyPeriod(interval, 'asOfDate 与最后一根确认 K 线日期不一致');
   let previousDate = '';
   for (const bar of bars) {
-    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(bar.date) || bar.date <= previousDate) return emptyPeriod(interval, '确认序列日期无效、未排序或存在重复日期');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(bar.date) || bar.date <= previousDate) return emptyPeriod(interval, '确认序列日期无效、未排序或存在重复日期');
     if (!Number.isFinite(bar.close) || bar.close <= 0) return emptyPeriod(interval, '确认序列包含非正数或非有限收盘价');
     previousDate = bar.date;
   }
