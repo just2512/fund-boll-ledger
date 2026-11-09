@@ -31,7 +31,7 @@ for (const rule of [
 for (const section of ['## 1.', '## 21.', '## 22.', '## 23.', '## 24.']) {
   if (!plan.includes(section)) throw new Error(`Implementation plan section missing: ${section}`);
 }
-for (const term of ['范围校正', '不包含策略回测', 'BOLL', 'MACD', '未来数据']) {
+for (const term of ['范围校正', '明确排除', 'BOLL', 'MACD', '未来数据']) {
   if (!plan.includes(term)) throw new Error(`Implementation plan lost mandatory scope term: ${term}`);
 }
 
