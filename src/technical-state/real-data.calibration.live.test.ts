@@ -22,7 +22,7 @@ const intervals: BollInterval[] = ['daily', 'weekly', 'monthly'];
 describe('live multi-ETF BOLL historical calibration', () => {
   (runLive ? it : it.skip)('collects real confirmed history, checks rolling replay boundaries, and emits descriptive distributions without selecting thresholds', async () => {
     const reports = [];
-    let baiduFallbackProbe: { source: string | undefined; confirmedBars: number; eventSetupCount: number; macdSeedRollingSensitivity: ReturnType<typeof analyzeMacdHistoryStartSensitivityAcrossPrefixes> } | undefined;
+    let baiduFallbackProbe: { source: string | undefined; confirmedBars: number; eventSetupCount: number; bollParameterSensitivity: ReturnType<typeof analyzeBollConfigSensitivity>; macdSeedRollingSensitivity: ReturnType<typeof analyzeMacdHistoryStartSensitivityAcrossPrefixes> } | undefined;
     let baiduQuoteProbe: { source: string; price: string; previousClose: string; hasTrustedTradingDate: boolean } | undefined;
     for (const instrument of instruments) {
       const request = { code: instrument.code, market: instrument.market };
@@ -48,16 +48,23 @@ describe('live multi-ETF BOLL historical calibration', () => {
             expect(baiduHistory.series.source).toBe('百度行情');
             expect(baiduHistory.series.bars.length).toBeGreaterThanOrEqual(35);
             const baiduEvents = auditConfirmedBollMacdSeries(baiduHistory.series);
+            const baiduBollParameterSensitivity = analyzeBollConfigSensitivity(
+              baiduHistory.series,
+              buildBollSensitivityCandidates('daily'),
+            );
             const baiduMacdSeedRollingSensitivity = analyzeMacdHistoryStartSensitivityAcrossPrefixes(
               baiduHistory.series,
               [35, 50, 75, 100, 160, 240],
             );
+            expect(baiduBollParameterSensitivity.thresholdSelection).toBe('NOT_PERFORMED');
+            expect(baiduBollParameterSensitivity.candidates.every((candidate) => candidate.noFutureBars)).toBe(true);
             expect(baiduMacdSeedRollingSensitivity.candidates.some((candidate) => candidate.sampleCount > 0))
               .toBe(true);
             baiduFallbackProbe = {
               source: baiduHistory.series.source,
               confirmedBars: baiduHistory.series.bars.length,
               eventSetupCount: baiduEvents.length,
+              bollParameterSensitivity: baiduBollParameterSensitivity,
               macdSeedRollingSensitivity: baiduMacdSeedRollingSensitivity,
             };
           } finally {
