@@ -7,6 +7,7 @@ import { validateAppData } from './backup-validation';
 import { fetchLatestMarketData, type MarketQuote } from './market-data';
 import { macdArrangementLabel, macdMomentumLabel, macdZeroAxisLabel, type MacdMultiTimeframeState, type MacdPeriodState, type MacdTone } from './macd';
 import type { TechnicalMultiTimeframeState, TechnicalStateSnapshot } from './technical-state/types';
+import { describeTechnicalMultiTimeframeState } from './technical-state/engine';
 import { createId, emptyAppData, newFund, type AppData, type Fund, type FundCategory, type FundPrices, type LadderDirection, type PriceBasisKey, type PriceSnapshot, type Trade, type TradeSide } from './types';
 
 const NAV_ITEMS = [
@@ -478,6 +479,34 @@ function macdCrossEventLabel(state: MacdPeriodState): string {
     default: return '交叉状态未知';
   }
 }
+function bollNumber(value: number | undefined, digits = 3): string {
+  return value === undefined || !Number.isFinite(value) ? '未知' : value.toFixed(digits);
+}
+function bollPhaseLabel(value: TechnicalStateSnapshot['boll']['bandwidthPhase']): string {
+  const labels: Record<TechnicalStateSnapshot['boll']['bandwidthPhase'], string> = {
+    contracting: '收窄', 'contracting-persistent': '持续收窄',
+    expanding: '扩张', 'expanding-persistent': '持续扩张',
+    'contracting-to-expanding': '由收窄转扩张',
+    'expanding-to-contracting': '由扩张转收窄',
+    flat: '走平', unknown: '未知/未配置',
+  };
+  return labels[value];
+}
+function bollMiddleLabel(value: TechnicalStateSnapshot['boll']['middleDirection']): string {
+  const labels: Record<TechnicalStateSnapshot['boll']['middleDirection'], string> = {
+    up: '向上', down: '向下', flat: '走平',
+    'turning-up': '向上拐头', 'turning-down': '向下拐头', unknown: '未知/未配置',
+  };
+  return labels[value];
+}
+function bollLocationLabel(value: TechnicalStateSnapshot['boll']['priceLocation']): string {
+  const labels: Record<TechnicalStateSnapshot['boll']['priceLocation'], string> = {
+    'below-lower': '下轨下方', 'near-lower': '接近下轨',
+    'below-middle': '中轨下方', 'above-middle': '中轨上方',
+    'near-upper': '接近上轨', 'above-upper': '上轨上方', unknown: '未知',
+  };
+  return labels[value];
+}
 function MacdPeriodCard({ label, state, technical }: { label: string; state?: MacdPeriodState; technical?: TechnicalStateSnapshot }) {
   if (!state) return <div className="macd-period-card"><div className="macd-period-head"><strong>{label}</strong><span className="macd-tone-unknown">待计算</span></div><p className="macd-period-message">刷新行情后获取已确认历史数据</p></div>;
   const coverage = technical
@@ -486,6 +515,7 @@ function MacdPeriodCard({ label, state, technical }: { label: string; state?: Ma
   const source = technical?.source ?? '未知';
   const quoteSource = technical?.quoteSource ?? '未知';
   const confirmation = technical?.excludedInProgressBar ? '未收盘周期已排除' : '仅使用已确认收盘数据';
+  const boll = technical?.boll;
   return <div className="macd-period-card">
     <div className="macd-period-head"><strong>{label}</strong><span className={state.availability === 'ready' ? 'macd-tone-neutral' : 'macd-tone-unknown'}>{macdAvailabilityLabel(state)}</span></div>
     <div className="macd-period-meta">
@@ -493,6 +523,20 @@ function MacdPeriodCard({ label, state, technical }: { label: string; state?: Ma
       <small>K 线来源：{source} · 现价来源：{quoteSource}</small>
       <small>{confirmation}</small>
     </div>
+    {boll && <div className="boll-period-state">
+      <div className="boll-period-state-head"><strong>BOLL(20,2)</strong><span>{boll.validity === 'VALID' ? '已计算' : boll.validity === 'INSUFFICIENT' ? '历史不足' : '数据无效'}</span></div>
+      {boll.validity === 'VALID' ? <>
+        <div className="boll-period-values">上/中/下轨：{bollNumber(boll.upper)}/{bollNumber(boll.middle)}/{bollNumber(boll.lower)}</div>
+        <div className="boll-period-tags">
+          <span>带宽 {bollNumber(boll.bandwidthPercent, 4)}%</span>
+          <span>历史分位 {boll.bandwidthPercentile === undefined ? '未配置' : bollNumber(boll.bandwidthPercentile, 1) + '%'}</span>
+          <span>带宽阶段 {bollPhaseLabel(boll.bandwidthPhase)}</span>
+          <span>中轨方向 {bollMiddleLabel(boll.middleDirection)}</span>
+          <span>确认收盘位置 {boll.closeLocationPercent === undefined ? '未知' : bollNumber(boll.closeLocationPercent, 2) + '%'} · {bollLocationLabel(boll.priceLocation)}</span>
+        </div>
+      </> : <p className="macd-period-message">{boll.reason ?? '当前周期无法计算 BOLL。'}</p>}
+      {boll.reason && <small className="boll-period-note">{boll.reason}</small>}
+    </div>}
     {state.availability !== 'ready' || state.error
       ? <p className="macd-period-message">{state.error ?? '当前周期无法计算 MACD。'}；本周期不生成交叉判断。</p>
       : <>
@@ -507,17 +551,21 @@ function MacdPeriodCard({ label, state, technical }: { label: string; state?: Ma
   </div>;
 }
 function MacdPanel({ state, technical, loading }: { state?: MacdMultiTimeframeState; technical?: TechnicalMultiTimeframeState; loading: boolean }) {
-  const summary = state?.summary ?? (loading ? '正在刷新 MACD 数据…' : '刷新行情后计算');
+  const technicalDescription = technical ? describeTechnicalMultiTimeframeState(technical) : undefined;
+  const summary = technicalDescription?.summary ?? (loading ? '正在刷新 BOLL + MACD 数据…' : '刷新行情后计算');
   const detail = state?.summaryDetail ?? '仅展示已确认 K 线的计算状态';
   return <div className="macd-panel">
-    <div className="macd-panel-head"><div><h3>MACD 状态描述</h3><p>MACD(12,26,9) · 分别展示月线、周线和日线的确认数据与指标状态</p></div><span className="macd-rule-label">描述性数据</span></div>
-    <div className="macd-summary"><strong className={macdToneClass(state?.summaryTone)}>{summary}</strong><span className={macdToneClass(state?.detailTone)}>{detail}</span></div>
-    <div className="macd-period-grid">
-      <MacdPeriodCard label="月线" state={state?.monthly} technical={technical?.monthly}/>
-      <MacdPeriodCard label="周线" state={state?.weekly} technical={technical?.weekly}/>
-      <MacdPeriodCard label="日线" state={state?.daily} technical={technical?.daily}/>
-    </div>
-    <small className="macd-footnote">仅描述已确认行情中的指标计算结果，不构成买卖建议。35 根是当前 MACD 数值计算下限，不代表交叉信号已通过稳定性或交易有效性验证。</small>
+    <div className="macd-panel-head"><div><h3>BOLL + MACD 技术状态</h3><p>只描述已确认日/周/月 K 线；未配置的 BOLL 状态阈值保持未知</p></div><span className="macd-rule-label">描述性数据</span></div>
+    <div className="macd-summary"><strong className="macd-tone-neutral">{summary}</strong><span className={macdToneClass(state?.detailTone)}>{detail}</span></div>
+    <details className="technical-period-details">
+      <summary>展开日/周/月 BOLL 与 MACD 计算依据</summary>
+      <div className="macd-period-grid">
+        <MacdPeriodCard label="月线" state={state?.monthly} technical={technical?.monthly}/>
+        <MacdPeriodCard label="周线" state={state?.weekly} technical={technical?.weekly}/>
+        <MacdPeriodCard label="日线" state={state?.daily} technical={technical?.daily}/>
+      </div>
+    </details>
+    <small className="macd-footnote">仅描述已确认行情中的指标计算结果，不构成买卖建议。MACD 35 根是当前数值计算下限，不代表交叉信号已通过稳定性或交易有效性验证。</small>
   </div>;
 }
 
