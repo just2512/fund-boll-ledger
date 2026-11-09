@@ -1,0 +1,35 @@
+name: Live technical history acceptance
+
+on:
+  push:
+    branches: [test/technical-live-acceptance]
+
+permissions:
+  contents: read
+
+jobs:
+  real-history:
+    name: Real daily/weekly/monthly K-line replay
+    runs-on: [self-hosted, Linux, X64, wsl]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Linux toolchain
+        shell: bash
+        run: |
+          set -e
+          export PATH="/usr/bin:$PATH"
+          echo "/usr/bin" >> "$GITHUB_PATH"
+          command -v node
+          command -v npm
+          node --version
+          npm --version
+          case "$(command -v npm)" in
+            /mnt/c/*) echo "Windows npm leaked into WSL PATH"; exit 1 ;;
+          esac
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Run real historical technical acceptance
+        env:
+          TECHNICAL_ACCEPTANCE_CODE: '510300'
+        run: npm run test:technical-live
