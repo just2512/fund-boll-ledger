@@ -4,6 +4,18 @@ on:
   push:
     branches: [main]
     paths:
+      - 'src/market-data.ts'
+      - 'src/macd.ts'
+      - 'src/macd.test.ts'
+      - 'src/technical-state/types.ts'
+      - 'src/technical-state/series.ts'
+      - 'src/technical-state/series.test.ts'
+      - 'src/technical-state/history-replay.ts'
+      - 'src/technical-state/boll-state.ts'
+      - 'src/technical-state/boll-state.test.ts'
+      - 'src/technical-state/engine.ts'
+      - 'src/technical-state/boll-macd-events.ts'
+      - 'src/technical-state/boll-macd-events.test.ts'
       - 'src/technical-state/calibration.ts'
       - 'src/technical-state/calibration.test.ts'
       - 'src/technical-state/real-data.calibration.live.test.ts'
