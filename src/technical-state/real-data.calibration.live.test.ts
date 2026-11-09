@@ -107,6 +107,7 @@ describe('live multi-ETF BOLL historical calibration', () => {
         });
       }
     }
+    expect(baiduFallbackProbe?.source, '必须真实请求百度备用 K 线并确认其可用，不能只用 fixture 证明解析器').toBe('百度行情');
     const sourcePolicyViolations = reports
       .filter((entry) => !['东方财富', '百度行情'].includes(entry.klineSource ?? '') || entry.quoteSource !== '东方财富')
       .map((entry) => ({ code: entry.code, interval: entry.interval, klineSource: entry.klineSource, quoteSource: entry.quoteSource }));
