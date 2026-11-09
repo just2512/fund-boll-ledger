@@ -566,7 +566,7 @@ UI 验收至少覆盖桌面、Android 窄屏、OPPO Find N2 外屏和展开内�
 | 历史末尾 pending | PASS | 保持 pending，不虚构确认日期/成交价格；输出可解释原因 |
 | 真实行情逐根重放/批量一致 | PASS（现有样本，Run 42612801322） | 每个 as-of 前缀无未来 K 线，最终逐根结果与同起点批量结果一致 |
 | MACD 历史不足状态表达 | PASS（Run 42612801332） | 新增 availability：ready / insufficient-history / unavailable / invalid-data；不可用时 crossEvent=unknown；保留 error 诊断文本 |
-| 描述性 UI | IMPLEMENTED / CI_PENDING | 已改造现有价格对比模块中的 MACD 区域为描述性展示；补充来源/历史覆盖/as-of/确认状态；不显示交易建议；最新 UI E2E Run 42613104645 待完成 |
+| 描述性 UI | PASS（Run 42616623315） | 现有价格对比模块的 MACD 区域改为描述性展示；来源/历史覆盖/as-of/确认状态齐全；E2E 来源定位器已限定 quote-refresh-meta，单测/构建/E2E 全部通过 |
 
 A 线 UI 仅显示计算事实、数据来源/周期/as-of 日期、确认状态、历史覆盖和不可用原因；不显示买卖建议、策略收益或资金占用。
 
@@ -592,3 +592,43 @@ B 线未完成前，禁止将事件审计中的触发价至确认价变化解释
 - A 线通过不代表 B 线通过；B 线通过也不能替代 A 线的数据正确性验收。
 - 现有价格对比模块只允许在 A 线通过后做描述性改造；策略类 UI 必须等待 B 线通过。
 - 账本交易记录、成本、盈亏和 JSON 备份结构保持不变。
+
+
+## 22. A/B 双线隔离并行执行（2026-11-09）
+
+本轮纠正执行拓扑：A/B 是并行工作流，不再把所有改动串行堆到 main。各自独立分支、独立提交、独立 CI；只在真实共享依赖处建立契约，不让 A 的 UI 验收阻塞 B 的数据与回测基础设施。
+
+### A 线执行记录
+
+- 独立分支：feat/track-a-technical-ui，基于 main 73ca0a4635c1c2ff71f28b8e74756163a93bcc19。
+- 发现上一轮 UI 增加三周期 K 线来源文本后，原有 E2E 的宽泛 getByText(/来源：.../) 同时命中 quote 元信息与三张 MACD 卡片，导致 4 个用例 strict-mode 失败；不是行情业务逻辑失败。
+- 将来源断言限定到 .quote-refresh-meta，避免与 MACD 卡片中的来源说明混淆。
+- A 分支 CI Run https://github.com/just2512/fund-boll-ledger/actions/runs/42615972656 全部成功；相同修复已应用到 main，main Run https://github.com/just2512/fund-boll-ledger/actions/runs/42616623315 单元测试/构建与浏览器 E2E 全部成功。
+- 当前 A 线描述性 UI 可验收；不包含交易建议、策略收益或资金占用。
+
+### B 线执行记录
+
+- 独立分支：feat/track-b-strategy-backtest，基于同一 main 起点独立推进；不等待 A 线 UI。
+- 新增 src/backtest/market-bars.ts：OHLCV 解析、OHLC 合法性、日期顺序、复权口径和成交量单位显式字段；可按源端交易日期/报价时间剔除未收盘 K 线。
+- 新增 fetchRawBacktestOhlcv：东方财富/百度按显式来源分别请求，不做隐式源切换。现有技术指标 close-only 序列不再被当作可成交回测数据。
+- 新增 src/backtest/walk-forward.ts：rolling / expanding 训练窗口，样本外区间按时间连续切分，所有窗口长度显式传入，不随机打乱、不输出不完整 OOS 窗口。
+- 新增独立真实数据工作流 .github/workflows/backtest-data-acceptance.yml，Run https://github.com/just2512/fund-boll-ledger/actions/runs/42617568143 PASS：
+  - 东方财富 510300 日线 1,000 根 OHLCV，2022-09-20 至 2026-11-09，fqt=0 / unadjusted；1,000 根已确认。
+  - 百度 510300 日线 2,001 根 OHLCV，2018-08-07 至 2026-11-09；经东方财富可信报价日期确认后，2,001 根已确认；百度复权口径仍为 unknown。
+  - 成交量只保留 provider-native 原始数值，不擅自认定为股/手或进行单位换算。
+- B 分支最新单测/生产构建已通过；浏览器 E2E 不涉及 B 新增业务，当前仍在跑完整回归。
+
+### B 线尚未放行的内容
+
+- OHLCV 数据已能从两个真实接口取得，但百度复权口径仍未知，成交量单位尚未换算/核实。
+- 事件超时、入场时点/成交价格、退出规则、初始资金/单笔投入/总占用、ETF 交易单位、手续费/最低费、滑点、公司行为与复权政策仍未冻结。
+- 训练窗口与 OOS 窗口生成器已实现，但具体训练长度、验证长度、rolling/expanding 选型尚未作为策略实验配置冻结。
+- 尚未运行策略交易模拟；没有逐笔成交、收益曲线、最大资金占用、回撤或费用结论。
+
+### 并行与汇合规则
+
+1. A 线的技术状态与描述性 UI 可以独立验收、独立交付。
+2. B 线可并行完成真实 OHLCV、数据契约、时间切分和回测引擎；不等待 A 线 UI。
+3. B 线复用 A 线已验证的 BOLL/MACD 确认事件定义，但交易执行层保持独立。
+4. A/B 的代码只在验收通过后按依赖选择性集成；不整体合并陈旧分支，也不为制造并行而重复复制核心指标实现。
+5. B 线的交易决策项没有用户明确值时继续标记 MISSING；基础设施 PASS 不等于策略收益 PASS。
