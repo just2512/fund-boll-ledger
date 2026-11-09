@@ -112,9 +112,9 @@ export function calculateMacdPeriod(
 ): MacdPeriodState {
   const byDate = new Map<string, number>();
   for (const bar of sourceBars) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(bar.date)) continue;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(bar.date)) return emptyPeriod(interval, 'K 线日期格式无效');
     const close = typeof bar.close === 'number' ? bar.close : Number(String(bar.close).trim());
-    if (!Number.isFinite(close) || close <= 0) continue;
+    if (!Number.isFinite(close) || close <= 0) return emptyPeriod(interval, 'K 线收盘价无效');
     const existing = byDate.get(bar.date);
     if (existing !== undefined && existing !== close) return emptyPeriod(interval, '同一交易日期存在冲突收盘价');
     byDate.set(bar.date, close);
