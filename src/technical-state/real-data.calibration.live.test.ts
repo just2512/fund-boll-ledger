@@ -66,8 +66,16 @@ describe('live multi-ETF BOLL historical calibration', () => {
         });
       }
     }
+    const sourcePolicyViolations = reports
+      .filter((entry) => entry.klineSource !== '东方财富' || entry.quoteSource !== '东方财富')
+      .map((entry) => ({ code: entry.code, interval: entry.interval, klineSource: entry.klineSource, quoteSource: entry.quoteSource }));
     const report = {
-      schemaVersion: 2,
+      schemaVersion: 3,
+      sourcePolicy: {
+        requiredKlineSource: '东方财富',
+        requiredQuoteSource: '东方财富',
+        violations: sourcePolicyViolations,
+      },
       generatedAt: new Date().toISOString(),
       instruments: instruments.map(({ code }) => code),
       intervals,
@@ -78,5 +86,6 @@ describe('live multi-ETF BOLL historical calibration', () => {
     console.info('LIVE_TECHNICAL_CALIBRATION_JSON_BEGIN');
     console.info(JSON.stringify(report, null, 2));
     console.info('LIVE_TECHNICAL_CALIBRATION_JSON_END');
+    expect(sourcePolicyViolations, '真实行情校准必须使用东方财富作为 K 线和现价来源；不得静默接受腾讯备用源').toEqual([]);
   }, 120_000);
 });
