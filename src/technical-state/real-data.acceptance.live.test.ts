@@ -49,5 +49,5 @@ describe('live market-data technical history acceptance', () => {
       });
     }
     console.info('LIVE_TECHNICAL_ACCEPTANCE', JSON.stringify(report, null, 2));
-  });
+  }, 30_000);
 });
