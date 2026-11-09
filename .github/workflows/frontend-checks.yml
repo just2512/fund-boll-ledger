@@ -3,6 +3,8 @@ name: Frontend Checks (self-hosted)
 on:
   push:
     branches: [main, 'feat/**', 'test/**']
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
