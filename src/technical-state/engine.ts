@@ -159,3 +159,56 @@ export function describeTechnicalStateSnapshot(snapshot: TechnicalStateSnapshot)
   return period + '（' + date + '）：' + bollText + '。' + macdText +
     '。以上仅描述已确认 K 线的计算状态，不构成买卖方向或交易指令。';
 }
+
+
+export interface TechnicalMultiTimeframeDescription {
+  /** Concise factual overview; contains no inferred trading action. */
+  summary: string;
+  /** One complete, as-of-specific description for each period. */
+  detail: string;
+}
+
+function macdCrossEventText(snapshot: TechnicalStateSnapshot): string {
+  const macd = snapshot.macd;
+  if (macd.availability !== 'ready') return '未知';
+  if (macd.crossEvent === 'golden') return '新金叉';
+  if (macd.crossEvent === 'death') return '新死叉';
+  if (macd.crossEvent === 'none') return '无新交叉';
+  return '未知';
+}
+
+/**
+ * Summarize the three independently calculated periods without collapsing
+ * their states into a bullish/bearish recommendation.
+ */
+export function describeTechnicalMultiTimeframeState(
+  periods: import('./types').TechnicalMultiTimeframeState,
+): TechnicalMultiTimeframeDescription {
+  const ordered: Array<{ label: string; snapshot: TechnicalStateSnapshot }> = [
+    { label: '月线', snapshot: periods.monthly },
+    { label: '周线', snapshot: periods.weekly },
+    { label: '日线', snapshot: periods.daily },
+  ];
+  const validCount = ordered.filter(({ snapshot }) => snapshot.validity === 'VALID').length;
+  const describe = (select: (snapshot: TechnicalStateSnapshot) => string) =>
+    ordered.map(({ label, snapshot }) => label + ' ' + select(snapshot)).join('；');
+  const bandwidth = describe((snapshot) =>
+    snapshot.boll.validity === 'VALID' ? bollBandwidthLabel(snapshot.boll.bandwidthPhase) : '不可用');
+  const middle = describe((snapshot) =>
+    snapshot.boll.validity === 'VALID' ? bollMiddleLabel(snapshot.boll.middleDirection) : '不可用');
+  const zeroAxis = describe((snapshot) => macdZeroAxisLabel(snapshot.macd));
+  const crossEvents = ordered
+    .filter(({ snapshot }) => macdCrossEventText(snapshot) === '新金叉' || macdCrossEventText(snapshot) === '新死叉')
+    .map(({ label, snapshot }) => label + ' ' + macdCrossEventText(snapshot));
+  const crossSummary = crossEvents.length ? crossEvents.join('、') : '当前无可确认的新交叉事件';
+  const summary =
+    '已确认数据 ' + validCount + '/3 周期。BOLL 带宽阶段：' + bandwidth +
+    '。BOLL 中轨方向：' + middle +
+    '。MACD DIF 零轴位置：' + zeroAxis +
+    '。MACD 新交叉：' + crossSummary +
+    '。各周期独立描述，不合成为买卖方向。';
+  return {
+    summary,
+    detail: ordered.map(({ snapshot }) => describeTechnicalStateSnapshot(snapshot)).join('\n'),
+  };
+}
