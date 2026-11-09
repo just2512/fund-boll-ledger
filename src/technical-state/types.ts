@@ -4,6 +4,13 @@ export type TechnicalInterval = 'daily' | 'weekly' | 'monthly';
 export type TechnicalValidity = 'VALID' | 'INSUFFICIENT' | 'INVALID';
 export type TechnicalQuoteSource = '东方财富' | '腾讯行情';
 
+export interface TechnicalRawBar {
+  /** Exchange trading date in YYYY-MM-DD form; never a device-local timestamp. */
+  date: string;
+  /** Raw provider value; normalized and validated before entering an indicator engine. */
+  close: string | number;
+}
+
 export interface TechnicalBar {
   /** Exchange trading date in YYYY-MM-DD form; never a device-local timestamp. */
   date: string;
@@ -21,7 +28,7 @@ export interface TechnicalQuoteContext {
 
 export interface TechnicalHistoryInput {
   interval: TechnicalInterval;
-  bars: readonly TechnicalBar[];
+  bars: readonly TechnicalRawBar[];
   /** Actual provider used for these K lines; may differ from the spot quote provider. */
   source?: TechnicalQuoteSource;
   quote: TechnicalQuoteContext;
@@ -109,6 +116,8 @@ export interface BollStateConfig {
   standardDeviations: 2;
   /** Explicit trailing sample count; no hidden default. */
   bandwidthRankLookback: number;
+  /** Minimum valid samples required before emitting a percentile. */
+  bandwidthRankMinimumSamples: number;
   /** Explicit number of bars used to measure middle-band direction. */
   middleDirectionLookback: number;
   /** Percentage tolerance within which bandwidth/middle changes count as flat. */
