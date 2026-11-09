@@ -231,3 +231,57 @@ UI 验收至少覆盖桌面、Android 窄屏、OPPO Find N2 外屏和展开内�
 - 共享契约冻结：`NOT_STARTED`。
 - A/B/C 功能分支：`NOT_STARTED`（按计划，契约冻结前不创建）。
 - UI 改造：`NOT_STARTED`（计算核心验收前不启动）。
+
+
+## 12. 2026-11-09 源码审计、基线与契约冻结进展
+
+### 源码审计结论
+
+审计范围：`src/market-data.ts`、`src/macd.ts`、`src/macd.test.ts`、`src/market-data.test.ts`、`src/App.tsx`、`src/types.ts`、`package.json`、`.github/workflows/frontend-checks.yml` 及现有公式文档。
+
+| 审计点 | 已确认事实 | 后续动作 |
+|---|---|---|
+| 行情链路 | `refreshMarketQuote → fetchLatestMarketData → fetchLatestQuote / fetchIntervalIndicators`；日/周/月 K 线并行请求，每周期一次，BOLL/MACD 共用同一份 K 线 | 复用该链路 |
+| 数据源 | 现货报价先东方财富、失败后腾讯；K 线也先东方财富、失败后腾讯，但当前 K 线来源没有随数组返回 | C/集成时补充 K 线来源标识，不能误用现货报价来源 |
+| BOLL 实时计算 | `calculateBollBands` 使用最近 20 根、总体标准差、2σ；盘中可能用现价替换当前周期 K 线，或追加新周期现价 | 保留实时接口；历史状态只接收确认收盘序列 |
+| BOLL 输入整理 | 当前按日期 Map 去重，重复日期后写覆盖前写；非法日期/无效收盘价被跳过 | 新规范化器改为同值重复折叠、冲突收盘价 INVALID，并补测试 |
+| MACD 算法 | `src/macd.ts` 已实现 EMA12/EMA26、DIF、DEA EMA9、柱体 2×(DIF−DEA)、交叉、零轴、排列、动能 | 保留公式；补预热与历史重放证据 |
+| MACD 初始化 | EMA 以输入序列首值作为 seed；35 根是当前最低输出数量，不等于收敛保证 | 重放固定起始序列，明确预热长度和有效性 |
+| MACD 输入整理 | 同样按日期 Map 后写覆盖前写；无效日期/价格被跳过 | 与 BOLL 共用规范化和重复日期策略 |
+| 收盘规则 | 日线同交易日需源端北京时间达到 15:00；周/月同周期最新 K 线排除；缺少交易日期时 MACD fail closed | 提取为公共确认序列语义，BOLL/MACD 共用 |
+| MACD 汇总 | `summarizeMacdPeriods` 的三周期偏多/偏空主要由 DIF 零轴位置决定，不等价于完整 DIF/DEA 排列或交叉判断 | 旧摘要不得作为组合引擎输入；B 线审计后提供兼容且语义清晰的状态 |
+| UI 调用链 | `CalculatorPage` 在“当前价格对比”中调用既有 `MacdPanel`；比较模块展开状态保存在 localStorage | 后续在原区域升级，不重复加 MACD 面板 |
+| 账本边界 | `AppData` 仅含 funds/trades/snapshots，技术状态为行情派生数据 | 保持 schemaVersion 和 JSON 备份不变 |
+
+### 现有测试基线
+
+- GitHub Actions Run `42537848892`，提交 `679a7c9d8e9b0205dd4727ef24805a5c2c37ce88`：成功。
+- 日志确认 `npm ci` 成功；Vitest 4 个测试文件、47 项测试全部通过；`npm run build` 中 TypeScript `tsc -b` 和 Vite 生产构建通过。
+- 该 workflow 使用 self-hosted Linux x64 WSL runner；目前主线连续 push 会排队，不能将 queued 误认为通过。
+- `npm ci` 输出 6 项依赖漏洞（3 moderate、1 high、2 critical）。当前 workflow 没有独立 `npm audit` 门禁；本轮未擅自升级依赖，漏洞作为既有依赖风险保留待独立处置。
+- 提交 `15fa7ec2c625b6272e8818097d2e821ba5dfaeca` 的类型契约初始版本也已通过 CI；之后契约修订和 workflow 分支触发规则仍须以最新提交 CI 为准。
+
+### 共享契约冻结
+
+- [x] 新增 `docs/TECHNICAL_STATE_COMPUTATION_CONTRACT.md`。
+- [x] 新增 `src/technical-state/types.ts`，定义统一周期、原始/规范化 K 线、确认序列、有效性、BOLL 状态、快照及显式配置类型。
+- [x] 区分现货报价来源和 K 线来源，防止东方财富报价 + 腾讯 K 线被误记为同源。
+- [x] 明确日/周/月收盘语义、重复日期冲突策略、BOLL 分位无未来数据、MACD EMA seed 与历史重放起点。
+- [x] 未经数据验证的带宽分位窗口、最小样本、中轨方向窗口、走平容差、确认根数和“接近轨道”距离全部作为显式配置，不允许分支自行硬编码。
+- [x] 组合层不得使用旧版“三周期偏多/偏空”摘要替代结构化 MACD 状态。
+
+### CI 分支触发
+
+`.github/workflows/frontend-checks.yml` 的 push 分支范围已扩展为 `main`、`feat/**`、`test/**`，使三个短期分支每次推送都能触发相同的单测、类型检查和生产构建。self-hosted runner 仍是单机资源，分支作业会排队；作业完成后逐个核对结论与日志。
+
+### 当前状态（以最新 CI 结论为准）
+
+- 源码静态审计：`PASS`（主要调用链、指标实现、测试范围和账本边界已核对）。
+- 现有测试基线：`PASS`（Run 42537848892，47/47）。
+- 共享计算契约：`PASS`（文档与 TypeScript 类型已入库；以最新 main CI 再确认类型构建）。
+- BOLL 状态实现：`NOT_STARTED`。
+- MACD 状态审计补齐：`NOT_STARTED`。
+- 历史逐根重放器：`NOT_STARTED`。
+- UI：`NOT_STARTED`。
+
+下一步：以共享契约冻结后的最新 `main` SHA 为共同基线创建三个分支：`feat/boll-state-engine`、`feat/macd-state-audit`、`test/technical-history-replay`。各分支只修改自身责任范围，并通过已启用的分支 CI。
