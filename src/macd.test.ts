@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculateMacdFromConfirmedSeries, calculateMacdPeriod, macdArrangementLabel, macdMomentumLabel, macdZeroAxisLabel, summarizeMacdPeriods, unavailableMacdPeriod, type MacdBar } from './macd';
+import { calculateMacdFromConfirmedSeries, calculateMacdPeriod, macdArrangementLabel, macdMomentumLabel, macdZeroAxisLabel, minimumMacdHistoryBars, summarizeMacdPeriods, unavailableMacdPeriod, type MacdBar } from './macd';
 import type { ConfirmedTechnicalSeries } from './technical-state/types';
 
 function barsWithReversal(): MacdBar[] {
@@ -22,6 +22,18 @@ describe('MACD deterministic multi-timeframe rules', () => {
     expect(state.error).toContain('不足');
     expect(state.availability).toBe('insufficient-history');
     expect(macdArrangementLabel(state)).toBe('历史不足');
+  });
+  it('uses the empirically calibrated stable-history gate by interval', () => {
+    expect(minimumMacdHistoryBars('daily')).toBe(160);
+    expect(minimumMacdHistoryBars('weekly')).toBe(160);
+    expect(minimumMacdHistoryBars('monthly')).toBe(100);
+    const source = barsWithReversal();
+    const belowMinimum = source.slice(0, 159);
+    const atMinimum = source.slice(0, 160);
+    expect(calculateMacdPeriod(belowMinimum, 'daily', contextFor(belowMinimum)).availability)
+      .toBe('insufficient-history');
+    expect(calculateMacdPeriod(atMinimum, 'daily', contextFor(atMinimum)).availability)
+      .toBe('ready');
   });
   it('excludes the active intraday candle for cross confirmation', () => {
     const source = barsWithReversal();
