@@ -1,7 +1,7 @@
 import { summarizeMacdPeriods, unavailableMacdPeriod, type MacdMultiTimeframeState, type MacdPeriodState, type MacdInterval } from './macd';
 import { calculateTechnicalStateSnapshot, unavailableTechnicalState } from './technical-state/engine';
 import { normalizeConfirmedTechnicalSeries } from './technical-state/series';
-import type { TechnicalMultiTimeframeState, TechnicalStateSnapshot } from './technical-state/types';
+import type { TechnicalMultiTimeframeState, TechnicalNormalizationResult, TechnicalStateSnapshot } from './technical-state/types';
 
 export type QuoteSource = '东方财富' | '腾讯行情';
 
@@ -389,6 +389,15 @@ async function fetchIntervalHistory(code: string, market: MarketQuoteRequest['ma
     }
   }
 }
+function normalizeIntervalHistory(history: IntervalHistory, quote: MarketQuote, interval: BollInterval): TechnicalNormalizationResult {
+  return normalizeConfirmedTechnicalSeries({
+    interval,
+    bars: history.bars,
+    source: history.source,
+    quote: { tradingDate: quote.tradingDate, quotedAt: quote.quotedAt, quoteSource: quote.source },
+  });
+}
+
 async function fetchIntervalIndicators(code: string, market: MarketQuoteRequest['market'], quote: MarketQuote, interval: BollInterval): Promise<IntervalIndicators> {
   const history = await fetchIntervalHistory(code, market, interval);
   let boll: BollBands | undefined;
@@ -396,12 +405,7 @@ async function fetchIntervalIndicators(code: string, market: MarketQuoteRequest[
   try { boll = calculateBollBands(history.bars, quote.price, quote.tradingDate, interval); }
   catch (error) { bollError = error instanceof Error ? error.message : 'BOLL 计算失败'; }
 
-  const normalized = normalizeConfirmedTechnicalSeries({
-    interval,
-    bars: history.bars,
-    source: history.source,
-    quote: { tradingDate: quote.tradingDate, quotedAt: quote.quotedAt, quoteSource: quote.source },
-  });
+  const normalized = normalizeIntervalHistory(history, quote, interval);
   const technicalState = normalized.validity === 'VALID'
     ? calculateTechnicalStateSnapshot(normalized.series, undefined, quote.source)
     : unavailableTechnicalState(interval, normalized.validity, normalized.reason, history.source, quote.source);
@@ -424,6 +428,18 @@ export async function fetchLatestQuote(request: MarketQuoteRequest): Promise<Mar
     // Surface both source failures so "wrong code" and "network down" are distinguishable.
     throw new Error(`东方财富失败：${eastmoneyError.message}；腾讯失败：${tencentError.message}。请检查基金代码或网络连接。`);
   }
+}
+
+/** Fetch and normalize one interval with the same quote-confirmation rules as the production market-data path. */
+export async function fetchConfirmedTechnicalHistory(
+  request: MarketQuoteRequest,
+  interval: BollInterval,
+  quote?: MarketQuote,
+): Promise<TechnicalNormalizationResult> {
+  const currentQuote = quote ?? await fetchLatestQuote(request);
+  if (currentQuote.code !== request.code.trim()) throw new Error('现价代码与历史 K 线请求代码不一致');
+  const history = await fetchIntervalHistory(request.code.trim(), request.market, interval);
+  return normalizeIntervalHistory(history, currentQuote, interval);
 }
 
 export async function fetchLatestMarketData(request: MarketQuoteRequest): Promise<MarketQuote> {
