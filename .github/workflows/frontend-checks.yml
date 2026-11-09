@@ -24,6 +24,8 @@ jobs:
         run: npm ci
       - name: Verify patched dependency versions
         run: npm run test:dependency-security
+      - name: Verify Windows and Android upgrade contract
+        run: npm run verify:upgrade-contract
       - name: Run unit tests
         run: npm run test
       - name: Type-check and production build

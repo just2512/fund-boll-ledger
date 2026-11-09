@@ -85,3 +85,11 @@ GitHub Actions 的 Native App Build 是手动触发，构建包会以 artifact �
 ## 7. 缺陷记录
 
 每个问题记录：重现步骤、预期、实际表现、设备/系统/WebView 版本、日志或截图、测试数据（请用虚构数据）。修复后增加自动化回归，不把真实投资账本上传到 issue 或代码仓库。
+
+## 8. Windows / Android 版本升级
+
+1. 执行 `npm run verify:upgrade-contract`，要求 package.json、package-lock、Cargo.toml、Cargo.lock、tauri.conf.json 版本一致，Windows identifier/productName/currentUser 不变，IndexedDB DB/store 名不变。
+2. Windows 旧版本安装后创建基金、交易和快照；安装新 NSIS 包覆盖升级（不先卸载），确认账本数据仍在。
+3. Android 安装旧版本并录入数据；用相同 applicationId、相同签名证书且更高 versionCode 的新 APK 执行 `adb install -r`，确认基金、交易、快照仍在。
+4. 使用不同签名证书的 APK 必须拒绝作为升级包；不得通过卸载重装掩盖签名不匹配。
+5. 旧临时签名 APK 切换到长期签名 APK 前，必须先导出完整 JSON，再进行一次性迁移安装并恢复数据。

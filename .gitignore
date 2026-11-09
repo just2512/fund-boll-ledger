@@ -25,3 +25,6 @@ src-tauri/gen/
 dist-android/
 /android-debug.keystore
 /src-tauri/gen/android/key.properties
+
+# Android release signing material (never commit)
+src-tauri/gen/android/keystore.properties

@@ -10,8 +10,10 @@ $tauriVersion = (& cargo tauri --version 2>$null | Out-String).Trim()
 if ($LASTEXITCODE -ne 0 -or $tauriVersion -notmatch "2\.11\.4") {
   throw "需要 Tauri CLI 2.11.4。请执行：cargo install tauri-cli --version 2.11.4 --locked"
 }
-npm install
-if ($LASTEXITCODE -ne 0) { throw "npm install 失败。" }
+npm ci
+if ($LASTEXITCODE -ne 0) { throw "npm ci 失败。" }
+npm run verify:upgrade-contract
+if ($LASTEXITCODE -ne 0) { throw "安装包升级契约检查失败。" }
 cargo tauri icon public/icon.svg
 if ($LASTEXITCODE -ne 0) { throw "应用图标生成失败。" }
 npm run desktop:build

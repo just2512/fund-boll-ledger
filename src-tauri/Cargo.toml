@@ -1,6 +1,6 @@
 [package]
 name = "fund-boll-ledger"
-version = "0.1.0"
+version = "0.2.0"
 description = "手动场内基金价格阶梯计算与交易账本"
 authors = ["just2512"]
 edition = "2021"

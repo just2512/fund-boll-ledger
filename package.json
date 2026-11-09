@@ -1,7 +1,7 @@
 {
   "name": "fund-boll-ledger",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
@@ -18,7 +18,8 @@
     "android:build": "cargo tauri android build --apk --target aarch64 --ci",
     "test:technical-live": "node scripts/run-live-technical-acceptance.mjs",
     "calibrate:technical-live": "node scripts/run-live-technical-calibration.mjs",
-    "test:dependency-security": "node scripts/verify-dependency-security.mjs"
+    "test:dependency-security": "node scripts/verify-dependency-security.mjs",
+    "verify:upgrade-contract": "node scripts/verify-upgrade-contract.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

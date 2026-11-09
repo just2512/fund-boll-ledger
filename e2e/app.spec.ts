@@ -354,6 +354,8 @@ test('旧版 IndexedDB v1 升级到 v2 后保留完整账本数据', async ({ pa
 
 test('本地账本七天未导出时提醒，发起完整 JSON 导出后跨重启解除提醒', async ({ page }) => {
   await createFund(page, '备份提醒基金', '510300');
+  await expect(page.locator('.save-state.saving')).toBeVisible();
+  await expect(page.locator('.save-state.saved')).toBeVisible();
   await expect(page.locator('.backup-reminder')).toBeVisible();
   const downloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: '立即导出完整 JSON' }).click();

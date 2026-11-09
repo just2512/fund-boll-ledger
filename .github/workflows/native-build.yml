@@ -21,7 +21,9 @@ jobs:
           cache: npm
       - uses: dtolnay/rust-toolchain@stable
       - name: Install frontend dependencies
-        run: npm install
+        run: npm ci
+      - name: Verify upgrade contract
+        run: npm run verify:upgrade-contract
       - name: Install pinned Tauri CLI
         run: cargo install tauri-cli --version 2.11.4 --locked
       - name: Generate app icons
@@ -41,8 +43,8 @@ jobs:
 
   # Android ARM64 APK on a GitHub-hosted Linux runner. All toolchains are
   # provisioned in the job.
-  android:
-    name: Android ARM64 APK (GitHub-hosted)
+  android-debug:
+    name: Android ARM64 ephemeral-signed smoke APK (not upgradeable)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -82,6 +84,8 @@ jobs:
           cargo tauri --version
       - name: Install frontend dependencies
         run: npm ci
+      - name: Verify upgrade contract
+        run: npm run verify:upgrade-contract
       - name: Generate app icons
         run: cargo tauri icon public/icon.svg
       - name: Initialize Android project
@@ -119,10 +123,86 @@ jobs:
             --out "$RUNNER_TEMP/signed.apk" "$RUNNER_TEMP/aligned.apk"
           "$BT/apksigner" verify "$RUNNER_TEMP/signed.apk"
           mkdir -p artifacts
-          cp "$RUNNER_TEMP/signed.apk" "artifacts/基金阶梯账本-${{ github.ref_name }}-arm64-signed.apk"
+          cp "$RUNNER_TEMP/signed.apk" "artifacts/基金阶梯账本-${{ github.ref_name }}-arm64-debug-only.apk"
       - uses: actions/upload-artifact@v4
         with:
-          name: fund-boll-ledger-android-arm64
+          name: fund-boll-ledger-android-arm64-debug-only
+          path: artifacts/*.apk
+          if-no-files-found: error
+          retention-days: 14
+  # A release APK is only built when a persistent signing identity is configured.
+  # Debug APKs above are smoke-test artifacts and must never be used as upgrades.
+  android-release:
+    name: Android ARM64 signed release (upgrade-compatible)
+    if: ${{ vars.ANDROID_RELEASE_SIGNING_ENABLED == 'true' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: platform-tools
+      - name: Install Android SDK components
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;28.2.13676358"
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential curl wget file libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+      - name: Install pinned Tauri CLI
+        run: cargo install tauri-cli --version 2.11.4 --locked
+      - name: Set up Android environment
+        run: |
+          echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/28.2.13676358" >> "$GITHUB_ENV"
+          echo "NDK_HOME=$ANDROID_SDK_ROOT/ndk/28.2.13676358" >> "$GITHUB_ENV"
+      - name: Verify Android toolchain
+        run: |
+          test -d "$ANDROID_HOME/platforms/android-36"
+          test -d "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64"
+          java -version
+          rustc --version
+          cargo tauri --version
+      - name: Install frontend dependencies
+        run: npm ci
+      - name: Verify upgrade contract
+        run: npm run verify:upgrade-contract
+      - name: Generate app icons
+        run: cargo tauri icon public/icon.svg
+      - name: Initialize Android project
+        run: cargo tauri android init --ci
+      - name: Configure persistent Android release signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: node scripts/configure-android-signing.mjs
+      - name: Build upgrade-compatible ARM64 APK
+        run: cargo tauri android build --apk --target aarch64 --ci
+      - name: Verify APK signature, application ID and version code
+        shell: bash
+        run: |
+          set -euo pipefail
+          BT="$ANDROID_HOME/build-tools/36.0.0"
+          APK="$(find src-tauri/gen/android/app/build/outputs -type f -name '*.apk' ! -name '*unsigned*' | head -1)"
+          test -n "$APK"
+          "$BT/apksigner" verify --verbose "$APK"
+          "$BT/aapt" dump badging "$APK" | grep -F "package: name='com.just2512.fundbollledger' versionCode='2000' versionName='0.2.0'"
+          mkdir -p artifacts
+          cp "$APK" "artifacts/基金阶梯账本-0.2.0-arm64-release-upgradeable.apk"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fund-boll-ledger-android-arm64-release-upgradeable
           path: artifacts/*.apk
           if-no-files-found: error
           retention-days: 14
