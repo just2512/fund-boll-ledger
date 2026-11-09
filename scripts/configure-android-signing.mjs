@@ -53,7 +53,7 @@ function resolveSigningMaterial() {
     const required = ['ANDROID_KEYSTORE_PASSWORD', 'ANDROID_KEY_PASSWORD', 'ANDROID_KEY_ALIAS'];
     const missing = required.filter((key) => !process.env[key]);
     if (missing.length) throw new Error(`Android release signing secrets missing: ${missing.join(', ')}`);
-    const keystorePath = path.join(os.tmpdir(), `fund-boll-ledger-release-${process.pid}.jks`);
+    const keystorePath = path.join(os.tmpdir(), `fund-boll-ledger-release-${process.pid}.p12`);
     const bytes = Buffer.from(encoded, 'base64');
     if (bytes.length < 1024) throw new Error('ANDROID_KEYSTORE_BASE64 解码后的文件过小，拒绝使用。');
     fs.writeFileSync(keystorePath, bytes, { mode: 0o600 });
@@ -95,6 +95,7 @@ if (!gradle.includes('create("release")')) {
             keyAlias = keystoreProperties["keyAlias"] as String
             keyPassword = keystoreProperties["keyPassword"] as String
             storeFile = file(keystoreProperties["storeFile"] as String)
+            storeType = "PKCS12"
             storePassword = keystoreProperties["storePassword"] as String
         }
     }
