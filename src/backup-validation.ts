@@ -125,9 +125,9 @@ export function validateAppData(value: unknown): BackupValidationResult {
   let allFundsValid = true;
   let allTradesValid = true;
   let allSnapshotsValid = true;
-  value.funds.forEach((item, index) => { if (!validateFund(item, index, fundIds, errors)) allFundsValid = false; });
-  value.trades.forEach((item, index) => { if (!validateTrade(item, index, tradeIds, fundIds, errors)) allTradesValid = false; });
-  value.snapshots.forEach((item, index) => { if (!validateSnapshot(item, index, snapshotIds, fundIds, errors)) allSnapshotsValid = false; });
+  (value.funds as unknown[]).forEach((item, index) => { if (!validateFund(item, index, fundIds, errors)) allFundsValid = false; });
+  (value.trades as unknown[]).forEach((item, index) => { if (!validateTrade(item, index, tradeIds, fundIds, errors)) allTradesValid = false; });
+  (value.snapshots as unknown[]).forEach((item, index) => { if (!validateSnapshot(item, index, snapshotIds, fundIds, errors)) allSnapshotsValid = false; });
 
   if (allFundsValid && allTradesValid) {
     for (const fund of value.funds as Fund[]) {
