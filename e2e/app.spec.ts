@@ -114,6 +114,53 @@ test('交易记账计算持仓与盈亏，并拒绝超卖', async ({ page }) => 
   await expect(page.locator('.metric', { hasText: '当前持仓' }).locator('strong')).toHaveText('60 份');
 });
 
+test('跨基金交易筛选后编辑和删除仍保持原基金关联', async ({ page }) => {
+  await createFund(page, '基金甲', '510300');
+  await page.getByRole('button', { name: '交易账本' }).click();
+  await page.getByRole('button', { name: '新增交易' }).first().click();
+  await page.getByLabel('成交价格（元/份）').fill('10');
+  await page.getByPlaceholder('例如 1000').fill('100');
+  await page.getByRole('button', { name: '保存交易' }).click();
+  await expect(page.getByText('交易明细已保存')).toBeVisible();
+
+  await page.locator('.page-fund-tools').getByRole('button', { name: '＋ 新增' }).click();
+  await page.getByPlaceholder('例如：宽基 ETF').fill('基金乙');
+  await page.getByPlaceholder('例如：510300').fill('512170');
+  await page.getByRole('button', { name: '保存档案' }).click();
+  await expect(page.getByText('已保存基金档案')).toBeVisible();
+  await page.getByRole('button', { name: '交易账本' }).click();
+  await page.getByRole('button', { name: '新增交易' }).first().click();
+  await page.getByLabel('成交价格（元/份）').fill('20');
+  await page.getByPlaceholder('例如 1000').fill('200');
+  await page.getByRole('button', { name: '保存交易' }).click();
+  await expect(page.getByText('交易明细已保存')).toBeVisible();
+
+  await expect(page.locator('tbody tr')).toHaveCount(2);
+  await expect(page.locator('tbody')).toContainText('基金甲');
+  await expect(page.locator('tbody')).toContainText('基金乙');
+  await page.getByLabel('筛选基金').selectOption({ label: '基金甲 · 510300' });
+  await expect(page.locator('tbody tr')).toHaveCount(1);
+  await expect(page.locator('tbody')).toContainText('基金甲');
+  await page.getByLabel('筛选基金').selectOption('all');
+
+  // 从跨基金列表编辑基金乙：弹窗和保存目标必须仍是基金乙。
+  await page.getByRole('row', { name: /基金乙/ }).getByRole('button', { name: '编辑' }).click();
+  await expect(page.getByLabel('成交价格（元/份）')).toHaveValue('20');
+  await page.getByPlaceholder('例如 1000').fill('150');
+  await page.getByRole('button', { name: '保存交易' }).click();
+  await expect(page.getByText('交易明细已保存')).toBeVisible();
+  await expect(page.locator('.metric', { hasText: '当前持仓' }).locator('strong')).toHaveText('150 份');
+  await expect(page.locator('tbody').getByText('基金乙')).toBeVisible();
+
+  // 删除基金乙交易后，只影响基金乙；基金甲仍有原来的 100 份。
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('row', { name: /基金乙/ }).getByRole('button', { name: '删除' }).click();
+  await expect(page.locator('tbody tr')).toHaveCount(1);
+  await expect(page.locator('tbody')).toContainText('基金甲');
+  await expect(page.locator('.metric', { hasText: '当前持仓' }).locator('strong')).toHaveText('0 份');
+  await page.getByLabel('筛选基金').selectOption({ label: '基金甲 · 510300' });
+  await expect(page.locator('tbody tr')).toHaveCount(1);
+});
 test('统一固定费率自动估算佣金和其他费用，并按分四舍五入', async ({ page }) => {
   await createFund(page, '固定费率基金', '510300');
   await page.getByRole('button', { name: '交易账本' }).click();
