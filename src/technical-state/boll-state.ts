@@ -2,7 +2,6 @@ import type {
   BollState,
   BollStateConfig,
   BollBandwidthPhase,
-  BollMiddleDirection,
   BollPriceLocation,
   ConfirmedTechnicalSeries,
 } from './types';
