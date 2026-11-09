@@ -24,7 +24,7 @@ jobs:
         run: npm ci
       - name: Verify patched dependency versions
         run: npm run test:dependency-security
-      - name: Verify execution contract and complete A/B requirements matrix
+      - name: Verify execution contract and technical-state requirements matrix
         run: npm run verify:execution-contract
       - name: Verify Windows and Android upgrade contract
         run: npm run verify:upgrade-contract
