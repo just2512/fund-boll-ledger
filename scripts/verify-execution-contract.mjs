@@ -12,6 +12,7 @@ const contract = read('docs/EXECUTION_CONTRACT.md');
 const plan = read('docs/TECHNICAL_STATE_ANALYSIS_IMPLEMENTATION_PLAN.md');
 const audit = read('docs/TECHNICAL_STATE_SOURCE_AUDIT.md');
 const calibrationReport = read('docs/BOLL_MACD_CALIBRATION_REPORT.md');
+const ledger = read('docs/execution-ledger.md');
 const matrix = JSON.parse(read('docs/TECHNICAL_STATE_REQUIREMENTS.json'));
 const packageJson = JSON.parse(read('package.json'));
 
@@ -70,7 +71,7 @@ for (const id of ['T-00','T-01','T-02','T-03','T-04','T-05','T-06','T-07','T-08'
 }
 
 const requiredSources = {
-  'T-00': ['docs/TECHNICAL_STATE_SOURCE_AUDIT.md'],
+  'T-00': ['docs/execution-ledger.md', 'docs/TECHNICAL_STATE_SOURCE_AUDIT.md'],
   'T-01': ['src/technical-state/series.ts', 'src/technical-state/series.test.ts'],
   'T-02': ['src/technical-state/boll-state.ts', 'src/technical-state/boll-state.test.ts'],
   'T-03': ['src/technical-state/config.ts', 'src/technical-state/config.test.ts', 'src/market-data.ts'],
@@ -95,6 +96,9 @@ for (const [id, paths] of Object.entries(requiredSources)) {
 const liveCalibration = read('src/technical-state/real-data.calibration.live.test.ts');
 if (liveCalibration.includes('auditConfirmedBollMacdSeries')) {
   throw new Error('Strategy event pairing must not be a dependency of technical-state live calibration.');
+}
+if (!ledger.includes('TECHNICAL_STATE_REQUIREMENTS.json') || !ledger.includes('Required reading order')) {
+  throw new Error('Execution ledger must point to the authoritative matrix and define a recovery reading order.');
 }
 if (!audit.includes('当前 main 不存在') || !audit.includes('账本隔离')) {
   throw new Error('Source audit must document current scope exclusions and ledger isolation.');
