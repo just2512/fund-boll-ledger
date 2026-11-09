@@ -22,6 +22,7 @@ describe('live multi-ETF BOLL historical calibration', () => {
   (runLive ? it : it.skip)('collects real confirmed history, checks rolling replay boundaries, and emits descriptive distributions without selecting thresholds', async () => {
     const reports = [];
     let baiduFallbackProbe: { source: string | undefined; confirmedBars: number; eventSetupCount: number } | undefined;
+    let baiduQuoteProbe: { source: string; price: string; previousClose: string; hasTrustedTradingDate: boolean } | undefined;
     for (const instrument of instruments) {
       const request = { code: instrument.code, market: instrument.market };
       const quote = await fetchLatestQuote(request);
@@ -50,6 +51,31 @@ describe('live multi-ETF BOLL historical calibration', () => {
               source: baiduHistory.series.source,
               confirmedBars: baiduHistory.series.bars.length,
               eventSetupCount: baiduEvents.length,
+            };
+          } finally {
+            globalThis.fetch = originalFetch;
+          }
+        }
+
+        if (instrument.code === '510300' && interval === 'daily') {
+          const originalFetch = globalThis.fetch;
+          globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+            const url = input instanceof Request ? input.url : String(input);
+            if (url.includes('push2.eastmoney.com/api/qt/stock/get?')) return new Response('', { status: 503 });
+            return originalFetch(input, init);
+          };
+          try {
+            const baiduQuote = await fetchLatestQuote(request);
+            expect(baiduQuote.source).toBe('百度行情');
+            expect(Number(baiduQuote.price)).toBeGreaterThan(0);
+            expect(Number(baiduQuote.previousClose)).toBeGreaterThan(0);
+            expect(baiduQuote.tradingDate).toBeUndefined();
+            expect(baiduQuote.quotedAt).toBeUndefined();
+            baiduQuoteProbe = {
+              source: baiduQuote.source,
+              price: baiduQuote.price,
+              previousClose: baiduQuote.previousClose,
+              hasTrustedTradingDate: baiduQuote.tradingDate !== undefined,
             };
           } finally {
             globalThis.fetch = originalFetch;
@@ -108,6 +134,7 @@ describe('live multi-ETF BOLL historical calibration', () => {
       }
     }
     expect(baiduFallbackProbe?.source, '必须真实请求百度备用 K 线并确认其可用，不能只用 fixture 证明解析器').toBe('百度行情');
+    expect(baiduQuoteProbe?.source, '必须真实请求百度备用现价并确认昨收解析，不得回退腾讯').toBe('百度行情');
     const sourcePolicyViolations = reports
       .filter((entry) => !['东方财富', '百度行情'].includes(entry.klineSource ?? '') || entry.quoteSource !== '东方财富')
       .map((entry) => ({ code: entry.code, interval: entry.interval, klineSource: entry.klineSource, quoteSource: entry.quoteSource }));
@@ -124,6 +151,7 @@ describe('live multi-ETF BOLL historical calibration', () => {
       thresholdSelection: 'NOT_PERFORMED',
       replayMethod: 'CONFIRMED_PREFIX_ONE_BAR_AT_A_TIME',
       baiduFallbackProbe,
+      baiduQuoteProbe,
       reports,
     };
     console.info('LIVE_TECHNICAL_CALIBRATION_JSON_BEGIN');
