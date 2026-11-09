@@ -652,3 +652,52 @@ B 线未完成前，禁止将事件审计中的触发价至确认价变化解释
 - [机器可检查需求验收台账](TECHNICAL_STATE_REQUIREMENTS.json)
 - `scripts/verify-execution-contract.mjs`，已接入前端 CI 与技术真实数据验收 CI。
 - 本次治理提交只证明执行规则检查接入 CI，不代表 B 线功能恢复或策略验收完成。
+
+
+## 24. 2026-11-09 用户范围校正：只做技术状态分析，不做策略回测
+
+**本节为当前有效范围，优先于第 21、22、23 节中任何与策略回测、订单、成交或账务模拟有关的描述。** 第 21—23 节中关于 B 线交易策略研究、OHLCV 回测基础设施、订单成交和样本外策略验证的内容均已被用户明确否定，不属于当前交付要求。
+
+### 唯一交付目标
+
+在现有价格对比模块中，完成 BOLL + MACD 的技术状态计算、客观描述、多周期展示和历史逐根验证。不得改变基金账本原有定位。
+
+### 明确排除
+
+- 不开发策略回测、订单、委托、成交、持仓模拟、资金分配、手续费、滑点、收益率、回撤或策略报告。
+- 不把“BOLL 触轨后等待 MACD 金叉/死叉”配对逻辑接入产品 UI 或交易流程；该逻辑属于策略研究，不是本次产品交付依赖。
+- 不新增 `src/backtest/`、回测工作流、回测 npm script、策略工作台或独立页面。
+- 不修改 Fund/Trade/Snapshot 数据结构、交易记录、成本盈亏和 JSON 备份语义。
+- 不将指标状态包装成买卖建议或交易指令。
+
+既有 `src/technical-state/boll-macd-events.ts` 保留为历史辅助代码，不扩大其用途，不将其作为本次交付完成条件。
+
+### 唯一实施顺序
+
+1. 审计当前 main 的源码、行情数据调用链、确认 K 线、BOLL/MACD 计算入口和 UI。
+2. 完成 BOLL 状态：沿用 BOLL(20,2) 公式，核对 BBW、历史分位、收窄/扩张、中轨方向和价格位置；阈值须由真实历史数据校准，未配置时输出 UNKNOWN。
+3. 完成 MACD 状态：核对 EMA 初始化、DIF/DEA/HIST、新交叉、持续排列、零轴和柱体动能语义。
+4. 完成单周期 BOLL + MACD 客观描述，以及日/周/月综合关系描述。
+5. 完成历史逐根重放、批量一致性和未来数据隔离。
+6. 在现有价格对比模块内完成首屏结论和折叠详情，不增加独立功能模块。
+7. 完成全量单测、类型检查、构建、E2E 和真实行情验收。
+
+### 当前源码审计发现
+
+- `src/technical-state/engine.ts` 已有单周期 `describeTechnicalStateSnapshot`，但尚未接入现有 `App.tsx` 的 MACD 面板。
+- `src/technical-state/boll-state.ts` 支持显式 `BollStateConfig`；当前 `src/market-data.ts` 调用 `calculateTechnicalStateSnapshot(normalized.series, undefined, quote.source)`，所以带宽分位、收窄/扩张和中轨方向仍为 UNKNOWN。这不是已完成状态。
+- `src/macd.ts` 已有 MACD(12,26,9)、EMA 种子、交叉事件、持续排列、零轴、柱体动能及三周期 MACD summary。
+- `summarizeMacdPeriods` 目前只汇总 MACD，不能冒充 BOLL + MACD 联合多周期结论。
+- `App.tsx` 已有现有价格对比模块内的 MACD 描述面板，但尚未展示完整 BOLL 状态和 BOLL + MACD 联合描述。
+- `history-replay.ts` 已有逐根前缀重放、无未来 K 线检查和批量结果比较测试。
+- 当前 `main` 不存在 `src/backtest/`、`backtest-data-acceptance.yml` 或回测 npm script；本次没有向 main 合入任何策略回测代码。
+
+### 执行治理落地记录
+
+- 已建立 [执行契约](EXECUTION_CONTRACT.md)、[技术状态需求验收台账](TECHNICAL_STATE_REQUIREMENTS.json) 和 `scripts/verify-execution-contract.mjs`。
+- 执行契约检查已接入前端 CI 和技术状态校准 CI；检查器会拒绝新增 `src/backtest/`、回测工作流或回测 npm script。
+- 误建的 `feat/track-b-backtest-recovery` 分支已重置到当前 main `6071da608cd3d190bff36fbf5fb74be67bcf84a6`；该分支中的回测代码没有保留或合入 main。
+- 当前 main 前端 CI Run [42643356801](https://github.com/just2512/fund-boll-ledger/actions/runs/42643356801) 的单测、类型检查、生产构建和浏览器 E2E 全部通过。它只证明当前代码回归通过，不代表 T-03/T-07/T-09 等未完成需求已完成。
+- 真实行情 Run [42641886843](https://github.com/just2512/fund-boll-ledger/actions/runs/42641886843)：510300 日/周/月专项通过；多 ETF 校准因东方财富 HTTP 503、百度 HTTP 403/CDN 超时失败，T-11 保持 BLOCKED。
+
+当前逐项状态以 `TECHNICAL_STATE_REQUIREMENTS.json` 为准。任何历史 B 线策略回测记录不得重新计入当前需求或作为新增代码授权。
