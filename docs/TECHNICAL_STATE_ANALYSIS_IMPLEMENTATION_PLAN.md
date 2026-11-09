@@ -696,7 +696,7 @@ B 线未完成前，禁止将事件审计中的触发价至确认价变化解释
 
 - 已建立 [执行契约](EXECUTION_CONTRACT.md)、[技术状态需求验收台账](TECHNICAL_STATE_REQUIREMENTS.json) 和 `scripts/verify-execution-contract.mjs`。
 - 执行契约检查已接入前端 CI 和技术状态校准 CI；检查器会拒绝新增 `src/backtest/`、回测工作流或回测 npm script。
-- 误建的 `feat/track-b-backtest-recovery` 分支已重置到当前 main `6071da608cd3d190bff36fbf5fb74be67bcf84a6`；该分支中的回测代码没有保留或合入 main。
+- 误建的 `feat/track-b-backtest-recovery` 分支已重置到当前 main `56a9696453e4b6ccf56d4cdc70ea00c7a6801639`；该分支中的回测代码没有保留或合入 main。
 - 当前 main 前端 CI Run [42643356801](https://github.com/just2512/fund-boll-ledger/actions/runs/42643356801) 的单测、类型检查、生产构建和浏览器 E2E 全部通过。它只证明当前代码回归通过，不代表 T-03/T-07/T-09 等未完成需求已完成。
 - 真实行情 Run [42641886843](https://github.com/just2512/fund-boll-ledger/actions/runs/42641886843)：510300 日/周/月专项通过；多 ETF 校准因东方财富 HTTP 503、百度 HTTP 403/CDN 超时失败，T-11 保持 BLOCKED。
 
