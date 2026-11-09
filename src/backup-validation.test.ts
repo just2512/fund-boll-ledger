@@ -10,7 +10,11 @@ function validBackup(): AppData {
     transferFee: '0', stampDuty: '0', otherFee: '0.16', feesChecked: false,
     note: '', createdAt: '2026-11-06T01:31:00.000Z', updatedAt: '2026-11-06T01:31:00.000Z',
   };
-  return { ...emptyAppData(), funds: [fund], trades: [trade] };
+  const snapshot = {
+    id: 'snapshot-1', fundId: fund.id, createdAt: '2026-11-06T02:00:00.000Z',
+    tradingDate: '2026-11-06', prices: { ...fund.prices }, tickSize: '0.001', note: 'valid snapshot',
+  };
+  return { ...emptyAppData(), funds: [fund], trades: [trade], snapshots: [snapshot] };
 }
 
 describe('backup validation', () => {

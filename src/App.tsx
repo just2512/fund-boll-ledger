@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { bollRangePositionRatio, bollRangePositionRatioForBands, calculatePosition, compareToBases, currentValueCents, estimateCommission, estimateOtherFee, PRICE_KEYS, priceLadder, unrealizedPnlCents, type Direction, type PriceKey } from './calculations';
 import { formatCents, formatCurrency, formatPercent, formatScaled, parseMoneyCents, parseQuantity, parseScaled, percentHundredths, priceAmountCents } from './decimal';
-import { loadAppData, saveAppData } from './storage';
+import { loadAppData, loadStorageMetadata, saveAppData, saveLastBackupAt } from './storage';
+import { getBackupReminder } from './backup-reminder';
 import { validateAppData } from './backup-validation';
 import { fetchLatestMarketData, type MarketQuote } from './market-data';
 import { macdArrangementLabel, macdMomentumLabel, macdZeroAxisLabel, type MacdMultiTimeframeState, type MacdPeriodState, type MacdTone } from './macd';
@@ -197,14 +198,18 @@ export default function App() {
   const [marketQuotes, setMarketQuotes] = useState<Record<string, QuoteViewState>>({});
   const [historyFundFilter, setHistoryFundFilter] = useState('all');
   const [notification, setNotification] = useState('');
+  const [lastBackupAt, setLastBackupAt] = useState<string | null>(null);
   const importInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     let active = true;
-    loadAppData().then((loaded) => {
+    loadAppData().then(async (loaded) => {
+      let backupTimestamp: string | null = null;
+      try { backupTimestamp = (await loadStorageMetadata()).lastBackupAt; } catch { /* Ledger data remains readable; the reminder will fail safe to due. */ }
       if (!active) return;
       const normalized = normalizeAppData(loaded);
       setData(normalized);
+      setLastBackupAt(backupTimestamp);
       setSelectedFundId(normalized.funds[0]?.id ?? '');
       setHydrated(true);
       setStorageReady(true);
@@ -237,6 +242,10 @@ export default function App() {
   }, [data, hydrated, storageReady]);
 
   const selectedFund = useMemo(() => data.funds.find((fund) => fund.id === selectedFundId) ?? null, [data.funds, selectedFundId]);
+  const backupReminder = useMemo(
+    () => getBackupReminder(lastBackupAt, data.funds.length > 0 || data.trades.length > 0 || data.snapshots.length > 0),
+    [lastBackupAt, data.funds.length, data.trades.length, data.snapshots.length],
+  );
   const storedQuoteState = selectedFund ? marketQuotes[selectedFund.id] : undefined;
   const currentQuoteState = storedQuoteState?.requestedCode === selectedFund?.code ? storedQuoteState : undefined;
   const ladderBasis: PriceKey = selectedFund?.ladderBasis ?? 'lastTradePrice';
@@ -382,7 +391,14 @@ export default function App() {
     }
   };
 
-  const exportJson = () => downloadFile(`fund-boll-ledger-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(data, null, 2));
+  const exportJson = () => {
+    const exportedAt = new Date().toISOString();
+    downloadFile(`fund-boll-ledger-${exportedAt.slice(0, 10)}.json`, JSON.stringify(data, null, 2));
+    setLastBackupAt(exportedAt);
+    void saveLastBackupAt(exportedAt).catch((error: unknown) => {
+      setNotification('已发起 JSON 导出，但无法记录备份提醒时间：' + (error instanceof Error ? error.message : '本地元数据保存失败'));
+    });
+  };
   const exportCsv = () => {
     const header = ['基金名称', '基金代码', '成交时间', '方向', '成交价格', '数量', '成交金额', '佣金', '经手/过户费用', '印花税', '其他费用', '费用合计', '费用是否核对', '备注'];
     const rows = data.trades.slice().sort((a, b) => a.tradedAt.localeCompare(b.tradedAt)).map((trade) => {
@@ -419,13 +435,14 @@ export default function App() {
   return <div className="app-shell">
     <header className="topbar"><div className="brand"><div className="brand-mark">阶</div><div><strong>基金阶梯账本</strong><span>手动记录 · 本地保存 · 不接交易接口</span></div></div><div className="top-actions"><span className={`save-state ${persistenceStatus}`}><i/>{persistenceStatus === 'saving' ? '保存中' : persistenceStatus === 'saved' ? '已保存到本机' : persistenceStatus === 'error' ? '保存异常' : '读取中'}</span><button className="button ghost top-export" onClick={exportJson}>导出备份</button><button className="button ghost top-export" onClick={() => importInputRef.current?.click()}>导入备份</button><input ref={importInputRef} type="file" accept="application/json,.json" hidden onChange={(e) => void handleImportFile(e.target.files?.[0])}/></div></header>
     {persistenceStatus === 'error' && <div className="storage-warning"><strong>本地保存异常：</strong>{persistenceError} 请先导出备份并检查浏览器权限。<button className="text-button" onClick={exportJson}>立即导出备份</button></div>}
+    {backupReminder.due && <div className="storage-warning backup-reminder" role="status"><strong>本地备份提醒：</strong>{backupReminder.message} 账本仅保存在本机；导出后请将 JSON 文件另存到安全位置。<button className="text-button" onClick={exportJson}>立即导出完整 JSON</button></div>}
     <div className={`workspace ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}><aside className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}><div className="sidebar-header"><span className="sidebar-label">工作台</span><button type="button" className="sidebar-toggle" onClick={() => setSidebarCollapsed((old) => !old)} aria-label={sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'} title={sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'}>{sidebarCollapsed ? '☰' : '‹'}</button></div>{NAV_ITEMS.map((item) => <button key={item.id} className={`nav-item ${activePage === item.id ? 'selected' : ''}`} onClick={() => setActivePage(item.id)} title={sidebarCollapsed ? item.label : undefined} aria-label={item.label}><span className="nav-symbol">{item.id === 'calculator' ? '⌁' : item.id === 'ledger' ? '≡' : item.id === 'portfolio' ? '◫' : '↻'}</span><span><strong>{item.label}</strong><small>{item.caption}</small></span></button>)}<div className="sidebar-divider"/><div className="sidebar-funds-head"><span className="sidebar-label">我的基金</span><button className="round-add" onClick={() => { setEditingFundId(null); setShowFundForm(true); }} aria-label="新增基金">＋</button></div>{data.funds.length === 0 ? <div className="empty-funds">还没有基金档案。<br/>新增后即可开始计算。</div> : <div className="fund-list">{data.funds.map((fund) => <button key={fund.id} className={`fund-list-item ${fund.id === selectedFundId ? 'active' : ''}`} onClick={() => setSelectedFundId(fund.id)} aria-label={fund.name} title={sidebarCollapsed ? fund.name : undefined}><span className="fund-dot">{fund.name.slice(0, 1)}</span><span className="fund-list-text"><strong>{fund.name}</strong><small>{fund.code || fund.category}</small></span>{fund.id === selectedFundId && <span className="selected-mark">●</span>}</button>)}</div>}<button className="button outline full-width add-fund" onClick={() => { setEditingFundId(null); setShowFundForm(true); }}>＋ 新增基金</button><div className="sidebar-footer"><span>数据保存在当前浏览器设备</span><span>跨设备请使用备份导入导出</span></div></aside>
       <main className="main-content"><div className="page-heading"><div><div className="eyebrow">PERSONAL FUND WORKSPACE</div><h1>{NAV_ITEMS.find((x) => x.id === activePage)?.label}</h1><p>{NAV_ITEMS.find((x) => x.id === activePage)?.caption} · 行情可手动刷新，不自动轮询</p></div>{selectedFund && <div className="page-fund-tools"><div className="fund-selector-wrap"><label htmlFor="fund-select">当前基金</label><select id="fund-select" value={selectedFund.id} onChange={(e) => setSelectedFundId(e.target.value)}>{data.funds.map((fund) => <option key={fund.id} value={fund.id}>{fund.name}{fund.code ? ` · ${fund.code}` : ''}</option>)}</select></div><div className="fund-navigation" role="group" aria-label="切换基金"><button type="button" className="icon-button fund-nav-button" aria-label="上一只基金" title="上一只基金" disabled={selectedFundIndex <= 0} onClick={() => { const previous = data.funds[selectedFundIndex - 1]; if (previous) setSelectedFundId(previous.id); }}>‹</button><button type="button" className="icon-button fund-nav-button" aria-label="下一只基金" title="下一只基金" disabled={selectedFundIndex < 0 || selectedFundIndex >= data.funds.length - 1} onClick={() => { const next = data.funds[selectedFundIndex + 1]; if (next) setSelectedFundId(next.id); }}>›</button></div><button className="button ghost" onClick={() => { setEditingFundId(null); setShowFundForm(true); }}>＋ 新增</button><button className="button ghost" onClick={() => { setEditingFundId(selectedFund.id); setShowFundForm(true); }}>编辑档案</button></div>}</div>
         {data.funds.length === 0 ? <section className="welcome-card"><div className="welcome-icon">阶</div><h2>先建立第一只场内基金</h2><p>手动输入布林线上轨、中轨、下轨、昨日收盘价、上一次成交价和当前价格，即可生成十档阶梯。交易账本会记录成交数量、费用、持仓和盈亏。</p><button className="button primary" onClick={() => { setEditingFundId(null); setShowFundForm(true); }}>＋ 新增基金档案</button><div className="welcome-feature-row"><span>手动刷新行情</span><span>不自动下单</span><span>本地保存</span><span>JSON 备份恢复</span></div></section> : !selectedFund ? null : <>
           {activePage === 'calculator' && <CalculatorPage fund={selectedFund} comparisons={comparisons} ladderBasis={ladderBasis} setLadderBasis={setLadderBasis} ladderDirection={ladderDirection} setLadderDirection={setLadderDirection} ladderRows={ladderRows} onPriceChange={(key, value) => { mutatePrices(selectedFund.id, { [key]: value }); setMarketQuotes((old) => { const prior = old[selectedFund.id]; if (!prior || prior.requestedCode !== selectedFund.code) return old; return { ...old, [selectedFund.id]: { ...prior, hasManualEdits: true } }; }); }} quoteState={currentQuoteState} onRefreshQuote={() => void refreshMarketQuote(selectedFund)} onUseLatestTrade={() => { const price = lastTradePriceForFund(selectedFund.id); if (price) mutatePrices(selectedFund.id, { lastTradePrice: price }); else setNotification('当前基金还没有交易记录，请手动输入上一次成交价。'); }} onSaveSnapshot={handleSaveSnapshot} snapshotNote={snapshotNote} setSnapshotNote={setSnapshotNote} onGoLedger={() => { setActivePage('ledger'); setShowTradeForm(true); }}/>}
           {activePage === 'ledger' && <LedgerPage fund={selectedFund} funds={data.funds} trades={allTrades} position={position!} onAdd={() => { setEditingTradeId(null); setShowTradeForm(true); }} onEdit={(trade) => { setSelectedFundId(trade.fundId); setEditingTradeId(trade.id); setShowTradeForm(true); }} onDelete={handleDeleteTrade}/>} 
           {activePage === 'portfolio' && <PortfolioPage funds={data.funds} trades={data.trades} onSelect={(id) => { setSelectedFundId(id); setActivePage('calculator'); }}/>} 
-          {activePage === 'history' && <HistoryPage data={data} filter={historyFundFilter} setFilter={setHistoryFundFilter} onDeleteSnapshot={(id) => { if (window.confirm('确定删除这条价格快照吗？')) setData((old) => ({ ...old, snapshots: old.snapshots.filter((s) => s.id !== id) })); }} onExportCsv={exportCsv} onExportJson={exportJson} onImport={() => importInputRef.current?.click()} onDeleteFund={handleDeleteFund}/>} 
+          {activePage === 'history' && <HistoryPage data={data} filter={historyFundFilter} setFilter={setHistoryFundFilter} lastBackupAt={lastBackupAt} onDeleteSnapshot={(id) => { if (window.confirm('确定删除这条价格快照吗？')) setData((old) => ({ ...old, snapshots: old.snapshots.filter((s) => s.id !== id) })); }} onExportCsv={exportCsv} onExportJson={exportJson} onImport={() => importInputRef.current?.click()} onDeleteFund={handleDeleteFund}/>} 
         </>}
         <footer className="app-footer"><span>仅在点击时获取公开行情，不自动轮询、不连接券商账户。</span><span>计算价格不代表买卖建议。</span></footer>
       </main></div>
@@ -623,7 +640,7 @@ function snapshotPriceChange(current: string, previous: string, tickSize: string
   }
 }
 
-function HistoryPage({ data, filter, setFilter, onDeleteSnapshot, onExportCsv, onExportJson, onImport, onDeleteFund }: { data: AppData; filter: string; setFilter: (value: string) => void; onDeleteSnapshot: (id: string) => void; onExportCsv: () => void; onExportJson: () => void; onImport: () => void; onDeleteFund: () => void }) {
+function HistoryPage({ data, filter, setFilter, lastBackupAt, onDeleteSnapshot, onExportCsv, onExportJson, onImport, onDeleteFund }: { data: AppData; filter: string; setFilter: (value: string) => void; lastBackupAt: string | null; onDeleteSnapshot: (id: string) => void; onExportCsv: () => void; onExportJson: () => void; onImport: () => void; onDeleteFund: () => void }) {
   const previousSnapshots = useMemo(() => {
     const grouped = new Map<string, PriceSnapshot[]>();
     for (const snapshot of data.snapshots) {
@@ -641,7 +658,7 @@ function HistoryPage({ data, filter, setFilter, onDeleteSnapshot, onExportCsv, o
   const filteredSnapshots = data.snapshots.filter((s) => filter === 'all' ? true : s.fundId === filter).slice().sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id));
   const fundName = (id: string) => data.funds.find((f) => f.id === id)?.name ?? '（基金已删除）';
   return <div className="page-stack"><section className="panel"><div className="section-title-row"><div><h2>价格历史快照</h2><p>快照由你主动保存，保留当时录入的基准价、当前价、报价单位和备注。</p></div><label className="field filter-field"><span>筛选基金</span><select value={filter} onChange={(e) => setFilter(e.target.value)}><option value="all">全部基金</option>{data.funds.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}</select></label></div>{filteredSnapshots.length === 0 ? <div className="empty-state"><div className="empty-icon">↻</div><strong>还没有价格快照</strong><span>在“价格计算”页填写价格后点击“保存价格快照”。</span></div> : <div className="snapshot-list">{filteredSnapshots.map((snapshot) => <article className="snapshot-card" key={snapshot.id}><div className="snapshot-title"><div><strong>{fundName(snapshot.fundId)}</strong><span className="muted">{snapshot.tradingDate} · {new Date(snapshot.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></div><button className="text-button danger-text" onClick={() => onDeleteSnapshot(snapshot.id)}>删除</button></div><div className="snapshot-values"><span>上轨<strong>{snapshot.prices.upper || '—'}</strong></span><span>中轨<strong>{snapshot.prices.middle || '—'}</strong></span><span>下轨<strong>{snapshot.prices.lower || '—'}</strong></span><span>昨收<strong>{snapshot.prices.previousClose || '—'}</strong></span><span>上次成交<strong>{snapshot.prices.lastTradePrice || '—'}</strong></span><span>当前价<strong>{snapshot.prices.currentPrice || '—'}</strong></span></div><div className="snapshot-change"><div className="snapshot-change-head"><strong>较上一条同基金快照变化</strong><span>{previousSnapshots.get(snapshot.id) ? `对比 ${previousSnapshots.get(snapshot.id)!.tradingDate}` : '暂无上一条同基金快照'}</span></div>{previousSnapshots.has(snapshot.id) ? <div className="snapshot-change-grid">{PRICE_KEYS.map(({ key, label }) => <div key={key}><span>{label}</span><strong>{snapshotPriceChange(snapshot.prices[key], previousSnapshots.get(snapshot.id)!.prices[key], snapshot.tickSize)}</strong></div>)}</div> : <p className="snapshot-change-empty">该基金首次保存的快照作为比较起点，后续快照将显示五个价格基准的变化。</p>}</div>{snapshot.note && <p className="snapshot-note">备注：{snapshot.note}</p>}</article>)}</div>}</section>
-    <section className="panel backup-panel"><div className="section-title-row"><div><h2>数据备份与迁移</h2><p>建议定期备份 JSON。CSV 用于查看交易明细，不包含完整档案和价格快照。</p></div><span className="tag">本地数据</span></div><div className="backup-grid"><div className="backup-card"><div className="backup-icon">↓</div><div><strong>完整 JSON 备份</strong><p>包括基金档案、费用规则、全部交易明细和价格快照。可用于恢复。</p></div><button className="button primary" onClick={onExportJson}>导出 JSON</button></div><div className="backup-card"><div className="backup-icon">≡</div><div><strong>交易明细 CSV</strong><p>可用 Excel 打开检查成交价格、数量、费用和备注。</p></div><button className="button outline" onClick={onExportCsv}>导出 CSV</button></div><div className="backup-card"><div className="backup-icon">↑</div><div><strong>从备份恢复</strong><p>导入会替换当前设备全部数据。请先导出当前备份。</p></div><button className="button outline" onClick={onImport}>选择 JSON 文件</button></div></div><div className="important-note"><strong>跨设备提示</strong><p>当前版本采用 IndexedDB 本地存储。Windows 和安卓各自存储一份数据，不会自动同步。需要跨设备共享时，请导出 JSON，并在另一设备导入。云端同步不属于当前首版，避免未经授权把交易账本上传到服务器。</p></div></section>
+    <section className="panel backup-panel"><div className="section-title-row"><div><h2>数据备份与迁移</h2><p>建议至少每 7 天发起一次完整 JSON 导出。上次发起导出：{lastBackupAt ? new Date(lastBackupAt).toLocaleString() : '尚未导出'}。CSV 仅用于查看交易明细，不包含完整档案和价格快照。</p></div><span className="tag">本地数据</span></div><div className="backup-grid"><div className="backup-card"><div className="backup-icon">↓</div><div><strong>完整 JSON 备份</strong><p>包括基金档案、费用规则、全部交易明细和价格快照。可用于恢复。</p></div><button className="button primary" onClick={onExportJson}>导出 JSON</button></div><div className="backup-card"><div className="backup-icon">≡</div><div><strong>交易明细 CSV</strong><p>可用 Excel 打开检查成交价格、数量、费用和备注。</p></div><button className="button outline" onClick={onExportCsv}>导出 CSV</button></div><div className="backup-card"><div className="backup-icon">↑</div><div><strong>从备份恢复</strong><p>导入会替换当前设备全部数据。请先导出当前备份。</p></div><button className="button outline" onClick={onImport}>选择 JSON 文件</button></div></div><div className="important-note"><strong>跨设备提示</strong><p>当前版本采用 IndexedDB 本地存储。Windows 和安卓各自存储一份数据，不会自动同步。需要跨设备共享时，请导出 JSON，并在另一设备导入。云端同步不属于当前首版，避免未经授权把交易账本上传到服务器。</p></div></section>
     <section className="panel destructive-panel"><div><h2>基金数据管理</h2><p className="muted">此操作会删除当前选中基金、对应交易和全部价格快照。请先下载完整备份。</p></div><button className="button danger-button" onClick={onDeleteFund}>删除当前基金及关联记录</button></section>
   </div>;
 }

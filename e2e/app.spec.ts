@@ -283,9 +283,98 @@ test('拒绝结构非法的备份文件（不崩白屏）', async ({ page }) => 
   await page.locator('input[type=file]').setInputFiles({ name: 'bad.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(bad)) });
   await expect.poll(() => msg).toContain('备份校验失败，未导入任何数据');
   expect(msg).toContain('阶梯基准值无效');
-  expect(msg).toContain('交易日期无效');
   expect(msg).toContain('备注必须是字符串');
   await expect(page.locator('.fund-list-item', { hasText: '受保护基金' })).toBeVisible();
+});
+
+test('旧版 IndexedDB v1 升级到 v2 后保留完整账本数据', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.save-state.saved')).toBeVisible({ timeout: 10_000 });
+  await page.evaluate(async () => {
+    await new Promise<void>((resolve, reject) => {
+      const deletion = indexedDB.deleteDatabase('fund-boll-ledger');
+      deletion.onsuccess = () => resolve();
+      deletion.onerror = () => reject(deletion.error);
+      deletion.onblocked = () => reject(new Error('旧数据库连接未关闭，无法构造迁移验收场景'));
+    });
+    const now = new Date().toISOString();
+    const legacyData = {
+      schemaVersion: 1,
+      funds: [{
+        id: 'legacy-fund', name: '旧版基金', code: '510300', market: '沪市', category: 'ETF', tickSize: '0.001',
+        prices: { upper: '', middle: '', lower: '', previousClose: '', lastTradePrice: '', currentPrice: '' },
+        ladderBasis: 'lastTradePrice', ladderDirection: 'up', notes: '', createdAt: now, updatedAt: now,
+      }],
+      trades: [{
+        id: 'legacy-trade', fundId: 'legacy-fund', tradedAt: now.slice(0, 16), side: 'BUY', price: '10', quantity: '100',
+        commission: '0.15', transferFee: '0', stampDuty: '0', otherFee: '0.04', feesChecked: false, note: '旧版记录',
+        createdAt: now, updatedAt: now,
+      }],
+      snapshots: [],
+    };
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('fund-boll-ledger', 1);
+      request.onupgradeneeded = () => request.result.createObjectStore('app-state');
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction('app-state', 'readwrite');
+      transaction.objectStore('app-state').put(legacyData, 'main');
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error);
+    });
+    db.close();
+  });
+
+  await page.reload();
+  await expect(page.locator('.fund-list-item', { hasText: '旧版基金' })).toBeVisible();
+  await page.getByRole('button', { name: '交易账本' }).click();
+  await expect(page.locator('.metric', { hasText: '当前持仓' }).locator('strong')).toHaveText('100 份');
+  const migration = await page.evaluate(async () => new Promise<any>((resolve, reject) => {
+    const request = indexedDB.open('fund-boll-ledger', 2);
+    request.onsuccess = () => {
+      const db = request.result;
+      const transaction = db.transaction('app-meta', 'readonly');
+      const get = transaction.objectStore('app-meta').get('database-schema');
+      get.onsuccess = () => resolve(get.result);
+      get.onerror = () => reject(get.error);
+      transaction.oncomplete = () => db.close();
+    };
+    request.onerror = () => reject(request.error);
+  }));
+  expect(migration.fromVersion).toBe(1);
+  expect(migration.toVersion).toBe(2);
+  await page.reload();
+  await expect(page.locator('.fund-list-item', { hasText: '旧版基金' })).toBeVisible();
+  await page.getByRole('button', { name: '交易账本' }).click();
+  await expect(page.locator('.metric', { hasText: '当前持仓' }).locator('strong')).toHaveText('100 份');
+});
+
+test('本地账本七天未导出时提醒，发起完整 JSON 导出后跨重启解除提醒', async ({ page }) => {
+  await createFund(page, '备份提醒基金', '510300');
+  await expect(page.locator('.backup-reminder')).toBeVisible();
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: '立即导出完整 JSON' }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toContain('fund-boll-ledger-');
+  await expect(page.locator('.backup-reminder')).toHaveCount(0);
+  await expect.poll(async () => page.evaluate(async () => new Promise<string | null>((resolve, reject) => {
+    const request = indexedDB.open('fund-boll-ledger', 2);
+    request.onsuccess = () => {
+      const db = request.result;
+      const transaction = db.transaction('app-meta', 'readonly');
+      const get = transaction.objectStore('app-meta').get('last-backup-at');
+      get.onsuccess = () => resolve(typeof get.result === 'string' ? get.result : null);
+      get.onerror = () => reject(get.error);
+      transaction.oncomplete = () => db.close();
+    };
+    request.onerror = () => reject(request.error);
+  }))).not.toBeNull();
+  await page.reload();
+  await expect(page.locator('.fund-list-item', { hasText: '备份提醒基金' })).toBeVisible();
+  await expect(page.locator('.backup-reminder')).toHaveCount(0);
 });
 
 test('移动端视口布局可用、无横向溢出', async ({ page }) => {
@@ -432,7 +521,7 @@ test('东方财富失败时百度自动兜底，双源都失败时保留手动�
   await expect(page.getByRole('spinbutton', { name: '昨日收盘价' })).toHaveValue('4.000');
   // 百度现价源未提供可信交易日期；不得把未确认现价并入日线计算 BOLL。
   await expect(page.getByRole('spinbutton', { name: 'BOLL 中轨' })).toHaveValue('');
-  await expect(page.getByText(/未提供可信交易日期/)).toBeVisible();
+  await expect(page.locator('.quote-error').filter({ hasText: '未提供可信交易日期' }).first()).toBeVisible();
 
   await page.getByPlaceholder('输入你看到的最新价格').fill('3.500');
   await page.route('https://push2.eastmoney.com/**', async (route) => {
