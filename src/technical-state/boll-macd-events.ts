@@ -35,7 +35,13 @@ interface PendingSetup {
   triggerIndex: number;
 }
 
-function isCalendarDate(value: string): boolean {\n  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(value)) return false;\n  const date = new Date(value + 'T00:00:00.000Z');\n  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;\n}\n\nfunction sideFor(close: number, lower?: number, upper?: number): BollMacdTouchSide | undefined {
+function isCalendarDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(value + 'T00:00:00.000Z');
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+function sideFor(close: number, lower?: number, upper?: number): BollMacdTouchSide | undefined {
   if (lower !== undefined && close <= lower) return 'lower';
   if (upper !== undefined && close >= upper) return 'upper';
   return undefined;
