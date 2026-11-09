@@ -57,6 +57,8 @@
 
 ## 8. 真实数据与 CI 证据
 
+详细分布、配置值、参数敏感性和 MACD 历史起点比较见 [BOLL + MACD 校准报告](BOLL_MACD_CALIBRATION_REPORT.md)。
+
 - 多 ETF 真实校准成功 Run：[42646038809](https://github.com/just2512/fund-boll-ledger/actions/runs/42646038809)。4 只 ETF（510300、510500、159915、512100）× 日/周/月，共 12 组；Eastmoney/Baidu K 线来源策略无违规；Eastmoney 现价来源策略无违规；逐根重放通过。
 - 该报告的 `thresholdSelection` 仍是 `NOT_PERFORMED`，生产只采用参考配置，不宣称已找到唯一最优阈值。
 - 真实校准报告中的百度备用 K 线探针返回 2001 根；百度现价探针没有可信交易日期，因此不作为技术状态的现价日期依据。
