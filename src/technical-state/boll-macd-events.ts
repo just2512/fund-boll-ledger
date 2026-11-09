@@ -74,7 +74,7 @@ export function pairBollTouchesWithMacdCrosses(
 
   for (let index = 0; index < observations.length; index += 1) {
     const item = observations[index];
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(item.date) || item.date <= previousDate) {
+    if (!isCalendarDate(item.date) || item.date <= previousDate) {
       throw new Error('观察序列日期无效、未排序或存在重复日期');
     }
     previousDate = item.date;
