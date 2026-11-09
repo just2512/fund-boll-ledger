@@ -80,6 +80,28 @@ describe('confirmed BOLL touch then MACD cross event audit', () => {
     });
   });
 
+  it('invalidates the old setup when an opposite touch and matching cross occur on the same bar', () => {
+    const result = pairBollTouchesWithMacdCrosses('daily', [
+      observation('2026-01-05', 9.8, { bollLower: 10 }),
+      observation('2026-01-06', 12.2, { bollUpper: 12, macdCrossEvent: 'golden' }),
+      observation('2026-01-07', 12.1),
+    ]);
+    expect(result).toHaveLength(2);
+    expect(result[0]).toMatchObject({
+      side: 'lower',
+      status: 'invalidated',
+      invalidationReason: 'opposite-boll-touch',
+    });
+    expect(result[0].confirmationDate).toBeUndefined();
+    expect(result[1]).toMatchObject({
+      side: 'upper',
+      status: 'pending',
+      expectedCross: 'death',
+      triggerDate: '2026-01-06',
+    });
+    expect(result[1].confirmationDate).toBeUndefined();
+  });
+
   it('keeps the first touch date when the same side is touched repeatedly', () => {
     const result = pairBollTouchesWithMacdCrosses('daily', [
       observation('2026-01-05', 9.8, { bollLower: 10 }),
