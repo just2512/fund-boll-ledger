@@ -540,3 +540,14 @@ UI 验收至少覆盖桌面、Android 窄屏、OPPO Find N2 外屏和展开内�
 | BOLL 参数正式选择 | NOT_PERFORMED | 仍需策略契约与滚动样本外验证 |
 | 策略成交/资金/成本/滑点 | NOT_FROZEN | 不擅自假定 |
 | 价格对比 UI | NOT_STARTED | 门禁保持 |
+
+
+## 20. 2026-11-09 百度独立长历史 BOLL 参数敏感性复核
+
+- 真实数据校准 Run [42605640393](https://github.com/just2512/fund-boll-ledger/actions/runs/42605640393) success；Artifact [13667083369](https://github.com/just2512/fund-boll-ledger/actions/runs/42605640393/artifacts/13667083369)。
+- 提交 `726e8d5386b25f0dfcfd3f261f078510359f52c5` 将百度独立备用 K 线长历史（强制东方财富历史请求失败后真实获取）纳入 BOLL 参数敏感性分析；真实序列 2,001 根，覆盖 2018-08-07 至 2026-11-09。
+- 2,001 个历史前缀逐根重放；所有 11 个候选均满足 `noFutureBars=true`；每个候选 1,982 VALID、19 INSUFFICIENT、0 INVALID。
+- 与参考锚点比较：方向窗口短/长分别有 398/446 个复合分类日期不同；确认根数短/长分别有 502/377 个日期不同；走平容差低/高分别有 63/133 个日期不同；近轨距离短/长分别有 157/185 个日期不同。带宽分位窗口短/长未改变复合分类，但分位值均值绝对差约 9.65/7.64 个分位点。
+- 以上结果属于独立来源长历史上的描述性分类敏感性，不代表预测能力或交易收益；`thresholdSelection=NOT_PERFORMED`，没有冻结生产阈值。
+- 真实行情校准 CI Run `42605640393`：PASS。Frontend CI Run `42605640292`：单测、类型检查、生产构建和浏览器 E2E 均 PASS。
+- 当前 UI 门禁不变：MACD 历史不足语义、信号有效性门槛、BOLL 参数的样本外策略验证、成交/退出/资金/费用/滑点契约仍未冻结；价格对比 UI 保持 `NOT_STARTED`。
