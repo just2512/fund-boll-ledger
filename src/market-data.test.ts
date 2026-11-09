@@ -148,7 +148,16 @@ describe('manual ETF market quote refresh', () => {
     const expectedBars = { daily: 220, weekly: 180, monthly: 120 } as const;
     const buildDates = (interval: 'daily' | 'weekly' | 'monthly'): string[] => {
       let cursor = new Date(tradingDate + 'T00:00:00.000Z');
-      if (interval === 'daily') cursor.setUTCDate(cursor.getUTCDate() - expectedBars.daily);
+      if (interval === 'daily') {
+        const dates: string[] = [];
+        cursor.setUTCDate(cursor.getUTCDate() - 1);
+        while (dates.length < expectedBars.daily) {
+          const day = cursor.getUTCDay();
+          if (day !== 0 && day !== 6) dates.push(cursor.toISOString().slice(0, 10));
+          cursor.setUTCDate(cursor.getUTCDate() - 1);
+        }
+        return dates.reverse();
+      }
       if (interval === 'weekly') {
         cursor.setUTCDate(cursor.getUTCDate() - ((cursor.getUTCDay() + 6) % 7) - 7);
         cursor.setUTCDate(cursor.getUTCDate() - (expectedBars.weekly - 1) * 7);
@@ -158,7 +167,6 @@ describe('manual ETF market quote refresh', () => {
       }
       return Array.from({ length: expectedBars[interval] }, (_, index) => {
         const date = new Date(cursor);
-        if (interval === 'daily') date.setUTCDate(date.getUTCDate() + index);
         if (interval === 'weekly') date.setUTCDate(date.getUTCDate() + index * 7);
         if (interval === 'monthly') date.setUTCMonth(date.getUTCMonth() + index);
         return date.toISOString().slice(0, 10);
