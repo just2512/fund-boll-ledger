@@ -44,12 +44,12 @@ describe('BOLL calibration distribution summaries', () => {
   it('reports exact confirmed-bar dates for mathematically invalid lower bands', () => {
     const closes = [
       ...Array.from({ length: 20 }, (_, index) => index + 1),
-      ...Array.from({ length: 30 }, (_, index) => 100 + index / 10),
+      ...Array.from({ length: 80 }, (_, index) => 100 + index / 10),
     ];
     const report = calibrateBollHistory(series(closes));
     expect(report.invalidBandPointCount).toBeGreaterThan(0);
     expect(report.invalidBandDates).toContain('2025-01-20');
     expect(report.invalidBandDates.length).toBe(report.invalidBandPointCount);
-    expect(report.bollPointCount + report.invalidBandPointCount).toBe(31);
+    expect(report.bollPointCount + report.invalidBandPointCount).toBe(81);
   });
 });
