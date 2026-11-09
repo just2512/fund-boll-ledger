@@ -701,3 +701,27 @@ B 线未完成前，禁止将事件审计中的触发价至确认价变化解释
 - 真实行情 Run [42641886843](https://github.com/just2512/fund-boll-ledger/actions/runs/42641886843)：510300 日/周/月专项通过；多 ETF 校准因东方财富 HTTP 503、百度 HTTP 403/CDN 超时失败，T-11 保持 BLOCKED。
 
 当前逐项状态以 `TECHNICAL_STATE_REQUIREMENTS.json` 为准。任何历史 B 线策略回测记录不得重新计入当前需求或作为新增代码授权。
+
+
+## 25. 2026-11-09 技术状态计算与展示落地记录
+
+### 已完成的实际代码
+
+- 新增 `src/technical-state/config.ts`：按日/周/月注入显式 BOLL 描述参考配置，版本 `reference-2026-11-09`；配置值与真实敏感性报告的 `anchor-reference-only` 候选一致。
+- `src/market-data.ts` 生产调用已将对应周期配置传入 `calculateTechnicalStateSnapshot`；未配置时仍保持 UNKNOWN，不在 UI 里另设默认值。
+- `src/macd.ts` 增加按周期的 MACD 稳定历史门槛：日 160、周 160、月 100 根确认 K 线。35 根仍是公式计算下限，不再作为产品状态发布门槛。
+- `src/technical-state/engine.ts` 增加多周期客观描述，分别列出 BOLL 带宽阶段、中轨方向、MACD DIF 零轴和新交叉事件，不合成买卖方向。
+- `src/App.tsx` 在原价格对比模块中增加 BOLL 细节，并将日/周/月依据折叠；没有增加独立页面或账本字段。
+- `e2e/app.spec.ts` 和 `e2e/foldable.spec.ts` 覆盖折叠交互与窄屏视口。
+
+### 实证依据
+
+- 多 ETF 真实行情与逐根重放成功：[Run 42646038809](https://github.com/just2512/fund-boll-ledger/actions/runs/42646038809)。
+- 详细数据分布、参数敏感性、MACD 历史起点比较和配置解释见 [BOLL_MACD_CALIBRATION_REPORT.md](BOLL_MACD_CALIBRATION_REPORT.md)。
+- 生产 BOLL 参数是描述性参考基线，报告仍标记 `thresholdSelection: NOT_PERFORMED`；未宣称存在唯一最优阈值。
+- MACD 稳定门槛在四只 ETF 三周期的滚动对照样本中没有分类不一致；该门槛不等于交易有效性验证。
+
+### 当前验收边界
+
+- 本节代码只实现技术状态，不实现策略回测、订单、成交、资金、费用、滑点或收益分析。
+- UI E2E、完整前端 CI 和最新实时校准的最终状态，以需求台账中的具体 run/job 证据为准；运行中的任务不得提前标记 PASS。
