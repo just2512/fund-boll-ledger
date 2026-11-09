@@ -40,7 +40,7 @@ jobs:
           retention-days: 14
 
   # Android ARM64 APK on a GitHub-hosted Linux runner. All toolchains are
-  # provisioned in the job; no persistent self-hosted machine is required.
+  # provisioned in the job.
   android:
     name: Android ARM64 APK (GitHub-hosted)
     runs-on: ubuntu-24.04
