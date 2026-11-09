@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type
 import { bollRangePositionRatio, bollRangePositionRatioForBands, calculatePosition, compareToBases, currentValueCents, estimateCommission, estimateOtherFee, PRICE_KEYS, priceLadder, unrealizedPnlCents, type Direction, type PriceKey } from './calculations';
 import { formatCents, formatCurrency, formatPercent, parseMoneyCents, parseQuantity, parseScaled, priceAmountCents } from './decimal';
 import { loadAppData, saveAppData } from './storage';
+import { validateAppData } from './backup-validation';
 import { fetchLatestMarketData, type MarketQuote } from './market-data';
 import { macdArrangementLabel, macdMomentumLabel, macdZeroAxisLabel, type MacdMultiTimeframeState, type MacdPeriodState, type MacdTone } from './macd';
 import { createId, emptyAppData, newFund, type AppData, type Fund, type FundCategory, type FundPrices, type LadderDirection, type PriceBasisKey, type PriceSnapshot, type Trade, type TradeSide } from './types';
@@ -40,45 +41,6 @@ function downloadFile(name: string, body: string, type = 'application/json;chars
   window.setTimeout(() => URL.revokeObjectURL(url), 1200);
 }
 function escapeCsv(value: string): string { return `"${value.replaceAll('"', '""')}"`; }
-function isValidAppData(value: unknown): value is AppData {
-  if (!value || typeof value !== 'object') return false;
-  const v = value as Partial<AppData>;
-  if (v.schemaVersion !== 1 || !Array.isArray(v.funds) || !Array.isArray(v.trades) || !Array.isArray(v.snapshots)) return false;
-  try {
-    const fundIds = new Set<string>();
-    for (const fund of v.funds) {
-      if (!fund || typeof fund.id !== 'string' || !fund.id || typeof fund.name !== 'string' || !fund.name.trim() || typeof fund.prices !== 'object' || !fund.prices) return false;
-      if (fundIds.has(fund.id) || typeof fund.tickSize !== 'string' || parseScaled(fund.tickSize) <= 0n) return false;
-      fundIds.add(fund.id);
-      for (const field of ['code', 'market', 'category', 'notes', 'createdAt', 'updatedAt'] as const) if (typeof fund[field] !== 'string') return false;
-      for (const key of ['upper', 'middle', 'lower', 'previousClose', 'lastTradePrice', 'currentPrice'] as const) {
-        if (typeof fund.prices[key] !== 'string') return false;
-        if (fund.prices[key].trim() && parseScaled(fund.prices[key]) <= 0n) return false;
-      }
-    }
-    const tradeIds = new Set<string>();
-    for (const trade of v.trades) {
-      if (!trade || typeof trade.id !== 'string' || tradeIds.has(trade.id) || !fundIds.has(trade.fundId)) return false;
-      tradeIds.add(trade.id);
-      if ((trade.side !== 'BUY' && trade.side !== 'SELL') || typeof trade.tradedAt !== 'string' || !trade.tradedAt || !Number.isFinite(Date.parse(trade.tradedAt)) || typeof trade.feesChecked !== 'boolean') return false;
-      for (const field of ['price', 'quantity', 'commission', 'transferFee', 'stampDuty', 'otherFee', 'note', 'createdAt', 'updatedAt'] as const) if (typeof trade[field] !== 'string') return false;
-      if (parseScaled(trade.price) <= 0n || parseQuantity(trade.quantity) <= 0n) return false;
-      for (const fee of [trade.commission, trade.transferFee, trade.stampDuty, trade.otherFee]) if (parseMoneyCents(fee) < 0n) return false;
-    }
-    const snapshotIds = new Set<string>();
-    for (const snapshot of v.snapshots) {
-      if (!snapshot || typeof snapshot.id !== 'string' || snapshotIds.has(snapshot.id) || !fundIds.has(snapshot.fundId) || typeof snapshot.prices !== 'object' || !snapshot.prices || typeof snapshot.createdAt !== 'string' || !Number.isFinite(Date.parse(snapshot.createdAt)) || typeof snapshot.tickSize !== 'string' || parseScaled(snapshot.tickSize) <= 0n || typeof snapshot.note !== 'string' || typeof snapshot.tradingDate !== 'string') return false;
-      snapshotIds.add(snapshot.id);
-      for (const key of ['upper', 'middle', 'lower', 'previousClose', 'lastTradePrice', 'currentPrice'] as const) {
-        if (typeof snapshot.prices[key] !== 'string') return false;
-        if (snapshot.prices[key].trim() && parseScaled(snapshot.prices[key]) <= 0n) return false;
-      }
-    }
-    for (const fund of v.funds) if (calculatePosition(v.trades, fund.id).error) return false;
-    return true;
-  } catch { return false; }
-}
-
 function normalizeAppData(value: AppData): AppData {
   const allowedBases: PriceBasisKey[] = ['upper', 'middle', 'lower', 'previousClose', 'lastTradePrice'];
   const funds = value.funds.map((source) => {
@@ -436,9 +398,11 @@ export default function App() {
     if (!file) return;
     try {
       const parsed: unknown = JSON.parse(await file.text());
-      if (!isValidAppData(parsed)) throw new Error('文件结构不符合本应用的备份格式，未导入任何数据。');
-      if (!window.confirm(`备份文件含 ${parsed.funds.length} 只基金、${parsed.trades.length} 笔交易、${parsed.snapshots.length} 条价格快照。导入将完全替换当前设备数据。请确认已导出现有数据。`)) return;
-      const normalized = normalizeAppData(parsed);
+      const validation = validateAppData(parsed);
+      if (!validation.valid) throw new Error(`备份校验失败，未导入任何数据：\\n- ${validation.errors.join('\\n- ')}`);
+      const backup = validation.data;
+      if (!window.confirm(`备份文件含 ${backup.funds.length} 只基金、${backup.trades.length} 笔交易、${backup.snapshots.length} 条价格快照。导入将完全替换当前设备数据。请确认已导出现有数据。`)) return;
+      const normalized = normalizeAppData(backup);
       setData(normalized);
       // Imported data replaces the whole ledger; stale quote/progress state must not survive it.
       setMarketQuotes({});
