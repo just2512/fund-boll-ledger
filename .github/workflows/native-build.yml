@@ -1,6 +1,8 @@
 name: Native App Build (manual)
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
   # Deliberately manual to avoid consuming Actions minutes on every push.
 
