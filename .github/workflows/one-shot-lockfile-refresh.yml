@@ -1,0 +1,38 @@
+name: Regenerate npm lockfile for dependency manifest changes
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - package.json
+
+permissions:
+  contents: write
+
+jobs:
+  lockfile:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: npm
+      - name: Regenerate lockfile from manifest
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Verify patched Vitest dependency tree
+        run: |
+          npm ci
+          npm ls vitest @vitest/mocker
+          node -e "const p=require('./node_modules/@vitest/mocker/package.json'); if(p.version !== '4.1.12') process.exit(1)"
+      - name: Commit lockfile and remove one-shot workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/one-shot-lockfile-refresh.yml
+          git add package-lock.json
+          git commit -m "chore(deps): regenerate lockfile for patched Vitest"
+          git push
