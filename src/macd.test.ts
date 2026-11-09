@@ -4,7 +4,7 @@ import type { ConfirmedTechnicalSeries } from './technical-state/types';
 
 function barsWithReversal(): MacdBar[] {
   const start = new Date('2025-01-01T00:00:00.000Z');
-  return Array.from({ length: 120 }, (_, index) => {
+  return Array.from({ length: 200 }, (_, index) => {
     const date = new Date(start);
     date.setUTCDate(date.getUTCDate() + index);
     const close = index < 48 ? 30 - index * 0.22 : 30 - 48 * 0.22 + (index - 48) * 0.28;
@@ -36,7 +36,7 @@ describe('MACD deterministic multi-timeframe rules', () => {
   });
   it('excludes the in-progress weekly bar even after intraweek 15:00', () => {
     // Weekly candles close with the week itself; an intraweek 15:05 stamp must NOT confirm it.
-    const mondays = Array.from({ length: 60 }, (_, index) => {
+    const mondays = Array.from({ length: 180 }, (_, index) => {
       const date = new Date(Date.UTC(2025, 0, 6)); // a Monday
       date.setUTCDate(date.getUTCDate() + index * 7);
       const close = index < 48 ? 30 - index * 0.22 : 30 - 48 * 0.22 + (index - 48) * 0.28;
@@ -88,9 +88,9 @@ describe('MACD deterministic multi-timeframe rules', () => {
     expect(direct.asOfDate).toBe(confirmed.asOfDate);
     expect(direct.dif).toBeCloseTo(wrapped.dif!, 12);
     expect(direct.dea).toBeCloseTo(wrapped.dea!, 12);
-    expect(direct.barsUsed).toBe(120);
+    expect(direct.barsUsed).toBe(200);
     expect(direct.emaSeedDate).toBe(source[0].date);
-    expect(direct.preRollBars).toBe(85);
+    expect(direct.preRollBars).toBe(165);
   });
 
   it('rejects conflicting duplicate dates instead of silently choosing the last row', () => {
