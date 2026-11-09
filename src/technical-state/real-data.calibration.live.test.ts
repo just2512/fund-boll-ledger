@@ -6,6 +6,7 @@ import { calculateTechnicalStateSnapshot } from './engine';
 import { calibrateBollHistory } from './calibration';
 import { auditConfirmedBollMacdSeries } from './boll-macd-events';
 import { analyzeBollConfigSensitivity, buildBollSensitivityCandidates } from './sensitivity';
+import { analyzeMacdHistoryStartSensitivity } from './macd-seed-sensitivity';
 import { hasNoFutureBars, replayConfirmedTechnicalSeries } from './history-replay';
 import type { BollInterval } from '../market-data';
 
@@ -94,8 +95,13 @@ describe('live multi-ETF BOLL historical calibration', () => {
           normalized.series,
           buildBollSensitivityCandidates(interval),
         );
+        const macdSeedSensitivity = analyzeMacdHistoryStartSensitivity(
+          normalized.series,
+          [35, 50, 75, 100, 160, 240],
+        );
         expect(sensitivity.thresholdSelection).toBe('NOT_PERFORMED');
         expect(sensitivity.candidates.every((candidate) => candidate.noFutureBars)).toBe(true);
+        expect(macdSeedSensitivity.candidates.every((candidate) => candidate.barsUsed === candidate.requestedBars)).toBe(true);
         expect(report.confirmedBarCount).toBe(normalized.series.bars.length);
         expect(report.bollPointCount).toBeGreaterThan(0);
 
@@ -117,6 +123,7 @@ describe('live multi-ETF BOLL historical calibration', () => {
           quoteSource: quote.source,
           excludedInProgressBar: normalized.series.excludedInProgressBar,
           parameterSensitivity: sensitivity,
+          macdSeedSensitivity,
           bollMacdEventAudit: {
             setupCount: bollMacdEvents.length,
             confirmedCount: confirmedEvents.length,
