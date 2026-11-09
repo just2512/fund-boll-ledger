@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { calculateMacdPeriod, macdArrangementLabel, macdMomentumLabel, macdZeroAxisLabel, summarizeMacdPeriods, unavailableMacdPeriod, type MacdBar } from './macd';
+import { calculateMacdFromConfirmedSeries, calculateMacdPeriod, macdArrangementLabel, macdMomentumLabel, macdZeroAxisLabel, summarizeMacdPeriods, unavailableMacdPeriod, type MacdBar } from './macd';
+import type { ConfirmedTechnicalSeries } from './technical-state/types';
 
 function barsWithReversal(): MacdBar[] {
   const start = new Date('2025-01-01T00:00:00.000Z');
@@ -70,4 +71,43 @@ describe('MACD deterministic multi-timeframe rules', () => {
     expect(macdZeroAxisLabel(monthly)).toBe('数据不足');
     expect(macdMomentumLabel(daily)).toBe('数据不足');
   });
+  it('exposes the existing calculation through a confirmed-series entry point and records EMA seed metadata', () => {
+    const source = barsWithReversal();
+    const confirmed: ConfirmedTechnicalSeries = {
+      interval: 'daily',
+      asOfDate: source[source.length - 1].date,
+      bars: source.map((bar) => ({ date: bar.date, close: Number(bar.close) })),
+      excludedInProgressBar: false,
+      source: '东方财富',
+    };
+    const direct = calculateMacdFromConfirmedSeries(confirmed);
+    const wrapped = calculateMacdPeriod(source, 'daily', contextFor(source));
+    expect(direct.error).toBeUndefined();
+    expect(direct.asOfDate).toBe(confirmed.asOfDate);
+    expect(direct.dif).toBeCloseTo(wrapped.dif!, 12);
+    expect(direct.dea).toBeCloseTo(wrapped.dea!, 12);
+    expect(direct.barsUsed).toBe(120);
+    expect(direct.emaSeedDate).toBe(source[0].date);
+    expect(direct.preRollBars).toBe(85);
+  });
+
+  it('rejects conflicting duplicate dates instead of silently choosing the last row', () => {
+    const source = barsWithReversal();
+    const conflict = [...source, { ...source[source.length - 1], close: '99.999' }];
+    const state = calculateMacdPeriod(conflict, 'daily', contextFor(source));
+    expect(state.error).toContain('冲突收盘价');
+  });
+
+  it('describes the legacy multi-timeframe summary as DIF zero-axis position, not a full bullish/bearish verdict', () => {
+    const source = barsWithReversal();
+    const base = calculateMacdPeriod(source, 'daily', contextFor(source));
+    const summary = summarizeMacdPeriods({
+      monthly: { ...base, interval: 'monthly', zeroAxis: 'above' },
+      weekly: { ...base, interval: 'weekly', zeroAxis: 'above' },
+      daily: { ...base, interval: 'daily', zeroAxis: 'above' },
+    });
+    expect(summary.summary).toBe('三周期 DIF 位于零轴上方');
+    expect(summary.summary).not.toBe('三周期偏多');
+  });
+
 });
