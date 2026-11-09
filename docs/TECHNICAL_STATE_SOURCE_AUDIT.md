@@ -50,7 +50,7 @@
 
 ## 7. 账本隔离和范围排除
 
-- `src/storage.ts`、`src/types.ts`、`src/App.tsx`、`src/market-data.ts` 与用户指定回退基线的 blob SHA 对照：治理文档落地前未改变账本数据模型；本轮 UI/技术状态改动没有修改 storage/types。
+- `src/storage.ts`、`src/types.ts` 与用户指定回退基线的 blob SHA 完全一致，未改变 Fund/Trade/Snapshot 持久化结构。 `src/App.tsx` 与 `src/market-data.ts` 本轮有修改，但仅用于现有价格对比模块展示和注入派生技术状态，没有新增持久化字段或改写交易记录。
 - 当前 main 不存在 `src/backtest/`、回测工作流或回测 npm script。
 - `src/technical-state/boll-macd-events.ts` 是既存研究辅助代码，不接入当前 UI、实时校准验收或买卖流程。
 - 当前交付不包含策略回测、订单、成交、资金、费用、滑点、收益或交易指令。
