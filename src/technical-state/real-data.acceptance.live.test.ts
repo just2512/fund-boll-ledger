@@ -3,6 +3,8 @@ declare const process: { env: Record<string, string | undefined> };
 import { describe, expect, it } from 'vitest';
 import { fetchConfirmedTechnicalHistory, fetchLatestQuote } from '../market-data';
 import { calculateTechnicalStateSnapshot } from './engine';
+import { bollStateConfigFor } from './config';
+import { MACD_STABILITY_MIN_BARS } from '../macd';
 import { compareBatchWithReplay, hasNoFutureBars, replayConfirmedTechnicalSeries } from './history-replay';
 import type { BollInterval } from '../market-data';
 
@@ -26,9 +28,9 @@ describe('live market-data technical history acceptance', () => {
       if (result.validity !== 'VALID') {
         throw new Error(`${interval} 历史数据不可验收：${result.reason}`);
       }
-      expect(result.series.bars.length).toBeGreaterThanOrEqual(35);
+      expect(result.series.bars.length).toBeGreaterThanOrEqual(MACD_STABILITY_MIN_BARS[interval]);
       const calculate = (prefix: typeof result.series) =>
-        calculateTechnicalStateSnapshot(prefix, undefined, quote.source);
+        calculateTechnicalStateSnapshot(prefix, bollStateConfigFor(prefix.interval), quote.source);
       const snapshot = calculate(result.series);
       expect(snapshot.validity).toBe('VALID');
       const replay = replayConfirmedTechnicalSeries(result.series, calculate);
