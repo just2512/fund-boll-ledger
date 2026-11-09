@@ -22,6 +22,8 @@ jobs:
           npm --version
       - name: Install locked dependencies
         run: npm ci
+      - name: Verify patched dependency versions
+        run: npm run test:dependency-security
       - name: Run unit tests
         run: npm run test
       - name: Type-check and production build
