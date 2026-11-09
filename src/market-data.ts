@@ -393,16 +393,25 @@ async function fetchBaiduCloses(code: string, interval: BollInterval): Promise<D
     ktype: period.ktype,
   });
   const headers = {
-    'User-Agent': 'Mozilla/5.0',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0.0.0 Safari/537.36',
     Accept: 'application/vnd.finance-web.v1+json',
-    Origin: 'https://finance.baidu.com',
     Referer: 'https://finance.baidu.com/',
   };
-  const raw = await requestText(
-    'https://finance.pae.baidu.com/selfselect/getstockquotation?' + params.toString(),
-    'utf-8',
-    headers,
-  );
+  const query = params.toString();
+  let raw: string;
+  try {
+    raw = await requestText('https://finance.pae.baidu.com/selfselect/getstockquotation?' + query, 'utf-8', headers);
+  } catch (directError) {
+    const proxyUrl = 'https://sp0.baidu.com/5LMDcjW6BwF3otqbppnN2DJv/finance.pae.baidu.com/selfselect/getstockquotation?' + query;
+    try {
+      raw = await requestText(proxyUrl, 'utf-8', headers);
+    } catch (proxyError) {
+      throw new Error(
+        '百度直连失败：' + (directError instanceof Error ? directError.message : '未知错误') +
+        '；百度 CDN 代理失败：' + (proxyError instanceof Error ? proxyError.message : '未知错误'),
+      );
+    }
+  }
   let payload: unknown;
   try {
     payload = JSON.parse(raw);
