@@ -110,4 +110,14 @@ describe('MACD deterministic multi-timeframe rules', () => {
     expect(summary.summary).not.toBe('三周期偏多');
   });
 
+  it('rejects malformed dates and non-positive closes in legacy MACD input', () => {
+    const source = barsWithReversal();
+    const badDate = [...source];
+    badDate[5] = { ...badDate[5], date: 'not-a-date' };
+    const badClose = [...source];
+    badClose[5] = { ...badClose[5], close: '0' };
+    expect(calculateMacdPeriod(badDate, 'daily', contextFor(source)).error).toContain('日期');
+    expect(calculateMacdPeriod(badClose, 'daily', contextFor(source)).error).toContain('收盘价');
+  });
+
 });
