@@ -8,6 +8,7 @@ on:
       - 'src/technical-state/calibration.test.ts'
       - 'src/technical-state/real-data.calibration.live.test.ts'
       - 'scripts/run-live-technical-calibration.mjs'
+      - 'package.json'
       - '.github/workflows/technical-state-calibration.yml'
   workflow_dispatch:
 
