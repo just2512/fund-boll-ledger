@@ -395,8 +395,8 @@ async function fetchBaiduCloses(code: string, interval: BollInterval): Promise<D
   const headers = {
     'User-Agent': 'Mozilla/5.0',
     Accept: 'application/vnd.finance-web.v1+json',
-    Origin: 'https://gushitong.baidu.com',
-    Referer: 'https://gushitong.baidu.com/',
+    Origin: 'https://finance.baidu.com',
+    Referer: 'https://finance.baidu.com/',
   };
   const raw = await requestText(
     'https://finance.pae.baidu.com/selfselect/getstockquotation?' + params.toString(),
