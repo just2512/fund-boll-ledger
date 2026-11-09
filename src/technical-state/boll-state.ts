@@ -129,6 +129,12 @@ export function calculateBollState(
     previousDate = bar.date;
   }
   if (series.bars.length < 20) return insufficient('已确认收盘 K 线不足 20 根，无法计算 BOLL(20,2)');
+  const latestWindow = series.bars.slice(-20);
+  const latestMean = latestWindow.reduce((sum, bar) => sum + bar.close, 0) / 20;
+  const latestVariance = latestWindow.reduce((sum, bar) => sum + (bar.close - latestMean) ** 2, 0) / 20;
+  if (latestMean <= 0 || latestMean - 2 * Math.sqrt(latestVariance) <= 0) {
+    return invalid('最近 20 根收盘价计算出的 BOLL 下轨小于或等于 0');
+  }
 
   const points = calculatePoints(series);
   const current = points.at(-1);
