@@ -40,6 +40,6 @@ The frontend browser CI and multi-ETF live calibration are recorded in the requi
 
 - Latest reviewed baseline before this recovery: `cf85b720e619ba1608b75a14af57ef7ecea42863`.
 - Production data flow injects the versioned BOLL config and UI consumes the combined technical-state description; the old T-06 note claiming it was not connected to UI was stale.
-- Corrected the BOLL UI explanatory copy and added an E2E assertion. Current review items T-00, T-06 and T-09 remain IN_PROGRESS until CI for the new commits is checked.
+- Corrected the BOLL UI explanatory copy and added an E2E assertion. T-00, T-06 and T-09 are PASS with source, E2E and latest CI evidence in the matrix.
 - Native Windows/Android build remains unverified. The workflow is manual-only and the available GitHub connection has no workflow-dispatch write operation. Physical OPPO Find N2 external/inner display testing is also not evidenced.
 - Do not mark native build or physical-device acceptance PASS from browser viewport tests.
