@@ -725,3 +725,28 @@ B 线未完成前，禁止将事件审计中的触发价至确认价变化解释
 
 - 本节代码只实现技术状态，不实现策略回测、订单、成交、资金、费用、滑点或收益分析。
 - UI E2E、完整前端 CI 和最新实时校准的最终状态，以需求台账中的具体 run/job 证据为准；运行中的任务不得提前标记 PASS。
+
+## 26. 2026-11-10 恢复复核与下一阶段执行边界
+
+本节优先于本文件第 1—25 节中的过期状态描述；历史记录保留，但不得用旧状态覆盖当前源码事实。
+
+### 当前 main 复核结论
+
+- 复核基线：`cf85b720e619ba1608b75a14af57ef7ecea42863`。
+- 当前生产行情链路在 `src/market-data.ts:fetchIntervalIndicators` 中，将确认序列、`bollStateConfigFor(interval)` 和报价来源传给 `calculateTechnicalStateSnapshot`。
+- `src/App.tsx:MacdPanel` 已消费技术状态并调用 `describeTechnicalMultiTimeframeState`；`MacdPeriodCard` 展示月/周/日 BOLL 与 MACD 结构化字段。T-06 历史备注“尚未完整接入 UI”已过期。
+- 最新基线前端 CI Run [42647524181](https://github.com/just2512/fund-boll-ledger/actions/runs/42647524181) 的单测/生产构建和浏览器 E2E 两个 job 均成功；真实行情校准 Run [42646038809](https://github.com/just2512/fund-boll-ledger/actions/runs/42646038809) 成功。
+- 发现并修正一处产品文案错误：原 UI 声称 BOLL 阈值未配置，但生产链路实际传入版本化参考配置。修正提交 `c7c811da30ecd15b75ab1ffd84ad276d1bb8650c`；对应 E2E 断言提交 `d8f25f4a05cf8f1905a14793bd07c5f60516638e`。
+- 源码审计和需求矩阵已更新；T-00、T-06、T-09 暂标 `IN_PROGRESS`，等待上述新提交的 CI 结果，不提前恢复 PASS。
+
+### 下一阶段：原生构建与设备验收
+
+- `.github/workflows/native-build.yml` 只有 `workflow_dispatch` 触发，包含 Windows desktop installer 和 Android arm64 APK 构建。
+- 当前可用 GitHub 操作连接提供读取、文件提交和失败 job 重跑，但没有 workflow dispatch 写操作；本轮不能真实触发该工作流，也不能伪造构建产物。
+- 浏览器 E2E 的 360/390/844/900/1280 等视口测试不等同于 Android 原生 APK 安装或 OPPO Find N2 外屏/展开内屏真机验收。
+- 因此，原生 Windows/Android 构建与物理设备验收仍为未完成外部验证；不得将 T-09 的浏览器视口 PASS 扩大解释为真机 PASS。
+- 不改变 native workflow 的触发条件来规避限制；不增加新依赖或新页面；等待有权限的 workflow_dispatch 执行后再验收安装包与设备表现。
+
+### 本轮范围
+
+只修正过期文案、E2E 断言、源码审计和需求证据；不改 BOLL/MACD 公式、配置参数、行情来源、账本结构或策略范围。
