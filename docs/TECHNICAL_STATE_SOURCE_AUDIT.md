@@ -77,6 +77,7 @@
 - 实际生产链路已确认：`fetchIntervalIndicators` 对有效确认序列调用 `calculateTechnicalStateSnapshot(normalized.series, bollStateConfigFor(interval), quote.source)`；不是文档声明或未接入函数。
 - 实际 UI 链路已确认：`MacdPanel` 接收 `technicalState`，调用 `describeTechnicalMultiTimeframeState`；`MacdPeriodCard` 分别展示 BOLL 轨道、BBW、历史分位、带宽阶段、中轨方向、确认收盘位置、来源和覆盖范围，以及 MACD 零轴/排列/动能/交叉信息。
 - T-06 旧证据备注“当前函数尚未完整接入 UI”已过期；当前源码已接入 UI，旧备注必须更正，不再作为当前结论。
-- 发现 UI 标题说明仍称“未配置的 BOLL 状态阈值保持未知”，与生产路径实际注入参考配置不符。已在复核后提交中修正文案，并增加 E2E 文案断言；对应提交：`c7c811da30ecd15b75ab1ffd84ad276d1bb8650c`、`d8f25f4a05cf8f1905a14793bd07c5f60516638e`。这些提交的 CI 需以新 run 结果为准。
+- 发现 UI 标题说明仍称“未配置的 BOLL 状态阈值保持未知”，与生产路径实际注入参考配置不符。已在复核后提交中修正文案，并增加 E2E 文案断言；对应提交：`c7c811da30ecd15b75ab1ffd84ad276d1bb8650c`、`d8f25f4a05cf8f1905a14793bd07c5f60516638e`。最新前端 CI Run [42736555527](https://github.com/just2512/fund-boll-ledger/actions/runs/42736555527) 在上述文案、E2E 和审计修改后的主线通过：单测/生产构建与浏览器 E2E 两个 job 均 completed/success。
 - 本轮没有修改指标公式、历史数据契约、账本结构或产品范围。
+- 中间 CI Run [42736482009](https://github.com/just2512/fund-boll-ledger/actions/runs/42736482009) 曾因需求矩阵将 T-00/T-06/T-09 设为 IN_PROGRESS 却缺少执行契约要求的具体 blocker 而失败；随后在提交 `4011d5e7640f41fdce6b0c4519348d998d21e75e` 补齐 blocker，最新 Run `42736555527` 全部通过。失败记录保留，不以重跑覆盖。
 - 下一项外部验收仍未完成：`.github/workflows/native-build.yml` 只有 `workflow_dispatch`，当前 GitHub 操作连接没有 workflow dispatch 写操作；因此本轮不能触发 Windows 安装包/Android APK 构建。没有物理 OPPO Find N2 外屏/内屏验收证据。不得把浏览器视口 E2E 等同于真机 PASS。
