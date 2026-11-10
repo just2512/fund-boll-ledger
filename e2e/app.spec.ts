@@ -502,8 +502,14 @@ test('行情仅在手动点击时请求，东方财富成功后更新当前价�
   expect(baiduCalls).toBe(0);
 });
 
-test('东方财富失败时百度自动兜底，双源都失败时保留手动价格', async ({ page }) => {
+test('东方财富与腾讯都失败时百度自动兜底，三源都失败时保留手动价格', async ({ page }) => {
   await createFund(page, '双源测试 ETF', '510300');
+  await page.route('https://qt.gtimg.cn/**', async (route) => {
+    await route.fulfill({ status: 503, headers: { 'access-control-allow-origin': '*' }, body: 'unavailable' });
+  });
+  await page.route('https://ifzq.gtimg.cn/**', async (route) => {
+    await route.fulfill({ status: 503, headers: { 'access-control-allow-origin': '*' }, body: 'unavailable' });
+  });
   await page.route('https://push2.eastmoney.com/**', async (route) => {
     await route.fulfill({ status: 503, headers: { 'access-control-allow-origin': '*' }, body: 'unavailable' });
   });

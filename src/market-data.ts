@@ -4,7 +4,7 @@ import { normalizeConfirmedTechnicalSeries } from './technical-state/series';
 import { bollStateConfigFor } from './technical-state/config';
 import type { TechnicalMultiTimeframeState, TechnicalNormalizationResult, TechnicalStateSnapshot } from './technical-state/types';
 
-export type QuoteSource = '东方财富' | '百度行情';
+export type QuoteSource = '东方财富' | '腾讯行情' | '百度行情';
 
 export interface BollBands {
   upper: string;
@@ -201,12 +201,20 @@ async function requestBaiduText(path: string, params: URLSearchParams): Promise<
     Referer: 'https://finance.baidu.com/',
   };
   const query = params.toString();
+  // Baidu returns HTTP 200 with a business-level 403 ({"code":403,"isCaptchaEnabled":true,"msg":"hit risk"});
+  // treating that as a success would skip the CDN proxy retry. Detect it and fail so the proxy is attempted.
+  const isCaptchaBlocked = (raw: string): boolean => raw.includes('"isCaptchaEnabled":true') || raw.includes('"hit risk"') || raw.includes('"code":403');
+  const request = async (url: string): Promise<string> => {
+    const raw = await requestText(url, headers);
+    if (isCaptchaBlocked(raw)) throw new Error('百度风控拦截（403 hit risk）');
+    return raw;
+  };
   try {
-    return await requestText('https://finance.pae.baidu.com' + path + '?' + query, headers);
+    return await request('https://finance.pae.baidu.com' + path + '?' + query);
   } catch (directError) {
     const proxyUrl = 'https://sp0.baidu.com/5LMDcjW6BwF3otqbppnN2DJv/finance.pae.baidu.com' + path + '?' + query;
     try {
-      return await requestText(proxyUrl, headers);
+      return await request(proxyUrl);
     } catch (proxyError) {
       throw new Error(
         '百度直连失败：' + (directError instanceof Error ? directError.message : '未知错误') +
@@ -263,6 +271,33 @@ async function fetchEastmoneyQuote(code: string, market: MarketQuoteRequest['mar
   if (String(row.f57 ?? '').trim() !== code) throw new Error('东方财富返回代码与当前基金不一致');
   const name = typeof row.f58 === 'string' && row.f58.trim() ? row.f58.trim() : undefined;
   return createQuote(code, name, row.f43, row.f60, row.f86, '东方财富');
+}
+
+/** Tencent quote carries a trusted source timestamp (fields[30]) and has GBK-encoded multi-byte names. */
+async function fetchTencentQuote(code: string, market: MarketQuoteRequest['market']): Promise<MarketQuote> {
+  const symbol = marketPrefix(code, market) + code;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const response = await fetch('https://qt.gtimg.cn/q=' + symbol + '&_=' + String(Date.now()), { cache: 'no-store', signal: controller.signal });
+    if (!response.ok) throw new Error('腾讯行情服务返回 HTTP ' + response.status);
+    const buffer = await response.arrayBuffer();
+    // GBK decoding must treat multi-byte sequences atomically so a 0x7E second byte
+    // never masquerades as the "~" field separator.
+    const raw = new TextDecoder('gbk').decode(buffer);
+    const match = raw.match(/=\s*"([\s\S]*?)"\s*;/);
+    if (!match) throw new Error('腾讯行情返回格式无法识别');
+    const fields = match[1].split('~');
+    if (String(fields[2] ?? '').trim() !== code) throw new Error('腾讯行情返回代码与当前基金不一致');
+    if (fields.length < 33) throw new Error('腾讯行情字段不完整');
+    const name = fields[1]?.trim() || undefined;
+    return createQuote(code, name, fields[3], fields[4], fields[30], '腾讯行情');
+  } catch (error) {
+    if (controller.signal.aborted) throw new Error('行情请求超时');
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 
@@ -359,6 +394,25 @@ async function fetchEastmoneyCloses(code: string, market: MarketQuoteRequest['ma
     if (typeof entry !== 'string') return [];
     const fields = entry.split(',');
     return fields.length >= 3 ? [{ date: fields[0], close: fields[2] }] : [];
+  });
+}
+
+/** Tencent kline fallback: ifzq.gtimg.cn serves day/week/month bars with the same [date, open, close, high, low, ...] shape Eastmoney uses. */
+async function fetchTencentCloses(code: string, market: MarketQuoteRequest['market'], interval: BollInterval): Promise<DailyClose[]> {
+  const intervalLabel = interval === 'daily' ? '日线' : interval === 'weekly' ? '周线' : '月线';
+  const period = interval === 'daily' ? 'day' : interval === 'weekly' ? 'week' : 'month';
+  const symbol = marketPrefix(code, market) + code;
+  const url = 'https://ifzq.gtimg.cn/appstock/app/kline/kline?param=' + encodeURIComponent(`${symbol},${period},,,320`) + '&_=' + Date.now();
+  const raw = await requestText(url);
+  let payload: unknown;
+  try { payload = JSON.parse(raw); } catch { throw new Error(`腾讯${intervalLabel}返回内容不是有效 JSON`); }
+  const data = (payload as { code?: unknown; data?: Record<string, unknown> | null }).data;
+  if (!data || typeof data !== 'object' || !data[symbol] || typeof data[symbol] !== 'object') throw new Error(`腾讯未返回历史${intervalLabel}`);
+  const bars = (data[symbol] as Record<string, unknown>)[period];
+  if (!Array.isArray(bars)) throw new Error(`腾讯未返回${intervalLabel}列表`);
+  return bars.flatMap((entry): DailyClose[] => {
+    if (!Array.isArray(entry) || entry.length < 3 || typeof entry[0] !== 'string') return [];
+    return [{ date: entry[0], close: String(entry[2]) }];
   });
 }
 function normalizeBaiduKlineDate(value: string): string {
@@ -504,11 +558,14 @@ interface IntervalHistory {
 async function fetchIntervalHistory(code: string, market: MarketQuoteRequest['market'], interval: BollInterval): Promise<IntervalHistory> {
   try { return { bars: await fetchEastmoneyCloses(code, market, interval), source: '东方财富' }; }
   catch (eastmoneyError) {
-    try { return { bars: await fetchBaiduCloses(code, interval), source: '百度行情' }; }
-    catch (baiduError) {
-      throw new Error(
-        `东方财富失败：${eastmoneyError instanceof Error ? eastmoneyError.message : '未知错误'}；百度失败：${baiduError instanceof Error ? baiduError.message : '未知错误'}。请检查网络连接。`,
-      );
+    try { return { bars: await fetchTencentCloses(code, market, interval), source: '腾讯行情' }; }
+    catch (tencentError) {
+      try { return { bars: await fetchBaiduCloses(code, interval), source: '百度行情' }; }
+      catch (baiduError) {
+        throw new Error(
+          `东方财富失败：${eastmoneyError instanceof Error ? eastmoneyError.message : '未知错误'}；腾讯失败：${tencentError instanceof Error ? tencentError.message : '未知错误'}；百度失败：${baiduError instanceof Error ? baiduError.message : '未知错误'}。请检查网络连接。`,
+        );
+      }
     }
   }
 }
@@ -549,11 +606,16 @@ export async function fetchLatestQuote(request: MarketQuoteRequest): Promise<Mar
     eastmoneyError = error instanceof Error ? error : new Error('东方财富请求失败');
   }
   try {
-    return await fetchBaiduQuote(code);
+    return await fetchTencentQuote(code, request.market);
   } catch (error) {
-    const baiduError = error instanceof Error ? error : new Error('百度行情请求失败');
-    // Surface both source failures so "wrong code" and "network down" are distinguishable.
-    throw new Error(`东方财富失败：${eastmoneyError.message}；百度失败：${baiduError.message}。请检查基金代码或网络连接。`);
+    const tencentError = error instanceof Error ? error : new Error('腾讯行情请求失败');
+    try {
+      return await fetchBaiduQuote(code);
+    } catch (baiduErrorRaw) {
+      const baiduError = baiduErrorRaw instanceof Error ? baiduErrorRaw : new Error('百度行情请求失败');
+      // Surface every source failure so "wrong code" and "network down" are distinguishable.
+      throw new Error(`东方财富失败：${eastmoneyError.message}；腾讯失败：${tencentError.message}；百度失败：${baiduError.message}。请检查基金代码或网络连接。`);
+    }
   }
 }
 

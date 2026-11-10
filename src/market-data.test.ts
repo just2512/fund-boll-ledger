@@ -42,6 +42,13 @@ function eastmoneyResponse(data: Record<string, unknown> | null): Response {
   return new Response(JSON.stringify({ data }), { status: 200, headers: { 'Content-Type': 'application/json' } });
 }
 
+function tencentResponse(code = '510300'): Response {
+  const fields = Array.from({ length: 50 }, () => '');
+  fields[0] = '1'; fields[1] = 'HS300ETF'; fields[2] = code; fields[3] = '4.125'; fields[4] = '4.000';
+  fields[30] = marketTime(); fields[32] = '3.13';
+  return new Response('v_sh' + code + '="' + fields.join('~') + '";', { status: 200, headers: { 'Content-Type': 'text/plain; charset=GBK' } });
+}
+
 describe('manual ETF market quote refresh', () => {
   it('uses Eastmoney first and derives daily change from the same quote snapshot', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(eastmoneyResponse({
@@ -101,12 +108,16 @@ describe('manual ETF market quote refresh', () => {
         cur: { price: '4.125', increase: '+0.125', ratio: '+3.13%' },
       },
     }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(eastmoneyResponse(null)).mockResolvedValueOnce(baidu);
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(eastmoneyResponse(null))
+      .mockResolvedValueOnce(new Response('', { status: 503 })) // Tencent unavailable
+      .mockResolvedValueOnce(baidu);
     vi.stubGlobal('fetch', fetchMock);
     const quote = await fetchLatestQuote({ code: '510300', market: '沪市' });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(String(fetchMock.mock.calls[1][0])).toContain('/vapi/v1/getquotation?');
-    expect(String(fetchMock.mock.calls[1][0])).toContain('financeType=etf');
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(String(fetchMock.mock.calls[1][0])).toContain('qt.gtimg.cn/q=');
+    expect(String(fetchMock.mock.calls[2][0])).toContain('/vapi/v1/getquotation?');
+    expect(String(fetchMock.mock.calls[2][0])).toContain('financeType=etf');
     expect(quote.source).toBe('百度行情');
     expect(quote.name).toBe('沪深300ETF');
     expect(quote.price).toBe('4.125');
@@ -114,6 +125,23 @@ describe('manual ETF market quote refresh', () => {
     expect(quote.changePercent).toBe(3.13);
     expect(quote.quotedAt).toBeUndefined();
     expect(quote.tradingDate).toBeUndefined();
+  });
+  it('falls back to Tencent quote with a trusted source timestamp', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(eastmoneyResponse(null))
+      .mockResolvedValueOnce(tencentResponse());
+    vi.stubGlobal('fetch', fetchMock);
+    const quote = await fetchLatestQuote({ code: '510300', market: '沪市' });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(String(fetchMock.mock.calls[1][0])).toContain('qt.gtimg.cn/q=sh510300');
+    expect(quote.source).toBe('腾讯行情');
+    expect(quote.name).toBe('HS300ETF');
+    expect(quote.price).toBe('4.125');
+    expect(quote.previousClose).toBe('4.000');
+    expect(quote.changePercent).toBe(3.13);
+    // Tencent carries a trusted trading date, unlike Baidu.
+    expect(quote.tradingDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(quote.quotedAt).toBeTruthy();
   });
   it('does not calculate live BOLL from a Baidu quote without a trusted trading date', async () => {
     const baidu = new Response(JSON.stringify({
@@ -222,12 +250,36 @@ describe('manual ETF market quote refresh', () => {
     await expect(fetchLatestQuote({ code: '51030', market: '沪市' })).rejects.toThrow('6 位');
     expect(fetchMock).not.toHaveBeenCalled();
   });
-  it('fails clearly if both live quote sources are unavailable', async () => {
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(new Response('', { status: 503 })).mockResolvedValueOnce(new Response('invalid response', { status: 200 }));
+  it('fails clearly when all three live quote sources are unavailable', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response('', { status: 503 })) // Eastmoney
+      .mockResolvedValueOnce(new Response('invalid response', { status: 200 })) // Tencent
+      .mockResolvedValueOnce(new Response('', { status: 503 })) // Baidu direct
+      .mockResolvedValueOnce(new Response('', { status: 503 })); // Baidu CDN proxy
     vi.stubGlobal('fetch', fetchMock);
-    // Both sources' own failure reasons must survive into the final message.
-    await expect(fetchLatestQuote({ code: '510300', market: '沪市' })).rejects.toThrow('东方财富失败：行情服务返回 HTTP 503；百度失败：百度行情现价返回内容不是有效 JSON');
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    // Every source's own failure reason must survive into the final message; Baidu reports both of its two entries.
+    const error = await fetchLatestQuote({ code: '510300', market: '沪市' }).then(() => undefined, (e) => e as Error);
+    expect(error).toBeInstanceOf(Error);
+    expect(String(error?.message)).toContain('东方财富失败');
+    expect(String(error?.message)).toContain('腾讯失败：腾讯行情返回格式无法识别');
+    expect(String(error?.message)).toContain('百度直连失败');
+    expect(String(error?.message)).toContain('百度 CDN 代理失败');
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
+  it('falls through the Baidu CDN proxy when both Baidu entries are captcha-blocked (business 403)', async () => {
+    // Baidu returns HTTP 200 with a business-level 403 body; it must be detected so the CDN proxy is retried.
+    const captcha = new Response(JSON.stringify({ ResultCode: 0, Result: { code: 403, isCaptchaEnabled: true, msg: 'hit risk' } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(eastmoneyResponse(null)) // Eastmoney down
+      .mockResolvedValueOnce(new Response('invalid response', { status: 200 })) // Tencent malformed
+      .mockResolvedValueOnce(captcha) // Baidu direct: business 403
+      .mockResolvedValueOnce(captcha.clone()); // Baidu CDN proxy: business 403
+    vi.stubGlobal('fetch', fetchMock);
+    const error = await fetchLatestQuote({ code: '510300', market: '沪市' }).then(() => undefined, (e) => e as Error);
+    expect(error).toBeInstanceOf(Error);
+    expect(String(error?.message)).toContain('百度风控');
+    expect(String(error?.message)).toContain('百度 CDN 代理失败');
+    expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 });
 
@@ -329,6 +381,7 @@ describe('BOLL(20,2)', () => {
         return eastmoneyResponse({ f57: '510300', f58: '沪深300ETF', f43: '4.125', f60: '4.000', f86: marketTime() });
       }
       if (url.includes('push2his.eastmoney.com')) return new Response('', { status: 503 });
+      if (url.includes('ifzq.gtimg.cn')) return new Response('', { status: 503 }); // Tencent klines unavailable too
       if (url.includes('finance.pae.baidu.com/selfselect/getstockquotation')) {
         const eprop = new URL(url).searchParams.get('eprop');
         const interval = eprop === 'weekK' ? 'weekly' : eprop === 'monthK' ? 'monthly' : 'daily';
@@ -338,7 +391,8 @@ describe('BOLL(20,2)', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
     const market = await fetchLatestMarketData({ code: '510300', market: '沪市' });
-    expect(fetchMock).toHaveBeenCalledTimes(7);
+    // 1 quote + 3 intervals × (Eastmoney fail + Tencent fail + Baidu success) = 10.
+    expect(fetchMock).toHaveBeenCalledTimes(10);
     expect(market.price).toBe('4.125');
     expect(market.technicalState?.daily.source).toBe('百度行情');
     expect(market.technicalState?.daily.quoteSource).toBe('东方财富');
@@ -354,7 +408,41 @@ describe('BOLL(20,2)', () => {
       Referer: 'https://finance.baidu.com/',
     });
   });
-  it('fails closed when both Eastmoney and Baidu K-line sources are unavailable', async () => {
+  it('preserves the Eastmoney quote and falls back to Tencent K lines when Eastmoney history fails', async () => {
+    const tencentKline = (period: 'day' | 'week' | 'month') => {
+      const interval = period === 'day' ? 'daily' : period === 'week' ? 'weekly' : 'monthly';
+      const bars = intervalCloses(interval).map((line) => {
+        const [date, close] = line.split(',');
+        return [date, close, close, close, close, '1000'];
+      });
+      return new Response(JSON.stringify({ code: 0, msg: '', data: { sh510300: { [period]: bars } } }), { status: 200 });
+    };
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input: RequestInfo | URL) => {
+      const url = decodeURIComponent(String(input));
+      if (url.includes('push2.eastmoney.com/api/qt/stock/get?')) {
+        return eastmoneyResponse({ f57: '510300', f58: '沪深300ETF', f43: '4.125', f60: '4.000', f86: marketTime() });
+      }
+      if (url.includes('push2his.eastmoney.com')) return new Response('', { status: 503 });
+      if (url.includes('ifzq.gtimg.cn')) {
+        const period = url.includes(',week,') ? 'week' : url.includes(',month,') ? 'month' : 'day';
+        return tencentKline(period);
+      }
+      return new Response('', { status: 404 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const market = await fetchLatestMarketData({ code: '510300', market: '沪市' });
+    // 1 quote + 3 intervals × (Eastmoney fail + Tencent success) = 7.
+    expect(fetchMock).toHaveBeenCalledTimes(7);
+    expect(market.price).toBe('4.125');
+    expect(market.technicalState?.daily.source).toBe('腾讯行情');
+    expect(market.technicalState?.weekly.source).toBe('腾讯行情');
+    expect(market.technicalState?.monthly.source).toBe('腾讯行情');
+    expect(market.technicalState?.daily.quoteSource).toBe('东方财富');
+    expect(market.boll?.middle).toMatch(/^\d+\.\d{3}$/);
+    expect(market.weeklyBollRange).toEqual({ upper: expect.any(String), lower: expect.any(String) });
+    expect(market.monthlyBollRange).toEqual({ upper: expect.any(String), lower: expect.any(String) });
+  });
+  it('fails closed when all three K-line sources are unavailable', async () => {
     const fetchMock = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(eastmoneyResponse({ code: '510300', f57: '510300', f58: '沪深300ETF', f43: '4.125', f60: '4.000', f86: marketTime() }))
       .mockResolvedValue(new Response('', { status: 503 }));
@@ -365,11 +453,13 @@ describe('BOLL(20,2)', () => {
     expect(market.weeklyBollRange).toBeUndefined();
     expect(market.monthlyBollRange).toBeUndefined();
     expect(market.bollError).toContain('东方财富失败');
+    expect(market.bollError).toContain('腾讯失败');
     expect(market.bollError).toContain('百度失败');
-    expect(market.weeklyBollRangeError).toContain('百度失败');
-    expect(market.monthlyBollRangeError).toContain('百度失败');
+    expect(market.weeklyBollRangeError).toContain('腾讯失败');
+    expect(market.monthlyBollRangeError).toContain('腾讯失败');
     expect(market.technicalState?.daily.validity).toBe('INVALID');
     expect(market.technicalState?.daily.reason).toContain('东方财富失败');
+    expect(market.technicalState?.daily.reason).toContain('腾讯失败');
     expect(market.technicalState?.daily.reason).toContain('百度失败');
     expect(market.technicalState?.daily.quoteSource).toBe('东方财富');
   });
@@ -428,8 +518,9 @@ describe('extended confirmed market history', () => {
       },
     };
     const fetchMock = vi.fn<typeof fetch>()
-      .mockResolvedValueOnce(new Response('', { status: 503 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(payload), { status: 200 }));
+      .mockResolvedValueOnce(new Response('', { status: 503 })) // Eastmoney klines
+      .mockResolvedValueOnce(new Response('', { status: 503 })) // Tencent klines
+      .mockResolvedValueOnce(new Response(JSON.stringify(payload), { status: 200 })); // Baidu klines
     vi.stubGlobal('fetch', fetchMock);
     const result = await fetchConfirmedTechnicalHistory(
       { code: '510300', market: '沪市' },

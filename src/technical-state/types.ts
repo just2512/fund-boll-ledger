@@ -2,7 +2,7 @@ import type { MacdPeriodState } from '../macd';
 
 export type TechnicalInterval = 'daily' | 'weekly' | 'monthly';
 export type TechnicalValidity = 'VALID' | 'INSUFFICIENT' | 'INVALID';
-export type TechnicalQuoteSource = '东方财富' | '百度行情';
+export type TechnicalQuoteSource = '东方财富' | '腾讯行情' | '百度行情';
 
 export interface TechnicalRawBar {
   /** Exchange trading date in YYYY-MM-DD form; never a device-local timestamp. */

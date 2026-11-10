@@ -7,6 +7,7 @@ export default defineConfig({
   workers: 1,
   reporter: [['list']],
   use: {
+    channel: 'msedge',
     baseURL: 'http://127.0.0.1:4173',
     acceptDownloads: true,
     trace: 'retain-on-failure',

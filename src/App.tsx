@@ -636,7 +636,7 @@ function CalculatorPage({ fund, comparisons, ladderBasis, setLadderBasis, ladder
             {quoteState.quote.bollError && <small className="quote-error" role="status">BOLL未更新：{quoteState.quote.bollError}；原有轨道价格已保留。</small>}{quoteState.quote.weeklyBollRangeError && <small className="quote-error" role="status">周 BOLL 未更新：{quoteState.quote.weeklyBollRangeError}</small>}{quoteState.quote.monthlyBollRangeError && <small className="quote-error" role="status">月 BOLL 未更新：{quoteState.quote.monthlyBollRangeError}</small>}
           </>}
           {quoteState?.status === 'loading' && quoteState.hasManualEdits && <small className="quote-error" role="status">价格字段已手动修改；本次刷新不会覆盖你手动改过的价格字段。</small>}
-          {!quoteState?.quote && quoteState?.status === 'loading' && <small>正在请求东方财富；失败时自动尝试腾讯。</small>}
+          {!quoteState?.quote && quoteState?.status === 'loading' && <small>正在请求东方财富；失败时自动尝试腾讯，再尝试百度。</small>}
           {!quoteState?.quote && quoteState?.status === 'error' && <small className="quote-error" role="status">{quoteState.message} 未覆盖当前价格。</small>}
           {!quoteState && <small>点击刷新获取最新价、昨收和日/周/月区间位置所需数据；只有日 BOLL 三条轨道显示为可编辑价格基准，不自动轮询。</small>}
           {quoteState?.status === 'loading' && <small>正在刷新报价和日/周/月 BOLL……</small>}
