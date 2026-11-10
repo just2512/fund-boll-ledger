@@ -52,3 +52,11 @@ The frontend browser CI and multi-ETF live calibration are recorded in the requi
 - 当前连接没有 GitHub Actions workflow-dispatch 写操作，未代替用户触发原生构建。新增/补全 `docs/NATIVE_APP_AND_DEVICE_TEST.md` 中的产物获取、签名风险、BOLL + MACD 原生端检查项和 OPPO Find N2 真机检查项，供用户拉取 `main` 后执行。
 - Android debug APK 明确不可覆盖升级正式签名版本；卸载前必须先导出 JSON 备份，避免丢失本机 IndexedDB 数据。
 - 外部 Windows/Android 构建和设备验收仍未取得结果；本项状态为待外部执行，不将前端 CI 或浏览器视口结果冒充原生验收。
+
+## 2026-11-10 Windows 原生构建门禁故障与修复
+
+- Native workflow Run [42738326328](https://github.com/just2512/fund-boll-ledger/actions/runs/42738326328) 已实际执行：Android ARM64 ephemeral-signed smoke APK job 成功并上传 artifact `fund-boll-ledger-android-arm64-debug-only`；Windows job 在 `Verify upgrade contract` 阶段失败，未生成 Windows 安装包；Android 持久签名 Release job 因 `ANDROID_RELEASE_SIGNING_ENABLED` 未启用而跳过。
+- Windows 失败根因已从日志和源码定位：`scripts/verify-upgrade-contract.mjs` 用仅接受 LF 的正则解析 `src-tauri/Cargo.lock`，Windows checkout 文件为 CRLF，导致 `cargoLock` 版本捕获为 `undefined`。其余五处版本字段均为 `0.2.0`，并非真实版本不一致。
+- 已在提交 `2e842511b82713900861315e8f42342bcd1e40ab` 修正解析器，允许 LF/CRLF：`/\\[\\[package\\]\\]\\r?\\nname ... \\r?\\nversion .../`。没有放宽版本校验条件，也没有改变升级身份、签名或数据迁移门槛。
+- 修复提交触发前端 CI Run [42743013645](https://github.com/just2512/fund-boll-ledger/actions/runs/42743013645)：单测/类型检查/生产构建 job 已成功；浏览器 E2E 尚在执行，不能提前标记整次 CI 成功。
+- 重新触发 Native App Build (manual) 仍需从 Actions 页面手动选择 `main`；当前 GitHub 连接没有 workflow-dispatch 写操作。Android debug artifact 只用于安装冒烟测试，不可覆盖升级正式签名版。
