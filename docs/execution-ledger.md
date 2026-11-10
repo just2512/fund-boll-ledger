@@ -60,3 +60,14 @@ The frontend browser CI and multi-ETF live calibration are recorded in the requi
 - 已在提交 `2e842511b82713900861315e8f42342bcd1e40ab` 修正解析器，允许 LF/CRLF：`/\\[\\[package\\]\\]\\r?\\nname ... \\r?\\nversion .../`。没有放宽版本校验条件，也没有改变升级身份、签名或数据迁移门槛。
 - 修复提交触发前端 CI Run [42743013645](https://github.com/just2512/fund-boll-ledger/actions/runs/42743013645)：单测/类型检查/生产构建 job 已成功；浏览器 E2E 尚在执行，不能提前标记整次 CI 成功。
 - 重新触发 Native App Build (manual) 仍需从 Actions 页面手动选择 `main`；当前 GitHub 连接没有 workflow-dispatch 写操作。Android debug artifact 只用于安装冒烟测试，不可覆盖升级正式签名版。
+
+
+## 2026-11-10 UI 系统版本升级 0.3.0
+
+- 版本从 `0.2.0` 升级为 `0.3.0`；Android versionCode 按仓库编码规则从 `2000` 更新为 `3000`。
+- 升级前回退基线：`72354042108c43d65f59ecd8f74d20baf1339d50`；回退分支：`rollback/ui-v0.3.0-baseline`。该分支锚定升级前完整代码，不触碰用户本地 IndexedDB 数据。
+- 实施范围与验收清单见 [UI_UPGRADE_0.3.0.md](UI_UPGRADE_0.3.0.md)。
+- UI 实施：顶部行情摘要胶囊及轻量毛玻璃；日/周/月单选横向手风琴（窄屏纵向折叠）；指标明细托盘；刷新成功/失败反馈；减少动效支持。
+- 版本字段已同步 package/package-lock、Cargo.toml/Cargo.lock、Tauri 配置；升级契约改为 package version 单一来源，并按版本规则校验 Android versionCode；原应用 ID、Windows 安装身份和本地数据身份保持不变。
+- E2E 增加顶部摘要、周期互斥展开、360px 无横向溢出和 reduced-motion 检查。
+- 尚未以本台账记录 CI 最终结果、Windows 安装包、Android 持久签名 Release 或 OPPO Find N2 真机结果；这些必须以对应工作流和设备证据补记，不能以源码提交代替验收。
