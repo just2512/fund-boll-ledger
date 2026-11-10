@@ -737,7 +737,7 @@ B 线未完成前，禁止将事件审计中的触发价至确认价变化解释
 - `src/App.tsx:MacdPanel` 已消费技术状态并调用 `describeTechnicalMultiTimeframeState`；`MacdPeriodCard` 展示月/周/日 BOLL 与 MACD 结构化字段。T-06 历史备注“尚未完整接入 UI”已过期。
 - 最新基线前端 CI Run [42647524181](https://github.com/just2512/fund-boll-ledger/actions/runs/42647524181) 的单测/生产构建和浏览器 E2E 两个 job 均成功；真实行情校准 Run [42646038809](https://github.com/just2512/fund-boll-ledger/actions/runs/42646038809) 成功。
 - 发现并修正一处产品文案错误：原 UI 声称 BOLL 阈值未配置，但生产链路实际传入版本化参考配置。修正提交 `c7c811da30ecd15b75ab1ffd84ad276d1bb8650c`；对应 E2E 断言提交 `d8f25f4a05cf8f1905a14793bd07c5f60516638e`。
-- 源码审计和需求矩阵已更新；T-00、T-06、T-09 暂标 `IN_PROGRESS`，等待上述新提交的 CI 结果，不提前恢复 PASS。
+- 源码审计和需求矩阵已更新；T-00、T-06、T-09 已恢复 PASS，证据指向当前源码、E2E 和最新 CI Run [42736555527](https://github.com/just2512/fund-boll-ledger/actions/runs/42736555527)。
 
 ### 下一阶段：原生构建与设备验收
 
@@ -746,6 +746,7 @@ B 线未完成前，禁止将事件审计中的触发价至确认价变化解释
 - 浏览器 E2E 的 360/390/844/900/1280 等视口测试不等同于 Android 原生 APK 安装或 OPPO Find N2 外屏/展开内屏真机验收。
 - 因此，原生 Windows/Android 构建与物理设备验收仍为未完成外部验证；不得将 T-09 的浏览器视口 PASS 扩大解释为真机 PASS。
 - 不改变 native workflow 的触发条件来规避限制；不增加新依赖或新页面；等待有权限的 workflow_dispatch 执行后再验收安装包与设备表现。
+- 中间 Run [42736482009](https://github.com/just2512/fund-boll-ledger/actions/runs/42736482009) 因 IN_PROGRESS 项缺少契约要求的 blocker 失败；提交 `4011d5e7640f41fdce6b0c4519348d998d21e75e` 补齐后，Run `42736555527` 的两个 job 均通过。保留失败与修复记录。
 
 ### 本轮范围
 
