@@ -21,7 +21,8 @@
           "note": "2026-11-10 已重新核对当前 main 的行情生产调用链、BOLL 配置注入、MACD 稳定门槛、组合描述和 UI 接入；等待本轮文档/文案修正提交的 CI 复核。"
         }
       ],
-      "currentReview": "复核发现旧审计日期和 T-06 证据备注过期，已更新审计；新提交 CI 完成后再恢复 PASS。"
+      "currentReview": "复核发现旧审计日期和 T-06 证据备注过期，已更新审计；新提交 CI 完成后再恢复 PASS。",
+      "blocker": "本轮文案、审计和 E2E 断言提交尚待对应 GitHub Actions 前端 CI 完成；CI 未完成前不恢复 PASS。"
     },
     {
       "id": "T-01",
@@ -143,7 +144,8 @@
           "note": "增加 UI 配置说明文案的浏览器断言；等待本次提交 CI。"
         }
       ],
-      "currentReview": "纠正旧备注：函数已完整接入 UI；当前复核补充了准确文案与 E2E 断言，等待新 CI 后恢复 PASS。"
+      "currentReview": "纠正旧备注：函数已完整接入 UI；当前复核补充了准确文案与 E2E 断言，等待新 CI 后恢复 PASS。",
+      "blocker": "本轮文案、审计和 E2E 断言提交尚待对应 GitHub Actions 前端 CI 完成；CI 未完成前不恢复 PASS。"
     },
     {
       "id": "T-07",
@@ -201,7 +203,8 @@
           "note": "原有折叠交互和多视口 E2E 保留，并新增 BOLL 参考配置说明断言；等待新 CI。"
         }
       ],
-      "currentReview": "浏览器自动化验收待本轮新 run 复核；物理 OPPO Find N2 真机仍无证据，不能声称完成真机验收。"
+      "currentReview": "浏览器自动化验收待本轮新 run 复核；物理 OPPO Find N2 真机仍无证据，不能声称完成真机验收。",
+      "blocker": "本轮文案、审计和 E2E 断言提交尚待对应 GitHub Actions 前端 CI 完成；CI 未完成前不恢复 PASS。"
     },
     {
       "id": "T-10",
