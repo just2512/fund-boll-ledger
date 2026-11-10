@@ -1,8 +1,8 @@
 # 技术状态分析源码审计
 
-- 审计日期：2026-11-09
+- 审计日期：2026-11-10
 - 代码基线：用户指定回退基线 `8bdb64a85f4dec5360400315915960791589566d`
-- 当前审计提交：`961c4363210c9cd231f53fc8cebfe927fd9106dc`
+- 本次复核基线：`cf85b720e619ba1608b75a14af57ef7ecea42863`（复核后另有 UI 文案与 E2E 断言修正提交）
 - 范围：现有价格对比模块中的 BOLL + MACD 技术状态描述；不包含策略回测、订单、成交或账本扩展。
 
 ## 1. 行情与确认 K 线
@@ -43,7 +43,7 @@
 
 ## 6. 现有 UI
 
-- `src/App.tsx:MacdPanel`：仍位于现有价格对比模块内，标题调整为 BOLL + MACD 技术状态。
+- `src/App.tsx:MacdPanel`：仍位于现有价格对比模块内，标题调整为 BOLL + MACD 技术状态；通过 `describeTechnicalMultiTimeframeState` 生成摘要，日/周/月细节由 `MacdPeriodCard` 展示。
 - 首屏显示跨周期客观描述；日/周/月详细依据折叠在同一面板内。
 - `MacdPeriodCard` 展示 BOLL 轨道、BBW、历史分位、阶段、中轨方向、确认收盘位置，以及 MACD 状态。
 - `src/styles.css` 提供窄屏折叠和卡片布局；`e2e/app.spec.ts`、`e2e/foldable.spec.ts` 覆盖展开/收起和多视口宽度。
@@ -70,3 +70,13 @@
 - BOLL 参考配置可运行且经过真实历史敏感性对照，但不是收益优化后的参数，也不应被解释为交易信号。
 - 多周期摘要是逐项事实并列，不输出综合涨跌结论。
 - 任何真实行情服务故障必须保留原始失败状态，不通过跳过用例或更换未授权来源掩盖。
+
+## 10. 2026-11-10 恢复复核
+
+- 当前 main 基线复核：`cf85b720e619ba1608b75a14af57ef7ecea42863`；该提交的 Frontend Checks Run [42647524181](https://github.com/just2512/fund-boll-ledger/actions/runs/42647524181) 两个 job（单测/生产构建、浏览器 E2E）均为 completed/success。
+- 实际生产链路已确认：`fetchIntervalIndicators` 对有效确认序列调用 `calculateTechnicalStateSnapshot(normalized.series, bollStateConfigFor(interval), quote.source)`；不是文档声明或未接入函数。
+- 实际 UI 链路已确认：`MacdPanel` 接收 `technicalState`，调用 `describeTechnicalMultiTimeframeState`；`MacdPeriodCard` 分别展示 BOLL 轨道、BBW、历史分位、带宽阶段、中轨方向、确认收盘位置、来源和覆盖范围，以及 MACD 零轴/排列/动能/交叉信息。
+- T-06 旧证据备注“当前函数尚未完整接入 UI”已过期；当前源码已接入 UI，旧备注必须更正，不再作为当前结论。
+- 发现 UI 标题说明仍称“未配置的 BOLL 状态阈值保持未知”，与生产路径实际注入参考配置不符。已在复核后提交中修正文案，并增加 E2E 文案断言；对应提交：`c7c811da30ecd15b75ab1ffd84ad276d1bb8650c`、`d8f25f4a05cf8f1905a14793bd07c5f60516638e`。这些提交的 CI 需以新 run 结果为准。
+- 本轮没有修改指标公式、历史数据契约、账本结构或产品范围。
+- 下一项外部验收仍未完成：`.github/workflows/native-build.yml` 只有 `workflow_dispatch`，当前 GitHub 操作连接没有 workflow dispatch 写操作；因此本轮不能触发 Windows 安装包/Android APK 构建。没有物理 OPPO Find N2 外屏/内屏验收证据。不得把浏览器视口 E2E 等同于真机 PASS。
