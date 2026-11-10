@@ -14,7 +14,7 @@ const androidBuild = fs.readFileSync(path.join(root, 'scripts/build-android.ps1'
 const androidSigning = fs.readFileSync(path.join(root, 'scripts/configure-android-signing.mjs'), 'utf8');
 
 const cargoVersion = cargoToml.match(/^version\s*=\s*"([^"]+)"/m)?.[1];
-const cargoLockSection = cargoLock.match(/\[\[package\]\]\nname = "fund-boll-ledger"\nversion = "([^"]+)"/);
+const cargoLockSection = cargoLock.match(/\[\[package\]\]\r?\nname = "fund-boll-ledger"\r?\nversion = "([^"]+)"/);
 const versions = {
   package: packageJson.version,
   packageLock: packageLock.version,
