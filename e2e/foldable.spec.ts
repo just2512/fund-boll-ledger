@@ -102,3 +102,46 @@ test('viewport meta 携带 viewport-fit=cover（静态检查）', async ({ page 
   expect(content).toContain('viewport-fit=cover');
   expect(content).toContain('interactive-widget=resizes-content');
 });
+
+test('v0.3.0 顶部摘要托盘与多周期手风琴交互', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await createFund(page);
+
+  const topSummary = page.locator('.top-summary');
+  await expect(topSummary).toBeVisible();
+  await topSummary.locator('summary').click();
+  await expect(topSummary).toHaveAttribute('open', '');
+  await expect(topSummary.locator('.top-summary-tray')).toBeVisible();
+  await expect(topSummary.locator('.top-summary-tray')).toContainText('基金代码');
+  await expect(topSummary.locator('.top-summary-tray')).toContainText('当前价格');
+
+  const technicalDetails = page.locator('.technical-period-details');
+  await technicalDetails.locator('summary').click();
+  const daily = page.getByRole('button', { name: /日线/ });
+  const weekly = page.getByRole('button', { name: /周线/ });
+  const monthly = page.getByRole('button', { name: /月线/ });
+  await expect(daily).toHaveAttribute('aria-expanded', 'true');
+  await weekly.click();
+  await expect(weekly).toHaveAttribute('aria-expanded', 'true');
+  await expect(daily).toHaveAttribute('aria-expanded', 'false');
+  await monthly.click();
+  await expect(monthly).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.locator('.macd-period-card.expanded')).toHaveCount(1);
+
+  await page.setViewportSize({ width: 360, height: 780 });
+  const dimensions = await page.evaluate(() => ({
+    viewport: window.innerWidth,
+    document: document.documentElement.scrollWidth,
+    body: document.body.scrollWidth,
+  }));
+  expect(dimensions.document).toBeLessThanOrEqual(dimensions.viewport + 1);
+  expect(dimensions.body).toBeLessThanOrEqual(dimensions.viewport + 1);
+
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const motion = await page.locator('.macd-period-card').first().evaluate((element) => ({
+    transitionDuration: getComputedStyle(element).transitionDuration,
+    animationName: getComputedStyle(element).animationName,
+  }));
+  expect(motion.transitionDuration).toBe('0s');
+  expect(motion.animationName).toBe('none');
+});
