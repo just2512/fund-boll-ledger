@@ -39,6 +39,7 @@ test('当前价格对比模块可整体收起、展开并保留本地选择', as
   await expect(page.locator('.save-state.saved')).toBeVisible({ timeout: 10_000 });
   await expect(page.getByText('BOLL + MACD 技术状态')).toBeVisible();
   await expect(page.getByText('描述性数据')).toBeVisible();
+  await expect(page.getByText('BOLL 使用日/周/月版本化参考配置；历史不足或数据无效时明确标记未知')).toBeVisible();
   await expect(page.getByText(/不构成买卖建议/)).toBeVisible();
   const periodDetails = page.locator('.technical-period-details');
   await expect(periodDetails).not.toHaveAttribute('open');
