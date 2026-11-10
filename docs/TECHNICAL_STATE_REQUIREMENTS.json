@@ -8,7 +8,7 @@
       "id": "T-00",
       "area": "audit",
       "title": "当前 main 源码、调用链和数据契约审计",
-      "status": "PASS",
+      "status": "IN_PROGRESS",
       "acceptance": [
         "逐文件确认行情请求、确认 K 线、BOLL、MACD、历史重放和现有 UI 的真实调用链",
         "区分已实现、未接入、未知和失败",
@@ -16,11 +16,12 @@
       ],
       "evidence": [
         {
-          "commit": "a7447ae53de632f0754978338933cda8d7cf39a4",
+          "commit": "2b3a14c921f3c95a867afc7867f9c805ee29c7b8",
           "url": "https://github.com/just2512/fund-boll-ledger/blob/main/docs/TECHNICAL_STATE_SOURCE_AUDIT.md",
-          "note": "逐项审计行情请求、确认K线、BOLL/MACD、历史重放、现有UI和storage/types隔离；审计结论已固化。"
+          "note": "2026-11-10 已重新核对当前 main 的行情生产调用链、BOLL 配置注入、MACD 稳定门槛、组合描述和 UI 接入；等待本轮文档/文案修正提交的 CI 复核。"
         }
-      ]
+      ],
+      "currentReview": "复核发现旧审计日期和 T-06 证据备注过期，已更新审计；新提交 CI 完成后再恢复 PASS。"
     },
     {
       "id": "T-01",
@@ -123,7 +124,7 @@
       "id": "T-06",
       "area": "description",
       "title": "单周期 BOLL + MACD 结构化描述引擎",
-      "status": "PASS",
+      "status": "IN_PROGRESS",
       "acceptance": [
         "从已计算的结构化字段生成描述",
         "说明数据周期、as-of、BOLL 状态和 MACD 状态",
@@ -132,11 +133,17 @@
       ],
       "evidence": [
         {
-          "commit": "6071da608cd3d190bff36fbf5fb74be67bcf84a6",
-          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/42643356801",
-          "note": "describeTechnicalStateSnapshot 及对应单测通过；当前函数尚未完整接入 UI。"
+          "commit": "c7c811da30ecd15b75ab1ffd84ad276d1bb8650c",
+          "url": "https://github.com/just2512/fund-boll-ledger/blob/main/src/App.tsx",
+          "note": "当前 MacdPanel 已消费 technicalState 并调用 describeTechnicalMultiTimeframeState；MacdPeriodCard 展示各周期结构化 BOLL/MACD 状态。"
+        },
+        {
+          "commit": "d8f25f4a05cf8f1905a14793bd07c5f60516638e",
+          "url": "https://github.com/just2512/fund-boll-ledger/blob/main/e2e/app.spec.ts",
+          "note": "增加 UI 配置说明文案的浏览器断言；等待本次提交 CI。"
         }
-      ]
+      ],
+      "currentReview": "纠正旧备注：函数已完整接入 UI；当前复核补充了准确文案与 E2E 断言，等待新 CI 后恢复 PASS。"
     },
     {
       "id": "T-07",
@@ -179,7 +186,7 @@
       "id": "T-09",
       "area": "ui",
       "title": "现有价格对比模块内的 BOLL + MACD 描述展示",
-      "status": "PASS",
+      "status": "IN_PROGRESS",
       "acceptance": [
         "不新增独立产品模块或页面",
         "在现有价格对比模块内展示综合结论",
@@ -189,11 +196,12 @@
       ],
       "evidence": [
         {
-          "commit": "961c4363210c9cd231f53fc8cebfe927fd9106dc",
-          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/42646332702",
-          "note": "现有价格对比模块内首屏摘要和折叠明细；Playwright折叠交互及多视口宽度测试通过。"
+          "commit": "d8f25f4a05cf8f1905a14793bd07c5f60516638e",
+          "url": "https://github.com/just2512/fund-boll-ledger/blob/main/e2e/app.spec.ts",
+          "note": "原有折叠交互和多视口 E2E 保留，并新增 BOLL 参考配置说明断言；等待新 CI。"
         }
-      ]
+      ],
+      "currentReview": "浏览器自动化验收待本轮新 run 复核；物理 OPPO Find N2 真机仍无证据，不能声称完成真机验收。"
     },
     {
       "id": "T-10",
