@@ -23,7 +23,8 @@ const versions = {
   cargo: cargoVersion,
   cargoLock: cargoLockSection?.[1],
 };
-if (Object.values(versions).some((value) => value !== '0.2.0')) {
+const expectedVersion = packageJson.version;
+if (Object.values(versions).some((value) => value !== expectedVersion)) {
   throw new Error(`版本号未同步：${JSON.stringify(versions)}`);
 }
 if (tauri.identifier !== 'com.just2512.fundbollledger') {
