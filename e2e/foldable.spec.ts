@@ -112,6 +112,9 @@ test('v0.3.0 顶部摘要托盘与多周期手风琴交互', async ({ page }) =>
   await topSummary.locator('summary').click();
   await expect(topSummary).toHaveAttribute('open', '');
   await expect(topSummary.locator('.top-summary-tray')).toBeVisible();
+  const expandedHeader = await page.locator('.topbar').evaluate((element) => element.getBoundingClientRect().height);
+  expect(expandedHeader).toBeGreaterThan(76);
+  await expect(page.locator('.workspace')).toHaveCSS('filter', 'brightness(0.93)');
   await expect(topSummary.locator('.top-summary-tray')).toContainText('基金代码');
   await expect(topSummary.locator('.top-summary-tray')).toContainText('当前价格');
 
