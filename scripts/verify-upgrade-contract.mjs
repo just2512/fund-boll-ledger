@@ -74,7 +74,7 @@ for (const required of [
   'keytool -list -v -keystore',
   'Signer #1 certificate SHA-256 digest',
   'Persistent Android signing certificate fingerprint verified.',
-  "versionCode='2000' versionName='0.2.0'",
+  `versionCode='${expectedVersionCode}' versionName='${expectedVersion}'`,
   'fund-boll-ledger-android-arm64-release-upgradeable',
 ]) {
   if (!nativeWorkflow.includes(required)) {
