@@ -555,7 +555,7 @@ function MacdPanel({ state, technical, loading }: { state?: MacdMultiTimeframeSt
   const summary = technicalDescription?.summary ?? (loading ? '正在刷新 BOLL + MACD 数据…' : '刷新行情后计算');
   const detail = state?.summaryDetail ?? '仅展示已确认 K 线的计算状态';
   return <div className="macd-panel">
-    <div className="macd-panel-head"><div><h3>BOLL + MACD 技术状态</h3><p>只描述已确认日/周/月 K 线；未配置的 BOLL 状态阈值保持未知</p></div><span className="macd-rule-label">描述性数据</span></div>
+    <div className="macd-panel-head"><div><h3>BOLL + MACD 技术状态</h3><p>BOLL 使用日/周/月版本化参考配置；历史不足或数据无效时明确标记未知</p></div><span className="macd-rule-label">描述性数据</span></div>
     <div className="macd-summary"><strong className="macd-tone-neutral">{summary}</strong><span className={macdToneClass(state?.detailTone)}>{detail}</span></div>
     <details className="technical-period-details">
       <summary>展开日/周/月 BOLL 与 MACD 计算依据</summary>
