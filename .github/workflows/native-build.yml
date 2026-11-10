@@ -199,7 +199,7 @@ jobs:
           APK="$(find src-tauri/gen/android/app/build/outputs -type f -name '*.apk' ! -name '*unsigned*' | head -1)"
           test -n "$APK"
           "$BT/apksigner" verify --verbose "$APK"
-          "$BT/aapt" dump badging "$APK" | grep -F "package: name='com.just2512.fundbollledger' versionCode='2000' versionName='0.2.0'"
+          "$BT/aapt" dump badging "$APK" | grep -F "package: name='com.just2512.fundbollledger' versionCode='3000' versionName='0.3.0'"
           STORE_FILE="$(sed -n 's/^storeFile=//p' src-tauri/gen/android/keystore.properties)"
           KEY_ALIAS="$(sed -n 's/^keyAlias=//p' src-tauri/gen/android/keystore.properties)"
           test -n "$STORE_FILE"
@@ -214,7 +214,7 @@ jobs:
           fi
           echo "Persistent Android signing certificate fingerprint verified."
           mkdir -p artifacts
-          cp "$APK" "artifacts/基金阶梯账本-0.2.0-arm64-release-upgradeable.apk"
+          cp "$APK" "artifacts/基金阶梯账本-0.3.0-arm64-release-upgradeable.apk"
       - uses: actions/upload-artifact@v4
         with:
           name: fund-boll-ledger-android-arm64-release-upgradeable
