@@ -6,6 +6,8 @@ import { getBackupReminder } from './backup-reminder';
 import { validateAppData } from './backup-validation';
 import { fetchLatestMarketData, type MarketQuote } from './market-data';
 import { MACD_STABILITY_MIN_BARS, macdArrangementLabel, macdMomentumLabel, macdZeroAxisLabel, type MacdMultiTimeframeState, type MacdPeriodState, type MacdTone } from './macd';
+import { save as saveDialog, open as openDialog } from '@tauri-apps/plugin-dialog';
+import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
 import type { TechnicalMultiTimeframeState, TechnicalStateSnapshot } from './technical-state/types';
 import { describeTechnicalMultiTimeframeState } from './technical-state/engine';
 import { createId, emptyAppData, newFund, type AppData, type Fund, type FundCategory, type FundPrices, type LadderDirection, type PriceBasisKey, type PriceSnapshot, type Trade, type TradeSide } from './types';
@@ -32,21 +34,15 @@ function localDateTime(date = new Date()): string {
 function dateOf(value: string): string {
   return value ? value.slice(0, 10) : '';
 }
-interface TauriGlobals {
-  dialog: { open: (options?: Record<string, unknown>) => Promise<string | string[] | null>; save: (options?: Record<string, unknown>) => Promise<string | null> };
-  fs: { writeTextFile: (path: string, contents: string) => Promise<void>; readTextFile: (path: string) => Promise<string> };
-}
-function tauriApi(): TauriGlobals | null {
-  const api = (window as unknown as { __TAURI__?: TauriGlobals }).__TAURI__;
-  return api?.dialog && api?.fs ? api : null;
+function isTauriEnv(): boolean {
+  return typeof window !== 'undefined' && ('__TAURI__' in window || '__TAURI_INTERNALS__' in window);
 }
 
 // Tauri WebViews silently drop <a download> navigation, so packaged apps must write
 // through the dialog+fs plugins; plain browsers (optional PWA preview) keep the anchor path.
-async function saveFile(name: string, body: string, _type = 'application/json;charset=utf-8'): Promise<boolean> {
-  const tauri = tauriApi();
-  if (!tauri) {
-    const blob = new Blob([body], { type: _type });
+async function saveFile(name: string, body: string, type = 'application/json;charset=utf-8'): Promise<boolean> {
+  if (!isTauriEnv()) {
+    const blob = new Blob([body], { type });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -57,26 +53,27 @@ async function saveFile(name: string, body: string, _type = 'application/json;ch
     window.setTimeout(() => URL.revokeObjectURL(url), 1200);
     return true;
   }
-  const path = await tauri.dialog.save({
+  const path = await saveDialog({
     defaultPath: name,
     filters: [{ name: name.endsWith('.csv') ? 'CSV 文件' : 'JSON 备份', extensions: [name.endsWith('.csv') ? 'csv' : 'json'] }],
   });
   if (!path) return false; // user cancelled the save dialog
-  await tauri.fs.writeTextFile(path, body);
+  await writeTextFile(path, body);
   return true;
 }
 
 // Mirrors saveFile: packaged apps pick the backup file through the dialog plugin.
 async function openFileViaDialog(): Promise<string | null> {
-  const tauri = tauriApi();
-  if (!tauri) return null;
-  const picked = await tauri.dialog.open({
+  if (!isTauriEnv()) return null;
+  const picked = await openDialog({
     multiple: false,
     filters: [{ name: 'JSON 备份', extensions: ['json'] }],
   });
   if (!picked || Array.isArray(picked)) return null;
-  return await tauri.fs.readTextFile(picked);
+  return await readTextFile(picked);
 }
+
+
 
 function escapeCsv(value: string): string { return `"${value.replaceAll('"', '""')}"`; }
 function normalizeAppData(value: AppData): AppData {
@@ -482,7 +479,7 @@ export default function App() {
 
   // Packaged apps cannot open <input type=file> reliably either; pick through the dialog plugin.
   const handleImportClick = async () => {
-    if (tauriApi()) {
+    if (isTauriEnv()) {
       try {
         const text = await openFileViaDialog();
         if (text !== null) applyImportedBackup(text);
