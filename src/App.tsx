@@ -32,17 +32,52 @@ function localDateTime(date = new Date()): string {
 function dateOf(value: string): string {
   return value ? value.slice(0, 10) : '';
 }
-function downloadFile(name: string, body: string, type = 'application/json;charset=utf-8'): void {
-  const blob = new Blob([body], { type });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = name;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1200);
+interface TauriGlobals {
+  dialog: { open: (options?: Record<string, unknown>) => Promise<string | string[] | null>; save: (options?: Record<string, unknown>) => Promise<string | null> };
+  fs: { writeTextFile: (path: string, contents: string) => Promise<void>; readTextFile: (path: string) => Promise<string> };
 }
+function tauriApi(): TauriGlobals | null {
+  const api = (window as unknown as { __TAURI__?: TauriGlobals }).__TAURI__;
+  return api?.dialog && api?.fs ? api : null;
+}
+
+// Tauri WebViews silently drop <a download> navigation, so packaged apps must write
+// through the dialog+fs plugins; plain browsers (optional PWA preview) keep the anchor path.
+async function saveFile(name: string, body: string, _type = 'application/json;charset=utf-8'): Promise<boolean> {
+  const tauri = tauriApi();
+  if (!tauri) {
+    const blob = new Blob([body], { type: _type });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1200);
+    return true;
+  }
+  const path = await tauri.dialog.save({
+    defaultPath: name,
+    filters: [{ name: name.endsWith('.csv') ? 'CSV 文件' : 'JSON 备份', extensions: [name.endsWith('.csv') ? 'csv' : 'json'] }],
+  });
+  if (!path) return false; // user cancelled the save dialog
+  await tauri.fs.writeTextFile(path, body);
+  return true;
+}
+
+// Mirrors saveFile: packaged apps pick the backup file through the dialog plugin.
+async function openFileViaDialog(): Promise<string | null> {
+  const tauri = tauriApi();
+  if (!tauri) return null;
+  const picked = await tauri.dialog.open({
+    multiple: false,
+    filters: [{ name: 'JSON 备份', extensions: ['json'] }],
+  });
+  if (!picked || Array.isArray(picked)) return null;
+  return await tauri.fs.readTextFile(picked);
+}
+
 function escapeCsv(value: string): string { return `"${value.replaceAll('"', '""')}"`; }
 function normalizeAppData(value: AppData): AppData {
   const allowedBases: PriceBasisKey[] = ['upper', 'middle', 'lower', 'previousClose', 'lastTradePrice'];
@@ -395,7 +430,11 @@ export default function App() {
 
   const exportJson = () => {
     const exportedAt = new Date().toISOString();
-    downloadFile(`fund-boll-ledger-${exportedAt.slice(0, 10)}.json`, JSON.stringify(data, null, 2));
+    void saveFile(`fund-boll-ledger-${exportedAt.slice(0, 10)}.json`, JSON.stringify(data, null, 2)).then((saved) => {
+      setNotification(saved ? 'JSON 备份已导出，请确认保存位置。' : '导出已取消。');
+    }).catch((error: unknown) => {
+      setNotification('导出失败：' + (error instanceof Error ? error.message : '未知错误'));
+    });
     setLastBackupAt(exportedAt);
     void saveLastBackupAt(exportedAt).catch((error: unknown) => {
       setNotification('已发起 JSON 导出，但无法记录备份提醒时间：' + (error instanceof Error ? error.message : '本地元数据保存失败'));
@@ -409,33 +448,55 @@ export default function App() {
       const fee = parseMoneyCents(trade.commission) + parseMoneyCents(trade.transferFee) + parseMoneyCents(trade.stampDuty) + parseMoneyCents(trade.otherFee);
       return [fund?.name ?? '（基金已删除）', fund?.code ?? '', trade.tradedAt, trade.side === 'BUY' ? '买入' : '卖出', trade.price, trade.quantity, formatCents(gross), trade.commission, trade.transferFee, trade.stampDuty, trade.otherFee, formatCents(fee), trade.feesChecked ? '已核对' : '待核对', trade.note];
     });
-    downloadFile(`fund-trades-${new Date().toISOString().slice(0, 10)}.csv`, '\uFEFF' + [header, ...rows].map((row) => row.map((v) => escapeCsv(String(v))).join(',')).join('\r\n'), 'text/csv;charset=utf-8');
+    const body = '\uFEFF' + [header, ...rows].map((row) => row.map((v) => escapeCsv(String(v))).join(',')).join('\r\n');
+    void saveFile(`fund-trades-${new Date().toISOString().slice(0, 10)}.csv`, body, 'text/csv;charset=utf-8').then((saved) => {
+      setNotification(saved ? 'CSV \u4EA4\u6613\u660E\u7EC6\u5DF2\u5BFC\u51FA\uFF0C\u8BF7\u786E\u8BA4\u4FDD\u5B58\u4F4D\u7F6E\u3002' : '\u5BFC\u51FA\u5DF2\u53D6\u6D88\u3002');
+    }).catch((error: unknown) => {
+      setNotification('\u5BFC\u51FA\u5931\u8D25\uFF1A' + (error instanceof Error ? error.message : '\u672A\u77E5\u9519\u8BEF'));
+    });
+  };
+
+  const applyImportedBackup = (text: string) => {
+    const parsed: unknown = JSON.parse(text);
+    const validation = validateAppData(parsed);
+    if (!validation.valid) throw new Error(`备份校验失败，未导入任何数据：\n- ${validation.errors.join('\n- ')}`);
+    const backup = validation.data;
+    if (!window.confirm(`备份文件含 ${backup.funds.length} 只基金、${backup.trades.length} 笔交易、${backup.snapshots.length} 条价格快照。导入将完全替换当前设备数据。请确认已导出现有数据。`)) return false;
+    const normalized = normalizeAppData(backup);
+    setData(normalized);
+    // Imported data replaces the whole ledger; stale quote/progress state must not survive it.
+    setMarketQuotes({});
+    setSelectedFundId(normalized.funds[0]?.id ?? '');
+    setHistoryFundFilter('all');
+    setNotification(storageReady ? '备份已载入当前设备；保存状态确认后再关闭页面。' : '备份已载入内存，但本浏览器无法持久化（本地保存异常）；请在关闭页面前导出 JSON 备份。');
+    return true;
   };
 
   const handleImportFile = async (file?: File) => {
     if (!file) return;
     try {
-      const parsed: unknown = JSON.parse(await file.text());
-      const validation = validateAppData(parsed);
-      if (!validation.valid) throw new Error(`备份校验失败，未导入任何数据：\\n- ${validation.errors.join('\\n- ')}`);
-      const backup = validation.data;
-      if (!window.confirm(`备份文件含 ${backup.funds.length} 只基金、${backup.trades.length} 笔交易、${backup.snapshots.length} 条价格快照。导入将完全替换当前设备数据。请确认已导出现有数据。`)) return;
-      const normalized = normalizeAppData(backup);
-      setData(normalized);
-      // Imported data replaces the whole ledger; stale quote/progress state must not survive it.
-      setMarketQuotes({});
-      setSelectedFundId(normalized.funds[0]?.id ?? '');
-      setHistoryFundFilter('all');
-      setNotification(storageReady ? '备份已载入当前设备；保存状态确认后再关闭页面。' : '备份已载入内存，但本浏览器无法持久化（本地保存异常）；请在关闭页面前导出 JSON 备份。');
+      applyImportedBackup(await file.text());
     } catch (error) { window.alert(error instanceof Error ? error.message : '无法读取备份文件。'); }
     finally { if (importInputRef.current) importInputRef.current.value = ''; }
+  };
+
+  // Packaged apps cannot open <input type=file> reliably either; pick through the dialog plugin.
+  const handleImportClick = async () => {
+    if (tauriApi()) {
+      try {
+        const text = await openFileViaDialog();
+        if (text !== null) applyImportedBackup(text);
+      } catch (error) { window.alert(error instanceof Error ? error.message : '无法读取备份文件。'); }
+      return;
+    }
+    importInputRef.current?.click();
   };
 
 
   if (!hydrated) return <div className="loading-screen"><div className="brand-mark">阶</div><strong>基金阶梯账本</strong><p className="muted">正在读取本地账本……</p></div>;
 
   return <div className="app-shell">
-    <header className="topbar"><div className="brand"><div className="brand-mark">阶</div><div><strong>基金阶梯账本</strong><span>手动记录 · 本地保存 · 不接交易接口</span></div></div>{selectedFund && <details className="top-summary"><summary><span className="top-summary-name">{selectedFund.name}</span><strong>{selectedFund.prices.currentPrice || '未录入现价'}</strong><span className="top-summary-hint">{currentQuoteState?.status === 'loading' ? '行情刷新中' : currentQuoteState?.quote ? currentQuoteState.quote.source + ' · ' + (currentQuoteState.quote.quotedAt || '源端未提供时间') : '展开行情摘要'}</span></summary><div className="top-summary-tray"><div><span>基金代码</span><strong>{selectedFund.code || '—'}</strong></div><div><span>当前价格</span><strong>{selectedFund.prices.currentPrice || '—'}</strong></div><div><span>报价来源</span><strong>{currentQuoteState?.quote?.source || '尚未刷新'}</strong></div><div><span>行情时间</span><strong>{currentQuoteState?.quote?.quotedAt || '源端未提供'}</strong></div><div className="top-summary-technical"><span>技术状态</span><strong>{currentQuoteState?.quote?.technicalState ? describeTechnicalMultiTimeframeState(currentQuoteState.quote.technicalState).summary : '等待有效行情数据'}</strong></div></div></details>}<div className="top-actions"><span className={`save-state ${persistenceStatus}`}><i/>{persistenceStatus === 'saving' ? '保存中' : persistenceStatus === 'saved' ? '已保存到本机' : persistenceStatus === 'error' ? '保存异常' : '读取中'}</span><button className="button ghost top-export" onClick={exportJson}>导出备份</button><button className="button ghost top-export" onClick={() => importInputRef.current?.click()}>导入备份</button><input ref={importInputRef} type="file" accept="application/json,.json" hidden onChange={(e) => void handleImportFile(e.target.files?.[0])}/></div></header>
+    <header className="topbar"><div className="brand"><div className="brand-mark">阶</div><div><strong>基金阶梯账本</strong><span>手动记录 · 本地保存 · 不接交易接口</span></div></div>{selectedFund && <details className="top-summary"><summary><span className="top-summary-name">{selectedFund.name}</span><strong>{selectedFund.prices.currentPrice || '未录入现价'}</strong><span className="top-summary-hint">{currentQuoteState?.status === 'loading' ? '行情刷新中' : currentQuoteState?.quote ? currentQuoteState.quote.source + ' · ' + (currentQuoteState.quote.quotedAt || '源端未提供时间') : '展开行情摘要'}</span></summary><div className="top-summary-tray"><div><span>基金代码</span><strong>{selectedFund.code || '—'}</strong></div><div><span>当前价格</span><strong>{selectedFund.prices.currentPrice || '—'}</strong></div><div><span>报价来源</span><strong>{currentQuoteState?.quote?.source || '尚未刷新'}</strong></div><div><span>行情时间</span><strong>{currentQuoteState?.quote?.quotedAt || '源端未提供'}</strong></div><div className="top-summary-technical"><span>技术状态</span><strong>{currentQuoteState?.quote?.technicalState ? describeTechnicalMultiTimeframeState(currentQuoteState.quote.technicalState).summary : '等待有效行情数据'}</strong></div></div></details>}<div className="top-actions"><span className={`save-state ${persistenceStatus}`}><i/>{persistenceStatus === 'saving' ? '保存中' : persistenceStatus === 'saved' ? '已保存到本机' : persistenceStatus === 'error' ? '保存异常' : '读取中'}</span><button className="button ghost top-export" onClick={exportJson}>导出备份</button><button className="button ghost top-export" onClick={() => void handleImportClick()}>导入备份</button><input ref={importInputRef} type="file" accept="application/json,.json" hidden onChange={(e) => void handleImportFile(e.target.files?.[0])}/></div></header>
     {persistenceStatus === 'error' && <div className="storage-warning"><strong>本地保存异常：</strong>{persistenceError} 请先导出备份并检查浏览器权限。<button className="text-button" onClick={exportJson}>立即导出备份</button></div>}
     {backupReminder.due && <div className="storage-warning backup-reminder" role="status"><strong>本地备份提醒：</strong>{backupReminder.message} 账本仅保存在本机；导出后请将 JSON 文件另存到安全位置。<button className="text-button" onClick={exportJson}>立即导出完整 JSON</button></div>}
     <div className={`workspace ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}><aside className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}><div className="sidebar-header"><span className="sidebar-label">工作台</span><button type="button" className="sidebar-toggle" onClick={() => setSidebarCollapsed((old) => !old)} aria-label={sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'} title={sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'}>{sidebarCollapsed ? '☰' : '‹'}</button></div>{NAV_ITEMS.map((item) => <button key={item.id} className={`nav-item ${activePage === item.id ? 'selected' : ''}`} onClick={() => setActivePage(item.id)} title={sidebarCollapsed ? item.label : undefined} aria-label={item.label}><span className="nav-symbol">{item.id === 'calculator' ? '⌁' : item.id === 'ledger' ? '≡' : item.id === 'portfolio' ? '◫' : '↻'}</span><span><strong>{item.label}</strong><small>{item.caption}</small></span></button>)}<div className="sidebar-divider"/><div className="sidebar-funds-head"><span className="sidebar-label">我的基金</span><button className="round-add" onClick={() => { setEditingFundId(null); setShowFundForm(true); }} aria-label="新增基金">＋</button></div>{data.funds.length === 0 ? <div className="empty-funds">还没有基金档案。<br/>新增后即可开始计算。</div> : <div className="fund-list">{data.funds.map((fund) => <button key={fund.id} className={`fund-list-item ${fund.id === selectedFundId ? 'active' : ''}`} onClick={() => setSelectedFundId(fund.id)} aria-label={fund.name} title={sidebarCollapsed ? fund.name : undefined}><span className="fund-dot">{fund.name.slice(0, 1)}</span><span className="fund-list-text"><strong>{fund.name}</strong><small>{fund.code || fund.category}</small></span>{fund.id === selectedFundId && <span className="selected-mark">●</span>}</button>)}</div>}<button className="button outline full-width add-fund" onClick={() => { setEditingFundId(null); setShowFundForm(true); }}>＋ 新增基金</button><div className="sidebar-footer"><span>数据保存在当前浏览器设备</span><span>跨设备请使用备份导入导出</span></div></aside>
@@ -444,7 +505,7 @@ export default function App() {
           {activePage === 'calculator' && <CalculatorPage fund={selectedFund} comparisons={comparisons} ladderBasis={ladderBasis} setLadderBasis={setLadderBasis} ladderDirection={ladderDirection} setLadderDirection={setLadderDirection} ladderRows={ladderRows} onPriceChange={(key, value) => { mutatePrices(selectedFund.id, { [key]: value }); setMarketQuotes((old) => { const prior = old[selectedFund.id]; if (!prior || prior.requestedCode !== selectedFund.code) return old; return { ...old, [selectedFund.id]: { ...prior, hasManualEdits: true } }; }); }} quoteState={currentQuoteState} onRefreshQuote={() => void refreshMarketQuote(selectedFund)} onUseLatestTrade={() => { const price = lastTradePriceForFund(selectedFund.id); if (price) mutatePrices(selectedFund.id, { lastTradePrice: price }); else setNotification('当前基金还没有交易记录，请手动输入上一次成交价。'); }} onSaveSnapshot={handleSaveSnapshot} snapshotNote={snapshotNote} setSnapshotNote={setSnapshotNote} onGoLedger={() => { setActivePage('ledger'); setShowTradeForm(true); }}/>}
           {activePage === 'ledger' && <LedgerPage fund={selectedFund} funds={data.funds} trades={allTrades} position={position!} onAdd={() => { setEditingTradeId(null); setShowTradeForm(true); }} onEdit={(trade) => { setSelectedFundId(trade.fundId); setEditingTradeId(trade.id); setShowTradeForm(true); }} onDelete={handleDeleteTrade}/>} 
           {activePage === 'portfolio' && <PortfolioPage funds={data.funds} trades={data.trades} onSelect={(id) => { setSelectedFundId(id); setActivePage('calculator'); }}/>} 
-          {activePage === 'history' && <HistoryPage data={data} filter={historyFundFilter} setFilter={setHistoryFundFilter} lastBackupAt={lastBackupAt} onDeleteSnapshot={(id) => { if (window.confirm('确定删除这条价格快照吗？')) setData((old) => ({ ...old, snapshots: old.snapshots.filter((s) => s.id !== id) })); }} onExportCsv={exportCsv} onExportJson={exportJson} onImport={() => importInputRef.current?.click()} onDeleteFund={handleDeleteFund}/>} 
+          {activePage === 'history' && <HistoryPage data={data} filter={historyFundFilter} setFilter={setHistoryFundFilter} lastBackupAt={lastBackupAt} onDeleteSnapshot={(id) => { if (window.confirm('确定删除这条价格快照吗？')) setData((old) => ({ ...old, snapshots: old.snapshots.filter((s) => s.id !== id) })); }} onExportCsv={exportCsv} onExportJson={exportJson} onImport={() => void handleImportClick()} onDeleteFund={handleDeleteFund}/>} 
         </>}
         <footer className="app-footer"><span>仅在点击时获取公开行情，不自动轮询、不连接券商账户。</span><span>计算价格不代表买卖建议。</span></footer>
       </main></div>
