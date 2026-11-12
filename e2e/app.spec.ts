@@ -561,6 +561,7 @@ test('真实确认历史驱动 BOLL/MACD 完整详情、历史分页和窄屏滚
   await createFund(page, '技术状态验收 ETF', '510300');
   await page.getByRole('button', { name: '刷新行情' }).click();
   await expect(page.getByText('日线 · 指标计算依据')).toBeVisible();
+  await expect(page.getByText(/公式版本：technical-formula-v1/)).toBeVisible();
   await expect(page.getByText(/EMA 初始化：快线\/慢线以首根确认收盘价为种子/)).toBeVisible();
   await expect(page.getByText(/EMA 种子日期：.*实际输入 240 根/)).toBeVisible();
   await expect(page.getByText(/观察窗口起点/).first()).toBeVisible();

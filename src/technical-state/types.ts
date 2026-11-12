@@ -129,6 +129,8 @@ export interface BollState {
 
 export interface TechnicalStateSnapshot {
   interval: TechnicalInterval;
+  /** Versioned formula contract shared by BOLL and MACD calculations. */
+  formulaVersion: string;
   /** Absent only when no confirmed bar could be produced. */
   asOfDate?: string;
   /** K-line provider and spot-quote provider are tracked independently. */

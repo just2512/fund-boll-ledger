@@ -28,6 +28,7 @@ describe('combined BOLL/MACD technical state engine', () => {
     expect(state.asOfDate).toBe(input.asOfDate);
     expect(state.boll.asOfDate).toBe(input.asOfDate);
     expect(state.macd.asOfDate).toBe(input.asOfDate);
+    expect(state.formulaVersion).toBe('technical-formula-v1');
     expect(state.source).toBe('东方财富');
     expect(state.quoteSource).toBe('百度行情');
     expect(state.historyStartDate).toBe(input.bars[0].date);

@@ -1,7 +1,7 @@
 import { calculateMacdFromConfirmedSeries, calculateMacdHistoryFromConfirmedSeries, insufficientMacdPeriod, invalidMacdPeriod, macdArrangementLabel, macdMomentumLabel, macdZeroAxisLabel, minimumMacdHistoryBars, unavailableMacdPeriod } from '../macd';
 import type { MacdPeriodState } from '../macd';
 import { calculateBollHistory, calculateBollState } from './boll-state';
-import { BOLL_STATE_CONFIG_VERSION, bollStateConfigFor } from './config';
+import { BOLL_STATE_CONFIG_VERSION, TECHNICAL_FORMULA_VERSION, bollStateConfigFor } from './config';
 import type {
   BollState,
   BollStateConfig,
@@ -50,6 +50,7 @@ export function calculateTechnicalStateSnapshot(
   const reasons = [boll.reason, macd.error].filter((value): value is string => Boolean(value));
   return {
     interval: series.interval,
+    formulaVersion: TECHNICAL_FORMULA_VERSION,
     asOfDate: series.asOfDate,
     ...(series.source ? { source: series.source } : {}),
     ...(quoteSource ? { quoteSource } : {}),
@@ -84,6 +85,7 @@ export function unavailableTechnicalState(
   };
   return {
     interval,
+    formulaVersion: TECHNICAL_FORMULA_VERSION,
     ...(source ? { source } : {}),
     ...(quoteSource ? { quoteSource } : {}),
     confirmedBarCount: 0,

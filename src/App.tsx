@@ -606,6 +606,7 @@ function MacdPeriodCard({ label, period, state, technical }: { label: string; pe
     <div className="macd-period-content">
       {!technical && !state ? <p className="macd-period-message">刷新行情后获取该周期已确认历史数据。</p> : <>
         <div className="macd-period-meta">
+          <small>公式版本：{technical?.formulaVersion ?? '未提供'}</small>
           <small>历史覆盖：{coverage}</small>
           <small>K 线来源：{source} · 现价来源：{quoteSource}</small>
           <small>{confirmation}</small>

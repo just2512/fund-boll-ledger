@@ -189,7 +189,7 @@ MACD 历史列至少包含：日期、确认收盘、DIF、DEA、柱体、零轴
 - `BollHistoryPoint`：upper、middle、lower、bandwidth、percentile、phase、middleDirection、closeLocation；
 - `MacdHistoryPoint`：dif、dea、histogram、zeroAxis、arrangement、momentum、crossEvent；
 - `TechnicalEventHistory`：最近交叉、当前状态起始日期及其确认元数据；
-- `TechnicalCalculationMetadata`：公式版本、配置版本、EMA seed 策略、历史范围、样本数量、来源、确认日期、进行中 K 线排除信息。
+- `TechnicalCalculationMetadata`：公式版本（`technical-formula-v1`）、BOLL 配置版本、EMA seed 策略、历史范围、样本数量、来源、确认日期、进行中 K 线排除信息。
 
 以上是语义契约，不要求机械照搬类型名。避免在每根历史点重复存储不变的大块元数据。
 
