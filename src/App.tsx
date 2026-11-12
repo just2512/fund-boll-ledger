@@ -642,6 +642,7 @@ function MacdPeriodCard({ label, period, state, technical }: { label: string; pe
           <small>历史覆盖：{coverage}</small>
           <small>K 线来源：{source} · 现价来源：{quoteSource}</small>
           <small>{confirmation}</small>
+          {technical?.reason && (technical.validity === 'UNAVAILABLE' || technical.validity === 'INVALID') && <small className="macd-period-error">数据原因：{technical.reason}</small>}
         </div>
         <section className="boll-period-state">
           <div className="boll-period-state-head">
