@@ -248,7 +248,7 @@ export function calculateBollHistory(
   if (series.asOfDate !== series.bars[series.bars.length - 1]?.date) return [];
   let previousDate = '';
   for (const bar of series.bars) {
-    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(bar.date) || bar.date <= previousDate ||
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(bar.date) || bar.date <= previousDate ||
         !Number.isFinite(bar.close) || bar.close <= 0) return [];
     previousDate = bar.date;
   }
