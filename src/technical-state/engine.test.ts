@@ -138,6 +138,19 @@ describe('combined BOLL/MACD technical state engine', () => {
     expect(summary).not.toContain('BOLL 有效');
   });
 
+  it('keeps insufficient, unavailable and invalid MACD detail descriptions distinct', () => {
+    const insufficient = calculateTechnicalStateSnapshot(series('东方财富', 100));
+    const insufficientDetail = describeTechnicalStateSnapshot(insufficient);
+    expect(insufficientDetail).toContain('MACD 历史不足');
+    expect(insufficientDetail).not.toContain('MACD 数据不可用');
+
+    const unavailable = unavailableTechnicalState('daily', 'UNAVAILABLE', '缺少可信行情日期');
+    expect(describeTechnicalStateSnapshot(unavailable)).toContain('MACD 数据不可用：缺少可信行情日期');
+
+    const invalid = unavailableTechnicalState('daily', 'INVALID', '收盘价无效');
+    expect(describeTechnicalStateSnapshot(invalid)).toContain('MACD 数据无效：收盘价无效');
+  });
+
   it('does not turn unavailable MACD data into a neutral or no-cross state', () => {
     const full = calculateTechnicalStateSnapshot(series());
     const unavailable = {
