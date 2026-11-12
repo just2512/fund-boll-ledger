@@ -632,8 +632,11 @@ function MacdPeriodCard({ label, period, state, technical }: { label: string; pe
         </section>
         <section className="macd-indicator-state">
           <div className="boll-period-state-head"><strong>MACD(12,26,9)</strong><span>{macdStatus}</span></div>
+          <div className="macd-period-meta">
+            <small>EMA 初始化：快线/慢线以首根确认收盘价为种子，信号线以首根 DIF 为种子，之后按 EMA 递推。</small>
+            <small>EMA 种子日期：{technical?.historyStartDate ?? '未提供'} · 实际输入 {technical?.confirmedBarCount ?? 0} 根 · 超出公式最低 35 根的额外历史：{Math.max(0, (technical?.confirmedBarCount ?? 0) - 35)} 根</small>
+          </div>
           {state?.availability === 'ready' && !state.error ? <>
-            <div className="macd-period-head"><small>EMA 种子日期：{state.emaSeedDate ?? '—'} · 实际输入 {state.barsUsed ?? 0} 根 · 预热 {state.preRollBars ?? '—'} 根</small></div>
             <div className="macd-period-values">
               <span>DIF <strong>{bollNumber(state.dif, 6)}</strong></span>
               <span>DEA <strong>{bollNumber(state.dea, 6)}</strong></span>
