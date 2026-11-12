@@ -116,7 +116,7 @@ describe('combined BOLL/MACD technical state engine', () => {
     const description = describeTechnicalMultiTimeframeState({ monthly, weekly, daily });
     expect(description.summary).toContain('BOLL：');
     expect(description.summary).toContain('MACD：');
-    expect(description.summary).toContain('日、周、月线');
+    expect(description.summary).toContain('日、周、月线均');
     expect(description.summary).toContain('周线');
     expect(description.summary).toContain('新金叉');
     expect(description.periods).toHaveLength(3);
@@ -140,8 +140,8 @@ describe('combined BOLL/MACD technical state engine', () => {
     };
     const summary = describeTechnicalMultiTimeframeState(periods).summary;
     expect(summary).toContain('BOLL：');
-    expect(summary).toContain('MACD：日线历史不足');
-    expect(summary).toContain('周、月线');
+    expect(summary).toContain('MACD：日线历史数据不足');
+    expect(summary).toContain('周、月线均');
     expect(summary).not.toContain('BOLL 有效');
   });
 
