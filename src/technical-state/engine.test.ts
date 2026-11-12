@@ -109,10 +109,13 @@ describe('combined BOLL/MACD technical state engine', () => {
     const weekly = { ...base, interval: 'weekly' as const, macd: { ...base.macd, interval: 'weekly' as const, crossEvent: 'golden' as const } };
     const daily = { ...base, interval: 'daily' as const, macd: { ...base.macd, interval: 'daily' as const } };
     const description = describeTechnicalMultiTimeframeState({ monthly, weekly, daily });
-    expect(description.summary).toContain('BOLL 有效 3/3 周期，MACD 稳定可用 3/3 周期');
-    expect(description.summary).toContain('BOLL 带宽阶段：月线 未知');
-    expect(description.summary).toContain('周线 新金叉');
-    expect(description.summary).toContain('各周期独立描述，不合成为买卖方向');
+    expect(description.summary).toContain('日线：BOLL');
+    expect(description.summary).toContain('周线：BOLL');
+    expect(description.summary).toContain('月线：BOLL');
+    expect(description.summary).toContain('周线：BOLL');
+    expect(description.summary).toContain('新金叉');
+    expect(description.summary).not.toContain('BOLL 有效 3/3');
+    expect(description.summary).not.toContain('MACD 稳定可用 3/3');
     expect(description.detail).toContain('月线');
     expect(description.detail).toContain('周线');
     expect(description.detail).toContain('日线');
