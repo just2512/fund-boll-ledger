@@ -265,3 +265,22 @@
 - Android 持久签名 Release job 因 `ANDROID_RELEASE_SIGNING_ENABLED` 未启用而跳过；没有生成可覆盖升级的正式 APK。不得把 debug APK 当作升级包。
 - **BLOCKED：**Windows 安装后桌面窗口实际检查、Android 安装/启动和 OPPO Find N2 外屏/内屏/横竖屏/输入法真机检查仍未执行。CI 原生构建通过不等于设备验收通过。
 - 最新前端 CI [Run 537](https://github.com/just2512/fund-boll-ledger/actions/runs/43155831276) 在当前 head `5604bcde85929144ee2b4ba9cae69790dafb78cc` 上成功：单元测试/benchmark/类型检查/生产构建/执行契约 job 与 Playwright E2E job 均通过。
+
+
+## 21. 多规模性能与技术状态重载隔离复验（2026-11-12）
+
+- 验证提交：`d43773ff0ece483f68d861994e41d9f0fb401d14`。
+- GitHub Actions [Run 43162737208](https://github.com/just2512/fund-boll-ledger/actions/runs/43162737208)：14 个单测文件通过，134 passed / 2 skipped；执行契约、升级契约、TypeScript、生产构建和 benchmark 均通过；Playwright 48/48 通过。
+- **PASS：技术状态不跨页面重载持久化。** 新增 E2E 在真实行情生成技术状态后执行 reload，验证账本现价仍从本地保存恢复，但技术状态摘要回到“刷新行情后计算”、周期详情提示刷新后获取，公式版本不再出现；再次手动刷新后技术状态重新生成。该行为与 `marketQuotes` 仅为 React 内存状态、`AppData` 不包含行情派生状态的源码调用链一致。
+- **PASS：多规模性能基准执行。** 同一 GitHub-hosted runner、合成已确认序列、Vitest 单次测量；单位为每次计算均值 ms：
+
+| 历史根数 | BOLL 两次独立计算 | BOLL 历史复用 | MACD 两次独立计算 | MACD 历史复用 |
+|---:|---:|---:|---:|---:|
+| 240 | 0.3547 | 0.3218 | 0.1066 | 0.0564 |
+| 1,000 | 1.7950 | 1.6550 | 0.4113 | 0.2272 |
+| 2,000 | 3.2752 | 3.5596 | 0.7922 | 0.5005 |
+| 5,000 | 11.5878 | 10.6351 | 1.9937 | 1.1930 |
+
+- 解释边界：MACD 在四档基准中均显示复用路径耗时较低；BOLL 的差异较小且不稳定，2,000 根这一档复用路径反而更慢。本次不据此追加算法优化，也不把单次云端合成数据基准外推为 Windows/Android/OPPO 真机性能。行情源常规日线历史上限约 1,000 根，2,000/5,000 根仅作为压力测试。
+- 先前两次 CI 失败已保留：第一次暴露 benchmark 测试来源值不符合 `TechnicalQuoteSource` 联合类型；修正后，E2E 又指出周期详情标题即使无行情也会保留，因此不能用标题存在与否判断技术状态是否持久化。最终断言改为检查摘要占位文案、详情提示和公式版本，当前 Run 43162737208 已通过。
+- T-09 仍 **BLOCKED**：浏览器 E2E 与原生构建不等于 Windows 桌面实际操作或 OPPO Find N2 真机验收。Android 持久签名 Release 未启用，debug APK 不可覆盖正式版。
