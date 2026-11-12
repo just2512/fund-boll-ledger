@@ -315,8 +315,14 @@
           "commit": "efeadd94ac04c2b525a62b54d7ffb71073900d45",
           "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/42646038809",
           "note": "多ETF真实行情校准工作流成功；12组来源策略无违规，百度K线备用探针2001根；百度现价无可信交易日期，未用于技术状态。"
+        },
+        {
+          "commit": "4bf0c5e892e41888fda106b551cb9c9218ddbe05",
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43153956310",
+          "note": "当前 feature 分支真实数据复验（run attempt 2 success）：510300 日/周/月实时验收通过；4 ETF × 3 周期共 12 组、7,351 根确认 K 线；全部 noFutureBars=true、逐根最终值与批量值一致；主源策略违规 0；百度 K 线 2,000 根回退探针成功，百度现价探针无可信日期并被正确排除。"
         }
-      ]
+      ],
+      "currentReview": "PASS：当前工作分支专用真实数据 workflow 第二次 attempt 成功；510300 实时验收 1/1 通过，4 ETF × 3 周期共 12 组、7,351 根确认 K 线，逐根重放无未来数据且最终结果与批量计算一致，来源策略违规 0。首次 attempt 因百度 HTTP 403/CDN 超时失败已保留。阈值选择仍为 NOT_PERFORMED。"
     }
   ]
 }

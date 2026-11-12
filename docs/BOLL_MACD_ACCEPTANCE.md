@@ -250,3 +250,6 @@
 - GitHub Actions Run [43153256086](https://github.com/just2512/fund-boll-ledger/actions/runs/43153256086)，提交 891b63f8422844387b05339b05808d402868b106：14 个单测文件通过，134 项通过、2 项实时行情测试跳过；benchmark、TypeScript 检查、生产构建、执行契约和升级契约通过；Playwright 47 项全部通过。
 - 早期异常 UI E2E 的 strict locator 断言曾因摘要和详情中存在多个相同文案而失败；已将断言限定在 .macd-summary。另一次浏览器 CI 的首个 page fixture 在 30 秒内未启动，其他 45 项通过；最新 Run 43153256086 的 47 项全部通过。失败运行保留，不覆盖历史。
 - **BLOCKED**：Windows Tauri 原生构建、Android ARM64 原生构建和 OPPO Find N2 外屏/内屏真机验收仍无执行证据。浏览器 E2E 通过不替代这些验收。
+
+- **PASS（真实数据复验）**：专用 Live Technical Acceptance and Multi-ETF Calibration Run [43153956310](https://github.com/just2512/fund-boll-ledger/actions/runs/43153956310)，提交 4bf0c5e892e41888fda106b551cb9c9218ddbe05，第二次 attempt 成功。510300 日/周/月实时验收 1/1 通过；4 只 ETF × 3 周期共 12 组、7,351 根确认 K 线，全部 noFutureBars=true、逐根最终结果与批量结果一致，sourcePolicy.violations=[]。东方财富为 12 组主 K 线/现价来源；另行强制回退探针实际取得百度 K 线 2,000 根，百度报价解析到价格 4.153 和昨收 4.150，但无可信交易日期，因此不参与技术状态日期确认。thresholdSelection 继续 NOT_PERFORMED。
+- 首次真实校准 attempt 因百度直连 HTTP 403、CDN 代理超时失败；保留该失败记录，第二次 attempt 重新执行后通过。不得将首次失败删除或写成从未发生。
