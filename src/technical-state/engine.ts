@@ -304,18 +304,9 @@ export function describeTechnicalMultiTimeframeState(
     boll: bollPeriodSummary(snapshot),
     macd: macdPeriodSummary(snapshot),
   }));
-  const compactGroups = (format: (snapshot: TechnicalStateSnapshot) => string): string => {
-    const groups = new Map<string, string[]>();
-    for (const { label, snapshot } of ordered) {
-      const value = format(snapshot);
-      groups.set(value, [...(groups.get(value) ?? []), label.replace('线', '')]);
-    }
-    return [...groups.entries()].map(([value, labels]) =>
-      (labels.length === 1 ? labels[0] + '线' : labels.join('、') + '线均') + value,
-    ).join('；');
-  };
-  const summary = 'BOLL：' + compactGroups(compactBollSummary)
-    + '。MACD：' + compactGroups(compactMacdSummary) + '。';
+  const summary = ordered
+    .map(({ label, snapshot }) => label + '：' + compactTechnicalCondition(snapshot))
+    .join('；') + '。';
   return {
     summary,
     periods: periodSummaries,
