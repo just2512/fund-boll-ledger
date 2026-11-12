@@ -564,7 +564,7 @@ test('真实确认历史驱动 BOLL/MACD 完整详情、历史分页和窄屏滚
   await expect(page.locator('.top-summary[open]')).toHaveCount(1);
   await page.getByRole('heading', { name: '价格计算' }).click();
   await expect(page.locator('.top-summary[open]')).toHaveCount(0);
-  await page.getByRole('button', { name: '顶部刷新行情' }).click();
+  await page.getByRole('button', { name: '顶部刷新' }).click();
   await expect(page.getByText('日线 · 指标计算依据')).toBeVisible();
   await expect(page.getByText(/公式版本：technical-formula-v1/)).toBeVisible();
   await expect(page.getByText(/EMA 初始化：快线\/慢线以首根确认收盘价为种子/)).toBeVisible();
