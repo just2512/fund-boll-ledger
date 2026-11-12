@@ -141,7 +141,7 @@ describe('combined BOLL/MACD technical state engine', () => {
     const summary = describeTechnicalMultiTimeframeState(periods).summary;
     expect(summary).toContain('BOLL：');
     expect(summary).toContain('MACD：日线历史不足');
-    expect(summary).toContain('周线');
+    expect(summary).toContain('周、月线');
     expect(summary).not.toContain('BOLL 有效');
   });
 
