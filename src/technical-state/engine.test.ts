@@ -122,4 +122,41 @@ describe('combined BOLL/MACD technical state engine', () => {
     expect(description.detail).toContain('不构成买卖方向或交易指令');
   });
 
+  it('reports BOLL and MACD validity independently when one indicator lacks sufficient history', () => {
+    const short = calculateTechnicalStateSnapshot(series('东方财富', 100));
+    const full = calculateTechnicalStateSnapshot(series());
+    const periods = {
+      daily: short,
+      weekly: { ...full, interval: 'weekly' as const, macd: { ...full.macd, interval: 'weekly' as const } },
+      monthly: { ...full, interval: 'monthly' as const, macd: { ...full.macd, interval: 'monthly' as const } },
+    };
+    const summary = describeTechnicalMultiTimeframeState(periods).summary;
+    expect(summary).toContain('日线：BOLL');
+    expect(summary).toContain('MACD 历史不足');
+    expect(summary).toContain('周线：BOLL');
+    expect(summary).not.toContain('BOLL 有效');
+  });
+
+  it('does not turn unavailable MACD data into a neutral or no-cross state', () => {
+    const full = calculateTechnicalStateSnapshot(series());
+    const unavailable = {
+      ...full,
+      interval: 'monthly' as const,
+      macd: {
+        ...full.macd,
+        interval: 'monthly' as const,
+        availability: 'unavailable' as const,
+        error: '缺少可信行情日期',
+        crossEvent: 'unknown' as const,
+      },
+    };
+    const summary = describeTechnicalMultiTimeframeState({
+      daily: full,
+      weekly: { ...full, interval: 'weekly' as const, macd: { ...full.macd, interval: 'weekly' as const } },
+      monthly: unavailable,
+    }).summary;
+    expect(summary).toContain('月线：BOLL');
+    expect(summary).toContain('MACD 数据不可用：缺少可信行情日期');
+  });
+
 });
