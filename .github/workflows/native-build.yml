@@ -1,8 +1,15 @@
 name: Native App Build (manual)
 
 on:
+  push:
+    branches: [work/technical-state-information-architecture]
+    paths:
+      - 'src/**'
+      - 'src-tauri/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/native-build.yml'
   workflow_dispatch:
-  # Deliberately manual to avoid consuming Actions minutes on every push.
 
 permissions:
   contents: read
