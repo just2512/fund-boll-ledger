@@ -15,7 +15,7 @@
     "desktop:build": "cargo tauri build",
     "android:init": "cargo tauri android init --ci",
     "android:dev": "cargo tauri android dev",
-    "android:build": "cargo tauri android build --apk --target aarch64 --ci",
+    "android:build": "node scripts/configure-android-window-insets.mjs && cargo tauri android build --apk --target aarch64 --ci",
     "test:technical-live": "node scripts/run-live-technical-acceptance.mjs",
     "calibrate:technical-live": "node scripts/run-live-technical-calibration.mjs",
     "test:dependency-security": "node scripts/verify-dependency-security.mjs",
