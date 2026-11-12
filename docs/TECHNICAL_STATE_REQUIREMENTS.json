@@ -27,7 +27,7 @@
       "id": "T-01",
       "area": "market-data",
       "title": "日/周/月确认 K 线归一化",
-      "status": "IN_PROGRESS",
+      "status": "PASS",
       "acceptance": [
         "来源交易日期和时间用于确认 K 线是否收盘",
         "周线/月线未结束周期必须排除",
@@ -40,10 +40,14 @@
           "commit": "efeadd94ac04c2b525a62b54d7ffb71073900d45",
           "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/42646038809",
           "note": "4只ETF×日/周/月共12组真实历史；来源策略无违规；逐根重放和无未来数据检查通过。"
+        },
+        {
+          "commit": "574f9163a83e505c690b90e2dcce9895cb3d7475",
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43144982080",
+          "note": "2026-11-12 本轮单元测试与 TypeScript/生产构建通过；包括缺少可信交易日期的 UNAVAILABLE 分类、BOLL/MACD 历史日期对齐、MACD 交叉日期、状态摘要和 no-future-bars 验证。"
         }
       ],
-      "blocker": "新增 UNAVAILABLE 状态分类及其摘要/数据管线映射已提交，需本轮完整 CI 重新验证；此前 PASS 证据不覆盖这次变更。",
-      "currentReview": "IN_PROGRESS：既有有效/不足/无效测试通过过，本轮补充不可用状态独立分类，等待新 CI 结果。"
+      "currentReview": "PASS：本轮 GitHub Actions 已通过相关单元测试、TypeScript 检查和生产构建；新增 UNAVAILABLE 状态、逐根历史序列、周期摘要及前缀重放测试均通过。"
     },
     {
       "id": "T-02",
@@ -88,7 +92,7 @@
       "id": "T-04",
       "area": "macd",
       "title": "MACD(12,26,9) 计算与 EMA 初始化契约",
-      "status": "IN_PROGRESS",
+      "status": "PASS",
       "acceptance": [
         "使用确认 K 线计算 DIF、DEA、HIST",
         "明确 EMA 种子和预热历史长度",
@@ -106,16 +110,20 @@
           "commit": "1b3002f4d90a1f4b9cb23f413d952c1bedfeb8ed",
           "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43144537171",
           "note": "2026-11-12 本轮 GitHub-hosted 单元测试、TypeScript 检查、生产构建通过；新增 MACD 历史与交叉日期、BOLL 历史值与状态起始日期、周期摘要和历史前缀一致性测试通过。"
+        },
+        {
+          "commit": "574f9163a83e505c690b90e2dcce9895cb3d7475",
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43144982080",
+          "note": "2026-11-12 本轮单元测试与 TypeScript/生产构建通过；包括缺少可信交易日期的 UNAVAILABLE 分类、BOLL/MACD 历史日期对齐、MACD 交叉日期、状态摘要和 no-future-bars 验证。"
         }
       ],
-      "currentReview": "IN_PROGRESS：既有有效/不足/无效测试通过过，本轮补充不可用状态独立分类，等待新 CI 结果。",
-      "blocker": "新增 UNAVAILABLE 状态分类及其摘要/数据管线映射已提交，需本轮完整 CI 重新验证；此前 PASS 证据不覆盖这次变更。"
+      "currentReview": "PASS：本轮 GitHub Actions 已通过相关单元测试、TypeScript 检查和生产构建；新增 UNAVAILABLE 状态、逐根历史序列、周期摘要及前缀重放测试均通过。"
     },
     {
       "id": "T-05",
       "area": "macd",
       "title": "MACD 新交叉、持续排列、零轴与柱体动能分离",
-      "status": "IN_PROGRESS",
+      "status": "PASS",
       "acceptance": [
         "新金叉/死叉事件与当前 DIF/DEA 排列分开",
         "最近一次交叉方向与当前排列分开",
@@ -132,16 +140,20 @@
           "commit": "1b3002f4d90a1f4b9cb23f413d952c1bedfeb8ed",
           "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43144537171",
           "note": "2026-11-12 本轮 GitHub-hosted 单元测试、TypeScript 检查、生产构建通过；新增 MACD 历史与交叉日期、BOLL 历史值与状态起始日期、周期摘要和历史前缀一致性测试通过。"
+        },
+        {
+          "commit": "574f9163a83e505c690b90e2dcce9895cb3d7475",
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43144982080",
+          "note": "2026-11-12 本轮单元测试与 TypeScript/生产构建通过；包括缺少可信交易日期的 UNAVAILABLE 分类、BOLL/MACD 历史日期对齐、MACD 交叉日期、状态摘要和 no-future-bars 验证。"
         }
       ],
-      "currentReview": "IN_PROGRESS：既有有效/不足/无效测试通过过，本轮补充不可用状态独立分类，等待新 CI 结果。",
-      "blocker": "新增 UNAVAILABLE 状态分类及其摘要/数据管线映射已提交，需本轮完整 CI 重新验证；此前 PASS 证据不覆盖这次变更。"
+      "currentReview": "PASS：本轮 GitHub Actions 已通过相关单元测试、TypeScript 检查和生产构建；新增 UNAVAILABLE 状态、逐根历史序列、周期摘要及前缀重放测试均通过。"
     },
     {
       "id": "T-06",
       "area": "description",
       "title": "单周期 BOLL + MACD 结构化描述引擎",
-      "status": "IN_PROGRESS",
+      "status": "PASS",
       "acceptance": [
         "从已计算的结构化字段生成描述",
         "说明数据周期、as-of、BOLL 状态和 MACD 状态",
@@ -163,16 +175,20 @@
           "commit": "1b3002f4d90a1f4b9cb23f413d952c1bedfeb8ed",
           "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43144537171",
           "note": "2026-11-12 本轮 GitHub-hosted 单元测试、TypeScript 检查、生产构建通过；新增 MACD 历史与交叉日期、BOLL 历史值与状态起始日期、周期摘要和历史前缀一致性测试通过。"
+        },
+        {
+          "commit": "574f9163a83e505c690b90e2dcce9895cb3d7475",
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43144982080",
+          "note": "2026-11-12 本轮单元测试与 TypeScript/生产构建通过；包括缺少可信交易日期的 UNAVAILABLE 分类、BOLL/MACD 历史日期对齐、MACD 交叉日期、状态摘要和 no-future-bars 验证。"
         }
       ],
-      "currentReview": "IN_PROGRESS：既有有效/不足/无效测试通过过，本轮补充不可用状态独立分类，等待新 CI 结果。",
-      "blocker": "新增 UNAVAILABLE 状态分类及其摘要/数据管线映射已提交，需本轮完整 CI 重新验证；此前 PASS 证据不覆盖这次变更。"
+      "currentReview": "PASS：本轮 GitHub Actions 已通过相关单元测试、TypeScript 检查和生产构建；新增 UNAVAILABLE 状态、逐根历史序列、周期摘要及前缀重放测试均通过。"
     },
     {
       "id": "T-07",
       "area": "multi-timeframe",
       "title": "日/周/月 BOLL + MACD 综合关系描述",
-      "status": "IN_PROGRESS",
+      "status": "PASS",
       "acceptance": [
         "三个周期分别保留各自状态和确认日期",
         "区分周期方向一致、分化和数据不足",
@@ -189,16 +205,20 @@
           "commit": "1b3002f4d90a1f4b9cb23f413d952c1bedfeb8ed",
           "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43144537171",
           "note": "2026-11-12 本轮 GitHub-hosted 单元测试、TypeScript 检查、生产构建通过；新增 MACD 历史与交叉日期、BOLL 历史值与状态起始日期、周期摘要和历史前缀一致性测试通过。"
+        },
+        {
+          "commit": "574f9163a83e505c690b90e2dcce9895cb3d7475",
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43144982080",
+          "note": "2026-11-12 本轮单元测试与 TypeScript/生产构建通过；包括缺少可信交易日期的 UNAVAILABLE 分类、BOLL/MACD 历史日期对齐、MACD 交叉日期、状态摘要和 no-future-bars 验证。"
         }
       ],
-      "currentReview": "IN_PROGRESS：既有有效/不足/无效测试通过过，本轮补充不可用状态独立分类，等待新 CI 结果。",
-      "blocker": "新增 UNAVAILABLE 状态分类及其摘要/数据管线映射已提交，需本轮完整 CI 重新验证；此前 PASS 证据不覆盖这次变更。"
+      "currentReview": "PASS：本轮 GitHub Actions 已通过相关单元测试、TypeScript 检查和生产构建；新增 UNAVAILABLE 状态、逐根历史序列、周期摘要及前缀重放测试均通过。"
     },
     {
       "id": "T-08",
       "area": "history",
       "title": "历史逐根重放与未来数据隔离",
-      "status": "IN_PROGRESS",
+      "status": "PASS",
       "acceptance": [
         "每个 as-of 只接收截至该日的确认 K 线前缀",
         "历史逐根结果与同起点批量计算结果一致",
@@ -214,10 +234,14 @@
           "commit": "1b3002f4d90a1f4b9cb23f413d952c1bedfeb8ed",
           "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43144537171",
           "note": "2026-11-12 本轮 GitHub-hosted 单元测试、TypeScript 检查、生产构建通过；新增 MACD 历史与交叉日期、BOLL 历史值与状态起始日期、周期摘要和历史前缀一致性测试通过。"
+        },
+        {
+          "commit": "574f9163a83e505c690b90e2dcce9895cb3d7475",
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43144982080",
+          "note": "2026-11-12 本轮单元测试与 TypeScript/生产构建通过；包括缺少可信交易日期的 UNAVAILABLE 分类、BOLL/MACD 历史日期对齐、MACD 交叉日期、状态摘要和 no-future-bars 验证。"
         }
       ],
-      "currentReview": "IN_PROGRESS：既有有效/不足/无效测试通过过，本轮补充不可用状态独立分类，等待新 CI 结果。",
-      "blocker": "新增 UNAVAILABLE 状态分类及其摘要/数据管线映射已提交，需本轮完整 CI 重新验证；此前 PASS 证据不覆盖这次变更。"
+      "currentReview": "PASS：本轮 GitHub Actions 已通过相关单元测试、TypeScript 检查和生产构建；新增 UNAVAILABLE 状态、逐根历史序列、周期摘要及前缀重放测试均通过。"
     },
     {
       "id": "T-09",
@@ -240,8 +264,8 @@
           "note": "现有价格对比模块的折叠交互、桌面/窄屏视口和BOLL参考配置文案断言通过最新Playwright E2E。物理设备专项不在本项CI证据中。"
         }
       ],
-      "currentReview": "IN_PROGRESS：旧的“周期折叠/二次展开”验收口径已按已批准的信息架构调整；当前 UI 变更尚未获得完整 CI 证据。",
-      "blocker": "新周期直达 UI 已提交，待本轮 E2E、窄屏视口和完整 CI 通过后重新建立 T-09 的 PASS 证据；OPPO Find N2 真机验收仍需单独执行。"
+      "currentReview": "IN_PROGRESS：自动化 UI 已实现并有上一轮 43 项 E2E 通过证据；当前版本 E2E 与物理设备验收仍需完成。",
+      "blocker": "浏览器 E2E 正在验证周期切换和窄屏布局；OPPO Find N2 外屏/内屏真机验收尚未执行，不能据模拟器/浏览器视口宣称真机通过。"
     },
     {
       "id": "T-10",
