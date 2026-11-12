@@ -90,8 +90,12 @@ export interface BollHistoryPoint {
   bandwidthSampleCount?: number;
   bandwidthPhase: BollBandwidthPhase;
   bandwidthPhaseStartDate?: string;
+  /** First bar in the N-bar confirmation window for the current bandwidth phase. */
+  bandwidthPhaseObservationStartDate?: string;
   middleDirection: BollMiddleDirection;
   middleDirectionStartDate?: string;
+  /** First bar in the N-bar confirmation window for the current middle direction. */
+  middleDirectionObservationStartDate?: string;
   closeLocationPercent?: number;
   priceLocation: BollPriceLocation;
 }
@@ -113,8 +117,10 @@ export interface BollState {
   middleChangePercent?: number;
   bandwidthPhase: BollBandwidthPhase;
   bandwidthPhaseStartDate?: string;
+  bandwidthPhaseObservationStartDate?: string;
   middleDirection: BollMiddleDirection;
   middleDirectionStartDate?: string;
+  middleDirectionObservationStartDate?: string;
   /** Historical close relative to same-bar bands; never the live quote. */
   closeLocationPercent?: number;
   priceLocation: BollPriceLocation;
