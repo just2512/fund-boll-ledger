@@ -45,6 +45,11 @@
           "commit": "574f9163a83e505c690b90e2dcce9895cb3d7475",
           "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43144982080",
           "note": "2026-11-12 本轮单元测试与 TypeScript/生产构建通过；包括缺少可信交易日期的 UNAVAILABLE 分类、BOLL/MACD 历史日期对齐、MACD 交叉日期、状态摘要和 no-future-bars 验证。"
+        },
+        {
+          "commit": "0bd0d2ce8b960d9357ff48053c7dc2924080127c",
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43166497217",
+          "note": "合并后 main 前端 CI（run attempt 2）：单元测试/生产构建 job 与浏览器 E2E job 均 completed/success。E2E 首次 attempt 曾有 1 项既有空状态用例 30 秒超时；仅重跑失败的 Browser end-to-end regression job 后通过，首次失败保留，不视为产品缺陷。"
         }
       ],
       "currentReview": "PASS：本轮 GitHub Actions 已通过相关单元测试、TypeScript 检查和生产构建；新增 UNAVAILABLE 状态、逐根历史序列、周期摘要及前缀重放测试均通过。"
@@ -65,6 +70,11 @@
           "commit": "961c4363210c9cd231f53fc8cebfe927fd9106dc",
           "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/42646332702",
           "note": "BOLL(20,2)、BBW基础值和边界单测；单测、类型检查、生产构建、浏览器E2E通过。"
+        },
+        {
+          "commit": "0bd0d2ce8b960d9357ff48053c7dc2924080127c",
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43166497217",
+          "note": "合并后 main 前端 CI（run attempt 2）：单元测试/生产构建 job 与浏览器 E2E job 均 completed/success。E2E 首次 attempt 曾有 1 项既有空状态用例 30 秒超时；仅重跑失败的 Browser end-to-end regression job 后通过，首次失败保留，不视为产品缺陷。"
         }
       ]
     },
@@ -85,6 +95,11 @@
           "commit": "961c4363210c9cd231f53fc8cebfe927fd9106dc",
           "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/42646038809",
           "note": "按日/周/月显式注入参考配置；配置与anchor-reference-only敏感性候选一致；真实行情12组校准通过。配置是描述性基线，不是优化结果。"
+        },
+        {
+          "commit": "0bd0d2ce8b960d9357ff48053c7dc2924080127c",
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43166497217",
+          "note": "合并后 main 前端 CI（run attempt 2）：单元测试/生产构建 job 与浏览器 E2E job 均 completed/success。E2E 首次 attempt 曾有 1 项既有空状态用例 30 秒超时；仅重跑失败的 Browser end-to-end regression job 后通过，首次失败保留，不视为产品缺陷。"
         }
       ]
     },
@@ -115,6 +130,11 @@
           "commit": "574f9163a83e505c690b90e2dcce9895cb3d7475",
           "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43144982080",
           "note": "2026-11-12 本轮单元测试与 TypeScript/生产构建通过；包括缺少可信交易日期的 UNAVAILABLE 分类、BOLL/MACD 历史日期对齐、MACD 交叉日期、状态摘要和 no-future-bars 验证。"
+        },
+        {
+          "commit": "0bd0d2ce8b960d9357ff48053c7dc2924080127c",
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43166497217",
+          "note": "合并后 main 前端 CI（run attempt 2）：单元测试/生产构建 job 与浏览器 E2E job 均 completed/success。E2E 首次 attempt 曾有 1 项既有空状态用例 30 秒超时；仅重跑失败的 Browser end-to-end regression job 后通过，首次失败保留，不视为产品缺陷。"
         }
       ],
       "currentReview": "PASS：本轮 GitHub Actions 已通过相关单元测试、TypeScript 检查和生产构建；新增 UNAVAILABLE 状态、逐根历史序列、周期摘要及前缀重放测试均通过。"
@@ -145,6 +165,11 @@
           "commit": "574f9163a83e505c690b90e2dcce9895cb3d7475",
           "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43144982080",
           "note": "2026-11-12 本轮单元测试与 TypeScript/生产构建通过；包括缺少可信交易日期的 UNAVAILABLE 分类、BOLL/MACD 历史日期对齐、MACD 交叉日期、状态摘要和 no-future-bars 验证。"
+        },
+        {
+          "commit": "0bd0d2ce8b960d9357ff48053c7dc2924080127c",
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43166497217",
+          "note": "合并后 main 前端 CI（run attempt 2）：单元测试/生产构建 job 与浏览器 E2E job 均 completed/success。E2E 首次 attempt 曾有 1 项既有空状态用例 30 秒超时；仅重跑失败的 Browser end-to-end regression job 后通过，首次失败保留，不视为产品缺陷。"
         }
       ],
       "currentReview": "PASS：本轮 GitHub Actions 已通过相关单元测试、TypeScript 检查和生产构建；新增 UNAVAILABLE 状态、逐根历史序列、周期摘要及前缀重放测试均通过。"
@@ -180,6 +205,11 @@
           "commit": "574f9163a83e505c690b90e2dcce9895cb3d7475",
           "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43144982080",
           "note": "2026-11-12 本轮单元测试与 TypeScript/生产构建通过；包括缺少可信交易日期的 UNAVAILABLE 分类、BOLL/MACD 历史日期对齐、MACD 交叉日期、状态摘要和 no-future-bars 验证。"
+        },
+        {
+          "commit": "0bd0d2ce8b960d9357ff48053c7dc2924080127c",
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43166497217",
+          "note": "合并后 main 前端 CI（run attempt 2）：单元测试/生产构建 job 与浏览器 E2E job 均 completed/success。E2E 首次 attempt 曾有 1 项既有空状态用例 30 秒超时；仅重跑失败的 Browser end-to-end regression job 后通过，首次失败保留，不视为产品缺陷。"
         }
       ],
       "currentReview": "PASS：本轮 GitHub Actions 已通过相关单元测试、TypeScript 检查和生产构建；新增 UNAVAILABLE 状态、逐根历史序列、周期摘要及前缀重放测试均通过。"
@@ -210,6 +240,11 @@
           "commit": "574f9163a83e505c690b90e2dcce9895cb3d7475",
           "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43144982080",
           "note": "2026-11-12 本轮单元测试与 TypeScript/生产构建通过；包括缺少可信交易日期的 UNAVAILABLE 分类、BOLL/MACD 历史日期对齐、MACD 交叉日期、状态摘要和 no-future-bars 验证。"
+        },
+        {
+          "commit": "0bd0d2ce8b960d9357ff48053c7dc2924080127c",
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43166497217",
+          "note": "合并后 main 前端 CI（run attempt 2）：单元测试/生产构建 job 与浏览器 E2E job 均 completed/success。E2E 首次 attempt 曾有 1 项既有空状态用例 30 秒超时；仅重跑失败的 Browser end-to-end regression job 后通过，首次失败保留，不视为产品缺陷。"
         }
       ],
       "currentReview": "PASS：本轮 GitHub Actions 已通过相关单元测试、TypeScript 检查和生产构建；新增 UNAVAILABLE 状态、逐根历史序列、周期摘要及前缀重放测试均通过。"
@@ -239,6 +274,11 @@
           "commit": "574f9163a83e505c690b90e2dcce9895cb3d7475",
           "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43144982080",
           "note": "2026-11-12 本轮单元测试与 TypeScript/生产构建通过；包括缺少可信交易日期的 UNAVAILABLE 分类、BOLL/MACD 历史日期对齐、MACD 交叉日期、状态摘要和 no-future-bars 验证。"
+        },
+        {
+          "commit": "0bd0d2ce8b960d9357ff48053c7dc2924080127c",
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43166497217",
+          "note": "合并后 main 前端 CI（run attempt 2）：单元测试/生产构建 job 与浏览器 E2E job 均 completed/success。E2E 首次 attempt 曾有 1 项既有空状态用例 30 秒超时；仅重跑失败的 Browser end-to-end regression job 后通过，首次失败保留，不视为产品缺陷。"
         }
       ],
       "currentReview": "PASS：本轮 GitHub Actions 已通过相关单元测试、TypeScript 检查和生产构建；新增 UNAVAILABLE 状态、逐根历史序列、周期摘要及前缀重放测试均通过。"
@@ -287,9 +327,14 @@
           "commit": "d43773ff0ece483f68d861994e41d9f0fb401d14",
           "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43162737208",
           "note": "当前 head 前端 CI：14 个测试文件、134 passed/2 skipped，TypeScript/生产构建/执行契约/升级契约通过，Playwright 48/48。原生设备验收不在该 run 范围。"
+        },
+        {
+          "commit": "0bd0d2ce8b960d9357ff48053c7dc2924080127c",
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43166497217",
+          "note": "合并后 main 前端 CI（run attempt 2）：单元测试/生产构建 job 与浏览器 E2E job 均 completed/success。E2E 首次 attempt 曾有 1 项既有空状态用例 30 秒超时；仅重跑失败的 Browser end-to-end regression job 后通过，首次失败保留，不视为产品缺陷。"
         }
       ],
-      "currentReview": "BLOCKED：Frontend Checks Run 43164060173 已关联提交 e655841acc568ef88d424a2268832765eee43200，unit/build/benchmark/contract 与 Playwright E2E 两个 job 均成功；该 run 不覆盖其后的文档提交。Native run 43162417531 的 Windows installer 与 Android ARM64 debug-only APK 构建/上传成功；Android 持久签名 release skipped。Windows 桌面实际操作、Android 安装运行与 OPPO Find N2 外屏/内屏/横竖屏/输入法真机验收由用户本地执行，尚无设备证据。",
+      "currentReview": "BLOCKED：合并后 main 前端 CI Run 43166497217（提交 0bd0d2ce8b960d9357ff48053c7dc2924080127c，run attempt 2）中单元测试/生产构建与浏览器 E2E 均通过；首次 E2E attempt 的空状态用例超时已通过仅重跑失败 job 复验。Native run 43162417531 的 Windows installer 与 Android ARM64 debug-only APK 构建/上传成功，Android 持久签名 release skipped。Windows 桌面实际操作、Android 安装运行与 OPPO Find N2 外屏/内屏/横竖屏/输入法真机验收仍由用户本地执行，尚无设备证据。",
       "blocker": "本地验收待执行：安装 Windows installer 和 Android ARM64 debug-only APK，验证启动、价格计算、账本与 JSON 备份恢复；在 OPPO Find N2（PUG110）检查外屏/内屏、横竖屏、输入法和真实行情下 BOLL/MACD 详情。Android debug APK 不可覆盖正式签名版；卸载或更换安装前先导出 JSON 备份。"
     },
     {
@@ -317,6 +362,11 @@
           "commit": "d43773ff0ece483f68d861994e41d9f0fb401d14",
           "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43162737208",
           "note": "Playwright 48/48；新增真实行情 reload E2E：本地账本现价保留，technicalState/formulaVersion 不跨 reload 恢复，再次手动刷新后重新生成。"
+        },
+        {
+          "commit": "0bd0d2ce8b960d9357ff48053c7dc2924080127c",
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43166497217",
+          "note": "合并后 main 前端 CI（run attempt 2）：单元测试/生产构建 job 与浏览器 E2E job 均 completed/success。E2E 首次 attempt 曾有 1 项既有空状态用例 30 秒超时；仅重跑失败的 Browser end-to-end regression job 后通过，首次失败保留，不视为产品缺陷。"
         }
       ],
       "currentReview": "PASS：Fund、Trade、PriceSnapshot、AppData 不含技术状态；MarketQuote.technicalState 只作为行情响应派生字段。JSON 备份仅输出 funds/schemaVersion/snapshots/trades；当前 head 新增 reload E2E 验证行情派生技术状态不跨 reload 恢复，现价仍保留，重新手动刷新后技术状态重建。"
@@ -341,9 +391,14 @@
           "commit": "4bf0c5e892e41888fda106b551cb9c9218ddbe05",
           "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43153956310",
           "note": "当前 feature 分支真实数据复验（run attempt 2 success）：510300 日/周/月实时验收通过；4 ETF × 3 周期共 12 组、7,351 根确认 K 线；全部 noFutureBars=true、逐根最终值与批量值一致；主源策略违规 0；百度 K 线 2,000 根回退探针成功，百度现价探针无可信日期并被正确排除。"
+        },
+        {
+          "commit": "0bd0d2ce8b960d9357ff48053c7dc2924080127c",
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43166497187",
+          "note": "合并后 main 真实行情验收与多 ETF 校准 workflow completed/success；覆盖 4 ETF × 3 周期共 12 组、7,351 根确认 K 线，noFutureBars 全部 true、逐根最终结果与批量计算一致、主源策略违规 0；百度 K 线备用探针 2,000 根成功，百度现价因无可信交易日期被排除。阈值选择 NOT_PERFORMED，描述性参考参数未被宣称为交易优化结果。"
         }
       ],
-      "currentReview": "PASS：当前工作分支专用真实数据 workflow 第二次 attempt 成功；510300 实时验收 1/1 通过，4 ETF × 3 周期共 12 组、7,351 根确认 K 线，逐根重放无未来数据且最终结果与批量计算一致，来源策略违规 0。首次 attempt 因百度 HTTP 403/CDN 超时失败已保留。阈值选择仍为 NOT_PERFORMED。"
+      "currentReview": "PASS：合并后 main 真实行情验收 Run 43166497187 completed/success；4 ETF × 3 周期共 12 组、7,351 根确认 K 线，全部 noFutureBars=true、逐根最终结果与批量计算一致，主源策略违规 0。百度 K 线备用探针 2,000 根成功；百度现价无可信交易日期并正确排除。阈值选择仍为 NOT_PERFORMED。"
     }
   ]
 }
