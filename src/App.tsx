@@ -591,10 +591,12 @@ function MacdPeriodCard({ label, period, state, technical }: { label: string; pe
     return { boll: bollHistory[index], macd: macdHistory[index], date: bollHistory[index]?.date ?? macdHistory[index]?.date ?? '—' };
   });
   const latestMacdHistory = macdHistory.at(-1);
-  const lastCrossText = latestMacdHistory?.lastCrossDate
-    ? (latestMacdHistory.lastCross === 'golden' ? '金叉' : '死叉') + ' · ' + latestMacdHistory.lastCrossDate
-    : latestMacdHistory?.formulaReady ? '当前加载历史范围内未发现交叉' : '历史不足，无法确定';
-  const arrangementStartDate = state?.arrangementStartDate ?? latestMacdHistory?.arrangementStartDate;
+  const lastCrossText = latestMacdHistory?.formulaReady
+    ? latestMacdHistory.lastCrossDate
+      ? (latestMacdHistory.lastCross === 'golden' ? '金叉' : '死叉') + ' · ' + latestMacdHistory.lastCrossDate
+      : '当前加载历史范围内未发现交叉'
+    : '历史不足，无法确定';
+  const arrangementStartDate = state?.arrangementStartDate ?? (latestMacdHistory?.formulaReady ? latestMacdHistory.arrangementStartDate : undefined);
   return <article className="macd-period-card expanded" data-period={period}>
     <div className="macd-period-head">
       <strong>{label} · 指标计算依据</strong>
@@ -673,10 +675,10 @@ function MacdPeriodCard({ label, period, state, technical }: { label: string; pe
                 <thead><tr><th>日期</th><th>收盘</th><th>DIF</th><th>DEA</th><th>柱体</th><th>零轴</th><th>排列</th><th>动能</th><th>当根交叉</th></tr></thead>
                 <tbody>{historyRows.map((row) => {
                   const point = row.macd;
-                  const zero = point?.zeroAxis === 'above' ? '上方' : point?.zeroAxis === 'below' ? '下方' : point?.zeroAxis === 'at-zero' ? '零轴' : '未知';
-                  const arrangement = point?.arrangement === 'new-golden' ? '新金叉' : point?.arrangement === 'new-death' ? '新死叉' : point?.arrangement === 'bull-after-golden' ? '金叉后多头排列' : point?.arrangement === 'bear-after-death' ? '死叉后空头排列' : point?.arrangement === 'bull-history-unknown' ? '多头排列·交叉历史不足' : point?.arrangement === 'bear-history-unknown' ? '空头排列·交叉历史不足' : point?.arrangement === 'neutral' ? 'DIF/DEA 重合' : '未知';
-                  const momentum = point?.momentum === 'bull-strengthening' ? '多头动能增强' : point?.momentum === 'bull-weakening' ? '多头动能减弱' : point?.momentum === 'bear-strengthening' ? '空头动能增强' : point?.momentum === 'bear-weakening' ? '空头动能减弱' : point?.momentum === 'neutral' ? '动能变化不明显' : '未知';
-                  const cross = point?.crossEvent === 'golden' ? '金叉' : point?.crossEvent === 'death' ? '死叉' : point?.crossEvent === 'none' ? '无新交叉' : '未知';
+                  const zero = !point?.formulaReady ? '预热' : point.zeroAxis === 'above' ? '上方' : point.zeroAxis === 'below' ? '下方' : point.zeroAxis === 'at-zero' ? '零轴' : '未知';
+                  const arrangement = !point?.formulaReady ? '预热' : point.arrangement === 'new-golden' ? '新金叉' : point.arrangement === 'new-death' ? '新死叉' : point.arrangement === 'bull-after-golden' ? '金叉后多头排列' : point.arrangement === 'bear-after-death' ? '死叉后空头排列' : point.arrangement === 'bull-history-unknown' ? '多头排列·交叉历史不足' : point.arrangement === 'bear-history-unknown' ? '空头排列·交叉历史不足' : point.arrangement === 'neutral' ? 'DIF/DEA 重合' : '未知';
+                  const momentum = !point?.formulaReady ? '预热' : point.momentum === 'bull-strengthening' ? '多头动能增强' : point.momentum === 'bull-weakening' ? '多头动能减弱' : point.momentum === 'bear-strengthening' ? '空头动能增强' : point.momentum === 'bear-weakening' ? '空头动能减弱' : point.momentum === 'neutral' ? '动能变化不明显' : '未知';
+                  const cross = !point?.formulaReady ? '预热' : point.crossEvent === 'golden' ? '金叉' : point.crossEvent === 'death' ? '死叉' : point.crossEvent === 'none' ? '无新交叉' : '未知';
                   return <tr key={'macd-' + row.date}>
                     <td>{row.date}</td><td>{bollNumber(point?.close)}</td><td>{point?.formulaReady ? bollNumber(point.dif, 6) : '预热'}</td><td>{point?.formulaReady ? bollNumber(point.dea, 6) : '预热'}</td><td>{point?.formulaReady ? bollNumber(point.histogram, 6) : '预热'}</td>
                     <td>{zero}</td><td>{arrangement}</td><td>{momentum}</td><td>{cross}</td>
