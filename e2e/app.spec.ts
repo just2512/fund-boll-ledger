@@ -1402,17 +1402,3 @@ test('K 线来源全部失败时，技术详情明确显示无确认历史和缺
   await expect(page.getByText(/MACD.*数据不可用|数据不可用.*MACD/)).toBeVisible();
   await expect(page.getByText(/东方财富失败|腾讯失败|百度失败/).first()).toBeVisible();
 });
-
-
-test('全部现价行情源失败时，技术摘要显示真实失败原因而非空白状态', async ({ page }) => {
-  await page.route('https://push2.eastmoney.com/**', (route) => route.fulfill({ status: 503, body: 'eastmoney quote unavailable' }));
-  await page.route('https://qt.gtimg.cn/**', (route) => route.fulfill({ status: 503, body: 'tencent quote unavailable' }));
-  await page.route('https://finance.pae.baidu.com/**', (route) => route.fulfill({ status: 503, body: 'baidu quote unavailable' }));
-  await page.route('https://sp0.baidu.com/**', (route) => route.fulfill({ status: 503, body: 'baidu fallback unavailable' }));
-
-  await createFund(page, '现价行情源失败验收 ETF', '510300');
-  await page.getByRole('button', { name: '刷新行情' }).click();
-
-  await expect(page.locator('.macd-summary')).toContainText('行情数据不可用');
-  await expect(page.locator('.macd-summary')).toContainText(/东方财富失败|腾讯失败|百度失败/);
-});

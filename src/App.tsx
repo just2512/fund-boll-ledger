@@ -707,7 +707,7 @@ function MacdPanel({ state, technical, loading, error, stale }: { state?: MacdMu
   const [activePeriod, setActivePeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const technicalDescription = technical ? describeTechnicalMultiTimeframeState(technical) : undefined;
   const summary = technicalDescription
-    ? stale ? '本次行情刷新失败，以下仍为上次成功数据。原因：' + (error ?? '未知错误') + '\\n' + technicalDescription.summary : technicalDescription.summary
+    ? stale ? '本次行情刷新失败，以下仍为上次成功数据。原因：' + (error ?? '未知错误') + ' · ' + technicalDescription.summary : technicalDescription.summary
     : error ? '行情数据不可用：' + error : loading ? '正在刷新 BOLL + MACD 数据…' : '刷新行情后计算';
   const activeLabel = activePeriod === 'daily' ? '日线' : activePeriod === 'weekly' ? '周线' : '月线';
   const activeState = state?.[activePeriod];
