@@ -59,9 +59,10 @@ if (!androidSigning.includes("'-storetype', 'PKCS12'") || !androidSigning.includ
 if (!androidBuild.includes('node "scripts/configure-android-window-insets.mjs"') ||
     !androidInsets.includes('FUND_BOLL_LEDGER_SYSTEM_BAR_INSETS') ||
     !androidInsets.includes('WindowCompat.setDecorFitsSystemWindows(window, false)') ||
-    !androidInsets.includes('WindowInsetsCompat.Type.statusBars()') ||
-    !androidInsets.includes('WindowInsetsCompat.Type.navigationBars()') ||
-    !androidInsets.includes('initialBottom + bottomInset')) {
+    !androidInsets.includes('WindowInsetsCompat.Type.systemBars()') ||
+    !androidInsets.includes('WindowInsetsCompat.Type.displayCutout()') ||
+    !androidInsets.includes('WindowInsetsCompat.Builder(insets)') ||
+    !androidInsets.includes('.setInsets(handledTypes, Insets.NONE)')) {
   throw new Error('Android build must apply native status-bar/display-cutout insets to the generated Tauri activity.');
 }
 const nativeWorkflow = fs.readFileSync(path.join(root, '.github/workflows/native-build.yml'), 'utf8');
