@@ -218,7 +218,6 @@ function macdPeriodSummary(snapshot: TechnicalStateSnapshot): string {
     macdZeroAxisLabel(macd),
     macdArrangementLabel(macd),
     macdMomentumLabel(macd),
-    '本根' + (macd.crossEvent === 'golden' ? '新金叉' : macd.crossEvent === 'death' ? '新死叉' : macd.crossEvent === 'none' ? '无新交叉' : '交叉未知'),
   ].join('，');
 }
 
