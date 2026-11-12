@@ -16,6 +16,23 @@ export type MacdMomentum =
 
 export interface MacdBar { date: string; close: string | number }
 export interface MacdQuoteContext { tradingDate?: string; quotedAt?: string }
+export interface MacdHistoryPoint {
+  date: string;
+  close: number;
+  dif?: number;
+  dea?: number;
+  histogram?: number;
+  formulaReady: boolean;
+  zeroAxis: MacdZeroAxis;
+  lineRelation: MacdLineRelation;
+  crossEvent: MacdCrossEvent;
+  lastCross: MacdCrossDirection;
+  lastCrossDate?: string;
+  arrangement: MacdArrangement;
+  arrangementStartDate?: string;
+  momentum: MacdMomentum;
+}
+
 export interface MacdPeriodState {
   interval: MacdInterval;
   availability: MacdAvailability;
@@ -34,7 +51,9 @@ export interface MacdPeriodState {
   lineRelation: MacdLineRelation;
   crossEvent: MacdCrossEvent;
   lastCross: MacdCrossDirection;
+  lastCrossDate?: string;
   arrangement: MacdArrangement;
+  arrangementStartDate?: string;
   momentum: MacdMomentum;
   zeroTone: MacdTone;
   arrangementTone: MacdTone;
@@ -102,6 +121,93 @@ function ema(values: number[], period: number): number[] {
   return out;
 }
 
+
+function macdMomentumAt(histogram: number, previousHistogram: number | undefined): MacdMomentum {
+  if (previousHistogram === undefined) return 'unknown';
+  if (histogram > 0) {
+    if (histogram > previousHistogram) return 'bull-strengthening';
+    if (histogram < previousHistogram) return 'bull-weakening';
+  } else if (histogram < 0) {
+    if (Math.abs(histogram) > Math.abs(previousHistogram)) return 'bear-strengthening';
+    if (Math.abs(histogram) < Math.abs(previousHistogram)) return 'bear-weakening';
+  }
+  return 'neutral';
+}
+
+function arrangementAt(
+  crossEvent: MacdCrossEvent,
+  lineRelation: MacdLineRelation,
+  lastCross: MacdCrossDirection,
+): MacdArrangement {
+  if (crossEvent === 'golden') return 'new-golden';
+  if (crossEvent === 'death') return 'new-death';
+  if (lineRelation === 'bullish') return lastCross === 'golden' ? 'bull-after-golden' : 'bull-history-unknown';
+  if (lineRelation === 'bearish') return lastCross === 'death' ? 'bear-after-death' : 'bear-history-unknown';
+  if (lineRelation === 'equal') return 'neutral';
+  return 'unknown';
+}
+
+function buildMacdHistory(bars: readonly { date: string; close: number }[]): MacdHistoryPoint[] {
+  if (bars.length === 0) return [];
+  const closes = bars.map((bar) => bar.close);
+  const fast = ema(closes, FAST_PERIOD);
+  const slow = ema(closes, SLOW_PERIOD);
+  const dif = fast.map((value, index) => value - slow[index]);
+  const dea = ema(dif, SIGNAL_PERIOD);
+  const histogram = dif.map((value, index) => 2 * (value - dea[index]));
+  let lastCross: MacdCrossDirection = 'unknown';
+  let lastCrossDate: string | undefined;
+  return bars.map((bar, index) => {
+    let crossEvent: MacdCrossEvent = index === 0 ? 'unknown' : 'none';
+    if (index > 0 && dif[index - 1] <= dea[index - 1] && dif[index] > dea[index]) {
+      crossEvent = 'golden';
+      lastCross = 'golden';
+      lastCrossDate = bar.date;
+    } else if (index > 0 && dif[index - 1] >= dea[index - 1] && dif[index] < dea[index]) {
+      crossEvent = 'death';
+      lastCross = 'death';
+      lastCrossDate = bar.date;
+    }
+    const lineRelation: MacdLineRelation = dif[index] > dea[index] ? 'bullish' : dif[index] < dea[index] ? 'bearish' : 'equal';
+    const zeroAxis: MacdZeroAxis = dif[index] > 0 ? 'above' : dif[index] < 0 ? 'below' : 'at-zero';
+    const arrangement = arrangementAt(crossEvent, lineRelation, lastCross);
+    const arrangementStartDate = lastCrossDate && (
+      (lineRelation === 'bullish' && lastCross === 'golden') ||
+      (lineRelation === 'bearish' && lastCross === 'death')
+    ) ? lastCrossDate : undefined;
+    return {
+      date: bar.date,
+      close: bar.close,
+      dif: dif[index],
+      dea: dea[index],
+      histogram: histogram[index],
+      formulaReady: index >= MIN_MACD_BARS - 1,
+      zeroAxis,
+      lineRelation,
+      crossEvent,
+      lastCross,
+      ...(lastCrossDate ? { lastCrossDate } : {}),
+      arrangement,
+      ...(arrangementStartDate ? { arrangementStartDate } : {}),
+      momentum: macdMomentumAt(histogram[index], index > 0 ? histogram[index - 1] : undefined),
+    };
+  });
+}
+
+/** Historical MACD formula output for every supplied confirmed bar, even when
+ * the longer product-state stability gate has not yet been reached. */
+export function calculateMacdHistoryFromConfirmedSeries(series: ConfirmedTechnicalSeries): MacdHistoryPoint[] {
+  const { bars } = series;
+  if (bars.length === 0 || series.asOfDate !== bars[bars.length - 1]?.date) return [];
+  let previousDate = '';
+  for (const bar of bars) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(bar.date) || bar.date <= previousDate ||
+        !Number.isFinite(bar.close) || bar.close <= 0) return [];
+    previousDate = bar.date;
+  }
+  return buildMacdHistory(bars);
+}
+
 function isClosedLatestPeriod(
   bars: Array<{ date: string; close: number }>,
   interval: MacdInterval,
@@ -167,75 +273,37 @@ export function calculateMacdFromConfirmedSeries(series: ConfirmedTechnicalSerie
   if (bars.length < MIN_MACD_BARS) {
     return emptyPeriod(interval, '已确认历史 K 线不足 ' + MIN_MACD_BARS + ' 根，无法计算 MACD(12,26,9)', 'insufficient-history');
   }
-
-  const closes = bars.map((bar) => bar.close);
-  const fast = ema(closes, FAST_PERIOD);
-  const slow = ema(closes, SLOW_PERIOD);
-  const dif = fast.map((value, index) => value - slow[index]);
-  const dea = ema(dif, SIGNAL_PERIOD);
-  const histogram = dif.map((value, index) => 2 * (value - dea[index]));
-  const lastIndex = bars.length - 1;
-  const previousIndex = lastIndex - 1;
-  const currentDif = dif[lastIndex], currentDea = dea[lastIndex], currentHistogram = histogram[lastIndex];
-  const previousDif = dif[previousIndex], previousDea = dea[previousIndex], previousHistogram = histogram[previousIndex];
-
-  let lastCross: MacdCrossDirection = 'unknown';
-  for (let i = 1; i < dif.length; i += 1) {
-    if (dif[i - 1] <= dea[i - 1] && dif[i] > dea[i]) lastCross = 'golden';
-    else if (dif[i - 1] >= dea[i - 1] && dif[i] < dea[i]) lastCross = 'death';
-  }
-  let crossEvent: MacdCrossEvent = 'none';
-  if (previousDif <= previousDea && currentDif > currentDea) {
-    crossEvent = 'golden';
-    lastCross = 'golden';
-  } else if (previousDif >= previousDea && currentDif < currentDea) {
-    crossEvent = 'death';
-    lastCross = 'death';
-  }
-
-  const lineRelation: MacdLineRelation = currentDif > currentDea ? 'bullish' : currentDif < currentDea ? 'bearish' : 'equal';
-  let arrangement: MacdArrangement;
-  if (crossEvent === 'golden') arrangement = 'new-golden';
-  else if (crossEvent === 'death') arrangement = 'new-death';
-  else if (lineRelation === 'bullish') arrangement = lastCross === 'golden' ? 'bull-after-golden' : 'bull-history-unknown';
-  else if (lineRelation === 'bearish') arrangement = lastCross === 'death' ? 'bear-after-death' : 'bear-history-unknown';
-  else arrangement = 'neutral';
-
-  const zeroAxis: MacdZeroAxis = currentDif > 0 ? 'above' : currentDif < 0 ? 'below' : 'at-zero';
-  let momentum: MacdMomentum = 'neutral';
-  if (currentHistogram > 0) {
-    if (currentHistogram > previousHistogram) momentum = 'bull-strengthening';
-    else if (currentHistogram < previousHistogram) momentum = 'bull-weakening';
-  } else if (currentHistogram < 0) {
-    if (Math.abs(currentHistogram) > Math.abs(previousHistogram)) momentum = 'bear-strengthening';
-    else if (Math.abs(currentHistogram) < Math.abs(previousHistogram)) momentum = 'bear-weakening';
-  }
+  const history = buildMacdHistory(bars);
+  const latest = history[history.length - 1];
+  if (!latest) return emptyPeriod(interval, 'MACD 历史计算结果不完整');
 
   return {
     interval,
     availability: 'ready',
-    asOfDate: bars[lastIndex].date,
+    asOfDate: latest.date,
     barsUsed: bars.length,
     emaSeedDate: bars[0].date,
     preRollBars: Math.max(0, bars.length - MIN_MACD_BARS),
-    dif: currentDif,
-    dea: currentDea,
-    histogram: currentHistogram,
-    zeroAxis,
-    lineRelation,
-    crossEvent,
-    lastCross,
-    arrangement,
-    momentum,
-    zeroTone: zeroAxis === 'above' ? 'bullish' : zeroAxis === 'below' ? 'bearish' : 'neutral',
+    dif: latest.dif,
+    dea: latest.dea,
+    histogram: latest.histogram,
+    zeroAxis: latest.zeroAxis,
+    lineRelation: latest.lineRelation,
+    crossEvent: latest.crossEvent,
+    lastCross: latest.lastCross,
+    ...(latest.lastCrossDate ? { lastCrossDate: latest.lastCrossDate } : {}),
+    arrangement: latest.arrangement,
+    ...(latest.arrangementStartDate ? { arrangementStartDate: latest.arrangementStartDate } : {}),
+    momentum: latest.momentum,
+    zeroTone: latest.zeroAxis === 'above' ? 'bullish' : latest.zeroAxis === 'below' ? 'bearish' : 'neutral',
     arrangementTone:
-      arrangement === 'new-golden' || arrangement === 'bull-after-golden' ? 'bullish' :
-      arrangement === 'new-death' || arrangement === 'bear-after-death' ? 'bearish' : 'neutral',
+      latest.arrangement === 'new-golden' || latest.arrangement === 'bull-after-golden' ? 'bullish' :
+      latest.arrangement === 'new-death' || latest.arrangement === 'bear-after-death' ? 'bearish' : 'neutral',
     momentumTone:
-      momentum === 'bull-strengthening' ? 'bullish' :
-      momentum === 'bear-strengthening' ? 'bearish' :
-      momentum === 'bull-weakening' || momentum === 'bear-weakening' ? 'mixed' :
-      momentum === 'neutral' ? 'neutral' : 'unknown',
+      latest.momentum === 'bull-strengthening' ? 'bullish' :
+      latest.momentum === 'bear-strengthening' ? 'bearish' :
+      latest.momentum === 'bull-weakening' || latest.momentum === 'bear-weakening' ? 'mixed' :
+      latest.momentum === 'neutral' ? 'neutral' : 'unknown',
   };
 }
 
