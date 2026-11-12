@@ -282,9 +282,14 @@
           "commit": "5604bcde85929144ee2b4ba9cae69790dafb78cc",
           "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43155823629",
           "note": "2026-11-12 Native App Build：Windows desktop installer 与 Android ARM64 debug-only APK 构建、临时签名验证、artifact 上传均成功；Android 持久签名 release job 因未配置启用条件而 skipped。该证据不覆盖 Windows 桌面实际操作和 OPPO Find N2 真机验收。"
+        },
+        {
+          "commit": "d43773ff0ece483f68d861994e41d9f0fb401d14",
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43162737208",
+          "note": "当前 head 前端 CI：14 个测试文件、134 passed/2 skipped，TypeScript/生产构建/执行契约/升级契约通过，Playwright 48/48。原生设备验收不在该 run 范围。"
         }
       ],
-      "currentReview": "BLOCKED：当前 head 的 Playwright、Windows Tauri installer 和 Android ARM64 debug-only APK 构建均通过；Android 持久签名 release job skipped。Windows 桌面窗口实际检查、Android 安装运行与 OPPO Find N2 外屏/内屏/横竖屏/输入法真机验收尚未取得证据。",
+      "currentReview": "BLOCKED：当前 head Run 43162737208 的前端 CI 与 Playwright 48/48 通过；Windows installer 和 Android ARM64 debug-only APK 曾由 Native run 43155823629 构建/签名验证/上传成功。Windows 桌面实际操作、Android 安装运行与 OPPO Find N2 外屏/内屏/横竖屏/输入法真机验收尚无证据。",
       "blocker": "仍需在 Windows 安装程序和 Android ARM64 debug APK 上完成实际安装/启动与界面检查，并在 OPPO Find N2 真机验证外屏、内屏、横竖屏和输入法；debug APK 不可用于正式版覆盖升级。"
     },
     {
@@ -307,9 +312,14 @@
           "commit": "95f6960ccc9523e579f7ca385098ee0e55c62d88",
           "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43154771624",
           "note": "Playwright 48/48 通过。新增 E2E 在技术状态已生成后导出 JSON，确认只包含 funds/schemaVersion/snapshots/trades，不含 technicalState/formulaVersion；与 AppData 类型和 IndexedDB 存储调用链审计一致。"
+        },
+        {
+          "commit": "d43773ff0ece483f68d861994e41d9f0fb401d14",
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43162737208",
+          "note": "Playwright 48/48；新增真实行情 reload E2E：本地账本现价保留，technicalState/formulaVersion 不跨 reload 恢复，再次手动刷新后重新生成。"
         }
       ],
-      "currentReview": "PASS：Fund、Trade、PriceSnapshot、AppData 不含技术状态；MarketQuote.technicalState 只作为行情响应派生字段。新增 E2E 在技术状态已生成后导出 JSON，确认仅输出 funds/schemaVersion/snapshots/trades，不含 technicalState/formulaVersion。现有交易行为回归及 Playwright 48/48 通过。"
+      "currentReview": "PASS：Fund、Trade、PriceSnapshot、AppData 不含技术状态；MarketQuote.technicalState 只作为行情响应派生字段。JSON 备份仅输出 funds/schemaVersion/snapshots/trades；当前 head 新增 reload E2E 验证行情派生技术状态不跨 reload 恢复，现价仍保留，重新手动刷新后技术状态重建。"
     },
     {
       "id": "T-11",
