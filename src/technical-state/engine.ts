@@ -248,8 +248,10 @@ function compactMacdSummary(snapshot: TechnicalStateSnapshot): string {
   if (macd.availability === 'unavailable') return '数据不可用';
   const arrangement = macd.arrangement === 'new-golden' ? '新金叉'
     : macd.arrangement === 'new-death' ? '新死叉'
-      : macd.arrangement === 'bull-after-golden' || macd.arrangement === 'bull-history-unknown' ? '多头排列'
-        : macd.arrangement === 'bear-after-death' || macd.arrangement === 'bear-history-unknown' ? '空头排列'
+      : macd.arrangement === 'bull-after-golden' ? '多头排列'
+        : macd.arrangement === 'bull-history-unknown' ? '多头排列（交叉历史不足）'
+          : macd.arrangement === 'bear-after-death' ? '空头排列'
+            : macd.arrangement === 'bear-history-unknown' ? '空头排列（交叉历史不足）'
           : macd.arrangement === 'neutral' ? 'DIF/DEA 重合' : '排列未确认';
   return arrangement + '、' + macdMomentumLabel(macd);
 }
