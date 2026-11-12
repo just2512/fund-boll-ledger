@@ -6,6 +6,9 @@ on:
     paths:
       - 'src/**'
       - 'src-tauri/**'
+      - 'scripts/build-android.ps1'
+      - 'scripts/configure-android-window-insets.mjs'
+      - 'scripts/verify-upgrade-contract.mjs'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/native-build.yml'
