@@ -267,9 +267,14 @@
           "commit": "574f9163a83e505c690b90e2dcce9895cb3d7475",
           "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43144982080",
           "note": "Playwright 浏览器 E2E 43 项通过；仅证明自动化浏览器视口与交互，不替代 Windows/Android 原生构建和 OPPO Find N2 真机验收。"
+        },
+        {
+          "commit": "dac4dee5786fb0be0d368dfed4778bafe9527d9d",
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43152372282",
+          "note": "2026-11-12 最新前端 CI：Playwright 46/46 通过，覆盖无确认 K 线、K 线三源失败时来源与失败原因显示、现价源全部失败时技术摘要错误提示；同时完成 134 项单测、类型检查、生产构建。原生构建与 OPPO Find N2 真机仍无证据。"
         }
       ],
-      "currentReview": "BLOCKED：浏览器自动化 43 项通过；真实桌面/Android 原生构建和 OPPO Find N2 真机交互尚无证据。",
+      "currentReview": "BLOCKED：最新 CI Run 43152372282 的 46 项 Playwright、134 项单测及 TypeScript/生产构建通过；新增无确认历史、K 线三源失败和现价源全部失败 UI 覆盖。但 Windows Tauri 原生构建、Android ARM64 构建及 OPPO Find N2 外屏/内屏真机验收尚未执行，不能以浏览器视口替代。",
       "blocker": "自动化浏览器视口 E2E 已通过；但 Windows Tauri 原生构建、Android ARM64 构建及 OPPO Find N2 外屏/内屏真机验收尚未执行，不能以浏览器视口替代。"
     },
     {

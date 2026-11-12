@@ -238,3 +238,15 @@
 - 本轮新增 E2E 当前指标细节与重复刷新一致性断言通过；同时通过 240/180/120 根周期数据、100 根 MACD 历史不足、12 根短历史行数、分页、历史值日期对齐、390px 窄屏表格滚动等场景。
 - 自动化可执行项已全部勾选 PASS；2 个真实行情 live tests 仍 skipped，不计入实时行情验收。Windows Tauri、Android ARM64 和 OPPO Find N2 真机项目继续 BLOCKED。
 - 验证提交：`f551faf9be597d078c5ff301afc2f3e36a3a8caa`；当前分支最新文档提交为本记录，未合并 PR。
+
+
+## 18. 异常数据展示与重复计算复核（2026-11-12）
+
+- **PASS**：calculateTechnicalStateSnapshot 复用同一份 BOLL/MACD 历史序列构造当前快照。此前 BOLL 历史与当前状态分别调用 calculatePoints，MACD 历史与当前状态分别调用 buildMacdHistory；现改为历史序列计算一次后传入快照构造器。复用入口同时核对历史长度、日期和收盘价；不一致时 fail closed。
+- **PASS**：新增 BOLL/MACD 复用前后结果等价测试，以及日期错位拒绝测试；保留既有逐根前缀重放、批量一致和 no-future-bars 测试。
+- **PASS**：无确认 K 线时 UI 显示“无可确认历史 K 线”，不再把 excludedInProgressBar=false 误表达为“仅使用已确认收盘数据”。
+- **PASS**：K 线三源全部失败时，周期详情显示 UNAVAILABLE、失败原因、K 线来源“未提供”和现价来源；全部现价源失败时，技术摘要显示实际失败原因。若刷新失败但保留上次成功行情，摘要明确标注所展示的是上次成功数据。
+- 性能证据边界：代码路径确认每次周期快照少执行一次 BOLL 全历史点计算和一次 MACD 全历史序列构建；本轮没有做墙钟耗时基准测试，因此不宣称具体毫秒数或百分比提升。
+- GitHub Actions Run [43152372282](https://github.com/just2512/fund-boll-ledger/actions/runs/43152372282)，提交 dac4dee5786fb0be0d368dfed4778bafe9527d9d：14 个单测文件通过，134 项通过、2 项实时行情测试跳过；TypeScript 检查、生产构建、执行契约和升级契约通过；Playwright 46 项全部通过。
+- 早期异常 UI E2E 的 strict locator 断言曾因摘要和详情中存在多个相同文案而失败；已将断言限定在 .macd-summary，最终 Run 43152372282 全部通过。失败运行保留，不覆盖历史。
+- **BLOCKED**：Windows Tauri 原生构建、Android ARM64 原生构建和 OPPO Find N2 外屏/内屏真机验收仍无执行证据。浏览器 E2E 通过不替代这些验收。

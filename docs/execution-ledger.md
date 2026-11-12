@@ -73,3 +73,15 @@ The frontend browser CI and multi-ETF live calibration are recorded in the requi
 - 版本字段已同步 package/package-lock、Cargo.toml/Cargo.lock、Tauri 配置；升级契约改为 package version 单一来源，并按版本规则校验 Android versionCode；原应用 ID、Windows 安装身份和本地数据身份保持不变。
 - E2E 增加顶部摘要、周期互斥展开、360px 无横向溢出和 reduced-motion 检查。
 - 尚未以本台账记录 CI 最终结果、Windows 安装包、Android 持久签名 Release 或 OPPO Find N2 真机结果；这些必须以对应工作流和设备证据补记，不能以源码提交代替验收。
+
+
+## 2026-11-12 BOLL/MACD 异常边界与计算复用恢复点
+
+- 当前工作分支：work/technical-state-information-architecture。
+- 当前代码提交：dac4dee5786fb0be0d368dfed4778bafe9527d9d。
+- 最近完整前端 CI：Run [43152372282](https://github.com/just2512/fund-boll-ledger/actions/runs/43152372282)，14 个测试文件通过，134 passed / 2 skipped；TypeScript、生产构建、执行契约和升级契约通过；Playwright 46/46 通过。
+- 已消除每周期快照中重复的 BOLL 全历史点计算和 MACD 全历史序列构建；复用历史序列前校验长度、日期和收盘价，并通过等价性与错位拒绝测试。没有改变 BOLL/MACD 公式、EMA 初始化、确认 K 线、稳定发布门槛或历史事件语义。未做墙钟性能基准，不记录虚构的耗时收益。
+- 已补充 UI 异常路径：没有确认历史时显示“无可确认历史 K 线”；K 线三源失败显示 UNAVAILABLE 和源端失败原因；现价源全部失败时摘要显示真实错误；保留旧行情时明确提示“上次成功数据”。
+- 账本隔离复核：Fund、Trade、PriceSnapshot、AppData 不包含技术状态；MarketQuote.technicalState 只作为行情响应的临时派生字段，JSON 导出序列化的是 AppData，未改动持久化 schema。
+- PR #4 仍 open、未合并；当前分支相对 main behind 0。不得擅自合并。
+- 外部阻断保持：Windows Tauri、Android ARM64 和 OPPO Find N2 真机验收未执行；两个 live-data 测试仍 skipped，不计 PASS。
