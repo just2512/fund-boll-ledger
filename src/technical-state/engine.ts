@@ -1,4 +1,4 @@
-import { calculateMacdFromConfirmedSeries, calculateMacdHistoryFromConfirmedSeries, insufficientMacdPeriod, macdArrangementLabel, macdMomentumLabel, macdZeroAxisLabel, minimumMacdHistoryBars, unavailableMacdPeriod } from '../macd';
+import { calculateMacdFromConfirmedSeries, calculateMacdHistoryFromConfirmedSeries, insufficientMacdPeriod, invalidMacdPeriod, macdArrangementLabel, macdMomentumLabel, macdZeroAxisLabel, minimumMacdHistoryBars, unavailableMacdPeriod } from '../macd';
 import type { MacdPeriodState } from '../macd';
 import { calculateBollHistory, calculateBollState } from './boll-state';
 import { BOLL_STATE_CONFIG_VERSION, bollStateConfigFor } from './config';
@@ -15,6 +15,7 @@ import type {
 function macdValidity(_series: ConfirmedTechnicalSeries, macd: MacdPeriodState): TechnicalValidity {
   if (macd.availability === 'ready') return 'VALID';
   if (macd.availability === 'insufficient-history') return 'INSUFFICIENT';
+  if (macd.availability === 'unavailable') return 'UNAVAILABLE';
   return 'INVALID';
 }
 
@@ -87,7 +88,11 @@ export function unavailableTechnicalState(
     excludedInProgressBar: false,
     boll,
     bollHistory: [],
-    macd: unavailableMacdPeriod(interval, reason),
+    macd: validity === 'INSUFFICIENT'
+      ? insufficientMacdPeriod(interval, reason)
+      : validity === 'UNAVAILABLE'
+        ? unavailableMacdPeriod(interval, reason)
+        : invalidMacdPeriod(interval, reason),
     macdHistory: [],
     validity,
     reason,
@@ -196,6 +201,7 @@ function bollPeriodSummary(snapshot: TechnicalStateSnapshot): string {
   const boll = snapshot.boll;
   if (boll.validity === 'INSUFFICIENT') return '历史不足' + (boll.reason ? '：' + boll.reason : '');
   if (boll.validity === 'INVALID') return '数据无效' + (boll.reason ? '：' + boll.reason : '');
+  if (boll.validity === 'UNAVAILABLE') return '数据不可用' + (boll.reason ? '：' + boll.reason : '');
   return [
     '中轨' + bollMiddleLabel(boll.middleDirection),
     '带宽' + bollBandwidthLabel(boll.bandwidthPhase),
