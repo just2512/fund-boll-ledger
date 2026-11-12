@@ -88,6 +88,9 @@ export function minimumMacdHistoryBars(interval: MacdInterval): number {
 export function insufficientMacdPeriod(interval: MacdInterval, error: string): MacdPeriodState {
   return emptyPeriod(interval, error, 'insufficient-history');
 }
+export function invalidMacdPeriod(interval: MacdInterval, error: string): MacdPeriodState {
+  return emptyPeriod(interval, error, 'invalid-data');
+}
 
 function intervalKey(date: string, interval: MacdInterval): string {
   if (interval === 'daily') return date;
