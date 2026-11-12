@@ -237,7 +237,7 @@ function compactBollSummary(snapshot: TechnicalStateSnapshot): string {
   if (boll.validity === 'INSUFFICIENT') return '历史数据不足';
   if (boll.validity === 'INVALID') return '数据无效';
   if (boll.validity === 'UNAVAILABLE') return '数据不可用';
-  return boll.priceLocation === 'unknown' ? '收盘位置未确认' : '收盘位于' + bollPriceLocationLabel(boll.priceLocation);
+  return boll.priceLocation === 'unknown' ? (snapshot.bollConfig ? '收盘位置未确认' : '收盘位置未配置') : '收盘位于' + bollPriceLocationLabel(boll.priceLocation);
 }
 
 function compactMacdSummary(snapshot: TechnicalStateSnapshot): string {
