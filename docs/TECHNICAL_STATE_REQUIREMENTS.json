@@ -27,12 +27,13 @@
       "id": "T-01",
       "area": "market-data",
       "title": "日/周/月确认 K 线归一化",
-      "status": "PASS",
+      "status": "IN_PROGRESS",
       "acceptance": [
         "来源交易日期和时间用于确认 K 线是否收盘",
         "周线/月线未结束周期必须排除",
         "冲突重复日期、无效日期和无效收盘价必须拒绝",
-        "每个周期保留实际 K 线来源、as-of、历史覆盖和确认状态"
+        "每个周期保留实际 K 线来源、as-of、历史覆盖和确认状态",
+        "缺少可信源端交易日期或行情历史源不可访问时标记 UNAVAILABLE，不与 INVALID 混淆。"
       ],
       "evidence": [
         {
@@ -40,7 +41,9 @@
           "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/42646038809",
           "note": "4只ETF×日/周/月共12组真实历史；来源策略无违规；逐根重放和无未来数据检查通过。"
         }
-      ]
+      ],
+      "blocker": "新增 UNAVAILABLE 状态分类及其摘要/数据管线映射已提交，需本轮完整 CI 重新验证；此前 PASS 证据不覆盖这次变更。",
+      "currentReview": "IN_PROGRESS：既有有效/不足/无效测试通过过，本轮补充不可用状态独立分类，等待新 CI 结果。"
     },
     {
       "id": "T-02",
@@ -85,7 +88,7 @@
       "id": "T-04",
       "area": "macd",
       "title": "MACD(12,26,9) 计算与 EMA 初始化契约",
-      "status": "PASS",
+      "status": "IN_PROGRESS",
       "acceptance": [
         "使用确认 K 线计算 DIF、DEA、HIST",
         "明确 EMA 种子和预热历史长度",
@@ -105,13 +108,14 @@
           "note": "2026-11-12 本轮 GitHub-hosted 单元测试、TypeScript 检查、生产构建通过；新增 MACD 历史与交叉日期、BOLL 历史值与状态起始日期、周期摘要和历史前缀一致性测试通过。"
         }
       ],
-      "currentReview": "PASS：本轮 GitHub Actions 的 npm test、TypeScript 检查和生产构建通过；新增历史序列、交叉日期、摘要独立性与前缀重放测试均在该轮执行。"
+      "currentReview": "IN_PROGRESS：既有有效/不足/无效测试通过过，本轮补充不可用状态独立分类，等待新 CI 结果。",
+      "blocker": "新增 UNAVAILABLE 状态分类及其摘要/数据管线映射已提交，需本轮完整 CI 重新验证；此前 PASS 证据不覆盖这次变更。"
     },
     {
       "id": "T-05",
       "area": "macd",
       "title": "MACD 新交叉、持续排列、零轴与柱体动能分离",
-      "status": "PASS",
+      "status": "IN_PROGRESS",
       "acceptance": [
         "新金叉/死叉事件与当前 DIF/DEA 排列分开",
         "最近一次交叉方向与当前排列分开",
@@ -130,13 +134,14 @@
           "note": "2026-11-12 本轮 GitHub-hosted 单元测试、TypeScript 检查、生产构建通过；新增 MACD 历史与交叉日期、BOLL 历史值与状态起始日期、周期摘要和历史前缀一致性测试通过。"
         }
       ],
-      "currentReview": "PASS：本轮 GitHub Actions 的 npm test、TypeScript 检查和生产构建通过；新增历史序列、交叉日期、摘要独立性与前缀重放测试均在该轮执行。"
+      "currentReview": "IN_PROGRESS：既有有效/不足/无效测试通过过，本轮补充不可用状态独立分类，等待新 CI 结果。",
+      "blocker": "新增 UNAVAILABLE 状态分类及其摘要/数据管线映射已提交，需本轮完整 CI 重新验证；此前 PASS 证据不覆盖这次变更。"
     },
     {
       "id": "T-06",
       "area": "description",
       "title": "单周期 BOLL + MACD 结构化描述引擎",
-      "status": "PASS",
+      "status": "IN_PROGRESS",
       "acceptance": [
         "从已计算的结构化字段生成描述",
         "说明数据周期、as-of、BOLL 状态和 MACD 状态",
@@ -160,13 +165,14 @@
           "note": "2026-11-12 本轮 GitHub-hosted 单元测试、TypeScript 检查、生产构建通过；新增 MACD 历史与交叉日期、BOLL 历史值与状态起始日期、周期摘要和历史前缀一致性测试通过。"
         }
       ],
-      "currentReview": "PASS：本轮 GitHub Actions 的 npm test、TypeScript 检查和生产构建通过；新增历史序列、交叉日期、摘要独立性与前缀重放测试均在该轮执行。"
+      "currentReview": "IN_PROGRESS：既有有效/不足/无效测试通过过，本轮补充不可用状态独立分类，等待新 CI 结果。",
+      "blocker": "新增 UNAVAILABLE 状态分类及其摘要/数据管线映射已提交，需本轮完整 CI 重新验证；此前 PASS 证据不覆盖这次变更。"
     },
     {
       "id": "T-07",
       "area": "multi-timeframe",
       "title": "日/周/月 BOLL + MACD 综合关系描述",
-      "status": "PASS",
+      "status": "IN_PROGRESS",
       "acceptance": [
         "三个周期分别保留各自状态和确认日期",
         "区分周期方向一致、分化和数据不足",
@@ -185,13 +191,14 @@
           "note": "2026-11-12 本轮 GitHub-hosted 单元测试、TypeScript 检查、生产构建通过；新增 MACD 历史与交叉日期、BOLL 历史值与状态起始日期、周期摘要和历史前缀一致性测试通过。"
         }
       ],
-      "currentReview": "PASS：本轮 GitHub Actions 的 npm test、TypeScript 检查和生产构建通过；新增历史序列、交叉日期、摘要独立性与前缀重放测试均在该轮执行。"
+      "currentReview": "IN_PROGRESS：既有有效/不足/无效测试通过过，本轮补充不可用状态独立分类，等待新 CI 结果。",
+      "blocker": "新增 UNAVAILABLE 状态分类及其摘要/数据管线映射已提交，需本轮完整 CI 重新验证；此前 PASS 证据不覆盖这次变更。"
     },
     {
       "id": "T-08",
       "area": "history",
       "title": "历史逐根重放与未来数据隔离",
-      "status": "PASS",
+      "status": "IN_PROGRESS",
       "acceptance": [
         "每个 as-of 只接收截至该日的确认 K 线前缀",
         "历史逐根结果与同起点批量计算结果一致",
@@ -209,7 +216,8 @@
           "note": "2026-11-12 本轮 GitHub-hosted 单元测试、TypeScript 检查、生产构建通过；新增 MACD 历史与交叉日期、BOLL 历史值与状态起始日期、周期摘要和历史前缀一致性测试通过。"
         }
       ],
-      "currentReview": "PASS：本轮 GitHub Actions 的 npm test、TypeScript 检查和生产构建通过；新增历史序列、交叉日期、摘要独立性与前缀重放测试均在该轮执行。"
+      "currentReview": "IN_PROGRESS：既有有效/不足/无效测试通过过，本轮补充不可用状态独立分类，等待新 CI 结果。",
+      "blocker": "新增 UNAVAILABLE 状态分类及其摘要/数据管线映射已提交，需本轮完整 CI 重新验证；此前 PASS 证据不覆盖这次变更。"
     },
     {
       "id": "T-09",
