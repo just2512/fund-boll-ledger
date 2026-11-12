@@ -10,7 +10,7 @@ import { save as saveDialog, open as openDialog } from '@tauri-apps/plugin-dialo
 import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
 import type { TechnicalMultiTimeframeState, TechnicalStateSnapshot } from './technical-state/types';
 import { describeTechnicalMultiTimeframeState } from './technical-state/engine';
-import { BOLL_STATE_CONFIG_VERSION, bollStateConfigFor } from './technical-state/config';
+
 import { createId, emptyAppData, newFund, type AppData, type Fund, type FundCategory, type FundPrices, type LadderDirection, type PriceBasisKey, type PriceSnapshot, type Trade, type TradeSide } from './types';
 
 const NAV_ITEMS = [
@@ -569,7 +569,7 @@ function bollLocationLabel(value: TechnicalStateSnapshot['boll']['priceLocation'
 function MacdPeriodCard({ label, period, state, technical }: { label: string; period: 'daily' | 'weekly' | 'monthly'; state?: MacdPeriodState; technical?: TechnicalStateSnapshot }) {
   const [historyPage, setHistoryPage] = useState(0);
   const boll = technical?.boll;
-  const bollConfig = technical ? bollStateConfigFor(technical.interval) : undefined;
+  const bollConfig = technical?.bollConfig;
   const bollStatus = !boll ? '待计算' : boll.validity === 'VALID' ? '有效' : boll.validity === 'INSUFFICIENT' ? '历史不足' : '数据无效';
   const macdStatus = !state ? '待计算' : macdAvailabilityLabel(state);
   const coverage = technical
@@ -613,7 +613,7 @@ function MacdPeriodCard({ label, period, state, technical }: { label: string; pe
         <section className="boll-period-state">
           <div className="boll-period-state-head">
             <strong>BOLL(20,2)</strong>
-            <span>{bollStatus} · 参数版本 {BOLL_STATE_CONFIG_VERSION}</span>
+            <span>{bollStatus} · 参数版本 {technical?.bollConfigVersion ?? '未提供'}</span>
           </div>
           {boll?.validity === 'VALID' ? <>
             <div className="boll-period-values">上/中/下轨：{bollNumber(boll.upper)}/{bollNumber(boll.middle)}/{bollNumber(boll.lower)}</div>
