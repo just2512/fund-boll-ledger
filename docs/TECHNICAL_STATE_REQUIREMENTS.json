@@ -272,9 +272,14 @@
           "commit": "dac4dee5786fb0be0d368dfed4778bafe9527d9d",
           "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43152372282",
           "note": "2026-11-12 最新前端 CI：Playwright 46/46 通过，覆盖无确认 K 线、K 线三源失败时来源与失败原因显示、现价源全部失败时技术摘要错误提示；同时完成 134 项单测、类型检查、生产构建。原生构建与 OPPO Find N2 真机仍无证据。"
+        },
+        {
+          "commit": "891b63f8422844387b05339b05808d402868b106",
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43153256086",
+          "note": "2026-11-12 最新完整前端 CI：Playwright 47/47 通过，覆盖无确认 K 线、K 线三源失败、现价源全部失败及刷新失败后旧技术数据标记；134 项单测通过、2 项 live-data 测试跳过；benchmark、类型检查和生产构建通过。原生构建与 OPPO Find N2 真机仍无证据。"
         }
       ],
-      "currentReview": "BLOCKED：最新 CI Run 43152372282 的 46 项 Playwright、134 项单测及 TypeScript/生产构建通过；新增无确认历史、K 线三源失败和现价源全部失败 UI 覆盖。但 Windows Tauri 原生构建、Android ARM64 构建及 OPPO Find N2 外屏/内屏真机验收尚未执行，不能以浏览器视口替代。",
+      "currentReview": "BLOCKED：最新 CI Run 43153256086 的 47 项 Playwright、134 项单测及 benchmark/TypeScript/生产构建通过；新增无确认历史、K 线三源失败、现价源全部失败和旧行情保留标记 UI 覆盖。但 Windows Tauri 原生构建、Android ARM64 构建及 OPPO Find N2 外屏/内屏真机验收尚未执行，不能以浏览器视口替代。",
       "blocker": "自动化浏览器视口 E2E 已通过；但 Windows Tauri 原生构建、Android ARM64 构建及 OPPO Find N2 外屏/内屏真机验收尚未执行，不能以浏览器视口替代。"
     },
     {

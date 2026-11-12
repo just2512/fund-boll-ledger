@@ -78,9 +78,10 @@ The frontend browser CI and multi-ETF live calibration are recorded in the requi
 ## 2026-11-12 BOLL/MACD 异常边界与计算复用恢复点
 
 - 当前工作分支：work/technical-state-information-architecture。
-- 当前代码提交：dac4dee5786fb0be0d368dfed4778bafe9527d9d。
-- 最近完整前端 CI：Run [43152372282](https://github.com/just2512/fund-boll-ledger/actions/runs/43152372282)，14 个测试文件通过，134 passed / 2 skipped；TypeScript、生产构建、执行契约和升级契约通过；Playwright 46/46 通过。
-- 已消除每周期快照中重复的 BOLL 全历史点计算和 MACD 全历史序列构建；复用历史序列前校验长度、日期和收盘价，并通过等价性与错位拒绝测试。没有改变 BOLL/MACD 公式、EMA 初始化、确认 K 线、稳定发布门槛或历史事件语义。未做墙钟性能基准，不记录虚构的耗时收益。
+- 当前代码与专项测试提交：891b63f8422844387b05339b05808d402868b106（历史计算复用实现位于其祖先提交，性能基准脚本位于 b5d229b4261ef0885244e270922590ce8437840f）。
+- 最近完整前端 CI：Run [43153256086](https://github.com/just2512/fund-boll-ledger/actions/runs/43153256086)，14 个测试文件通过，134 passed / 2 skipped；benchmark、TypeScript、生产构建、执行契约和升级契约通过；Playwright 47/47 通过。
+- 已消除每周期快照中重复的 BOLL 全历史点计算和 MACD 全历史序列构建；复用历史序列前校验长度、日期和收盘价，并通过等价性与错位拒绝测试。没有改变 BOLL/MACD 公式、EMA 初始化、确认 K 线、稳定发布门槛或历史事件语义。
+- 1,000 根日线的单次 CI 基准：BOLL 从 296.43 到 356.55 ops/s（1.20x）；MACD 从 1,277.39 到 2,269.16 ops/s（1.78x）。Vitest bench 是实验性基准，单次 GitHub-hosted runner 数据不能外推为物理设备性能。
 - 已补充 UI 异常路径：没有确认历史时显示“无可确认历史 K 线”；K 线三源失败显示 UNAVAILABLE 和源端失败原因；现价源全部失败时摘要显示真实错误；保留旧行情时明确提示“上次成功数据”。
 - 账本隔离复核：Fund、Trade、PriceSnapshot、AppData 不包含技术状态；MarketQuote.technicalState 只作为行情响应的临时派生字段，JSON 导出序列化的是 AppData，未改动持久化 schema。
 - PR #4 仍 open、未合并；当前分支相对 main behind 0。不得擅自合并。

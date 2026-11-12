@@ -246,7 +246,7 @@
 - **PASS**：新增 BOLL/MACD 复用前后结果等价测试，以及日期错位拒绝测试；保留既有逐根前缀重放、批量一致和 no-future-bars 测试。
 - **PASS**：无确认 K 线时 UI 显示“无可确认历史 K 线”，不再把 excludedInProgressBar=false 误表达为“仅使用已确认收盘数据”。
 - **PASS**：K 线三源全部失败时，周期详情显示 UNAVAILABLE、失败原因、K 线来源“未提供”和现价来源；全部现价源失败时，技术摘要显示实际失败原因。若刷新失败但保留上次成功行情，摘要明确标注所展示的是上次成功数据。
-- 性能证据边界：代码路径确认每次周期快照少执行一次 BOLL 全历史点计算和一次 MACD 全历史序列构建；本轮没有做墙钟耗时基准测试，因此不宣称具体毫秒数或百分比提升。
-- GitHub Actions Run [43152372282](https://github.com/just2512/fund-boll-ledger/actions/runs/43152372282)，提交 dac4dee5786fb0be0d368dfed4778bafe9527d9d：14 个单测文件通过，134 项通过、2 项实时行情测试跳过；TypeScript 检查、生产构建、执行契约和升级契约通过；Playwright 46 项全部通过。
-- 早期异常 UI E2E 的 strict locator 断言曾因摘要和详情中存在多个相同文案而失败；已将断言限定在 .macd-summary，最终 Run 43152372282 全部通过。失败运行保留，不覆盖历史。
+- 性能基准：新增 technical-state.bench.ts，并在 frontend-checks CI 中运行 npm run bench:technical-state。以 1,000 根已确认日线为输入，Vitest 单次 GitHub-hosted runner 读数：BOLL 两次计算 296.43 ops/s、均值 3.3734 ms；复用历史 356.55 ops/s、均值 2.8047 ms（1.20x）。MACD 两次计算 1,277.39 ops/s、均值 0.7828 ms；复用历史 2,269.16 ops/s、均值 0.4407 ms（1.78x）。这是单次 CI 基准，Vitest bench 为实验性功能；数据仅说明该 runner 上的计算路径差异，不代表 Windows/Android/OPPO 设备性能。
+- GitHub Actions Run [43153256086](https://github.com/just2512/fund-boll-ledger/actions/runs/43153256086)，提交 891b63f8422844387b05339b05808d402868b106：14 个单测文件通过，134 项通过、2 项实时行情测试跳过；benchmark、TypeScript 检查、生产构建、执行契约和升级契约通过；Playwright 47 项全部通过。
+- 早期异常 UI E2E 的 strict locator 断言曾因摘要和详情中存在多个相同文案而失败；已将断言限定在 .macd-summary。另一次浏览器 CI 的首个 page fixture 在 30 秒内未启动，其他 45 项通过；最新 Run 43153256086 的 47 项全部通过。失败运行保留，不覆盖历史。
 - **BLOCKED**：Windows Tauri 原生构建、Android ARM64 原生构建和 OPPO Find N2 外屏/内屏真机验收仍无执行证据。浏览器 E2E 通过不替代这些验收。
