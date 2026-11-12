@@ -112,3 +112,14 @@ The frontend browser CI and multi-ETF live calibration are recorded in the requi
 - 本轮 benchmark 类型错误与 E2E 断言错误均已按实际日志修正，最终 Run 43162737208 通过；失败 run 保留。
 - PR #4 仍 open、未合并；当前 feature branch 与 main 比较 ahead 121 / behind 0（以本记录生成时 compare 结果为准）。
 - T-09 仍 BLOCKED：Windows 桌面实际操作、Android 安装运行、OPPO Find N2 外屏/内屏/横竖屏/输入法真机验收；Android 持久签名 release 仍未启用。
+
+
+## 22. 最新原生构建结果与后续交付门槛（2026-11-12）
+
+- 复核工作流：[Native App Build Run 43162417531](https://github.com/just2512/fund-boll-ledger/actions/runs/43162417531)。
+- **PASS：Windows desktop installer job**。工作流步骤全部成功：checkout、Node/Rust toolchain、依赖安装、升级契约、Tauri CLI、图标生成、测试/桌面构建、artifact 上传。
+- **PASS：Android ARM64 debug-only smoke APK job**。SDK/NDK 与 ARM64 Rust target 配置、Gradle、APK 构建、临时 debug keystore 签名、zipalign、apksigner 验证及 artifact 上传均成功。
+- **SKIPPED：Android ARM64 signed release job**。仓库变量 `ANDROID_RELEASE_SIGNING_ENABLED` 未启用；当前没有证据表明已配置持久签名身份，不能产出可覆盖升级正式版的 APK。
+- **BLOCKED：外部设备验收**。Windows 安装包尚无桌面实际操作证据；Android APK 尚无安装/启动证据；OPPO Find N2（PUG110）外屏、展开内屏、横竖屏、输入法和真实行情下 BOLL/MACD 详情检查尚未执行。此类操作依赖用户可接触的实体设备，云端 CI 无法代替。
+- 后续工作顺序：①取得并安装本次 Windows/Android artifact，先执行启动、备份恢复和账本回归；②在 Find N2 上按 `docs/NATIVE_APP_AND_DEVICE_TEST.md` 逐项验收；③记录设备型号/系统版本、artifact 文件名、实际结果及截图；④对发现的问题建立最小修复提交并重新跑 CI；⑤设备阻断清零后再评估 PR #4 合并，不以构建成功作为合并的唯一依据。
+- 本节记录的是 run 43162417531 实际 job 状态；不推断未返回的 artifact ID、文件大小或设备运行结果。
