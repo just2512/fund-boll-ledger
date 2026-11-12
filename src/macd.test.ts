@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculateMacdFromConfirmedSeries, calculateMacdPeriod, macdArrangementLabel, macdMomentumLabel, macdZeroAxisLabel, minimumMacdHistoryBars, summarizeMacdPeriods, unavailableMacdPeriod, type MacdBar } from './macd';
+import { calculateMacdFromConfirmedSeries, calculateMacdHistoryFromConfirmedSeries, calculateMacdPeriod, macdArrangementLabel, macdMomentumLabel, macdZeroAxisLabel, minimumMacdHistoryBars, summarizeMacdPeriods, unavailableMacdPeriod, type MacdBar } from './macd';
 import type { ConfirmedTechnicalSeries } from './technical-state/types';
 
 function barsWithReversal(): MacdBar[] {
