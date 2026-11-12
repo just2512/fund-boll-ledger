@@ -119,12 +119,12 @@ describe('combined BOLL/MACD technical state engine', () => {
     const daily = {
       ...dailyBase,
       boll: { ...dailyBase.boll, bandwidthPhase: 'contracting' as const, middleDirection: 'up' as const },
-      macd: { ...dailyBase.macd, crossEvent: 'golden' as const },
+      macd: { ...dailyBase.macd, crossEvent: 'golden' as const, arrangement: 'new-golden' as const },
     };
     const weekly = {
       ...weeklyBase,
       boll: { ...weeklyBase.boll, bandwidthPhase: 'expanding-persistent' as const, middleDirection: 'turning-down' as const },
-      macd: { ...weeklyBase.macd, crossEvent: 'death' as const },
+      macd: { ...weeklyBase.macd, crossEvent: 'death' as const, arrangement: 'new-death' as const },
     };
     const monthly = {
       ...monthlyBase,
@@ -147,12 +147,12 @@ describe('combined BOLL/MACD technical state engine', () => {
     const daily = {
       ...base,
       interval: 'daily' as const,
-      macd: { ...base.macd, interval: 'daily' as const, arrangement: 'bull-history-unknown' as const },
+      macd: { ...base.macd, interval: 'daily' as const, crossEvent: 'unknown' as const, arrangement: 'bull-history-unknown' as const },
     };
     const weekly = {
       ...base,
       interval: 'weekly' as const,
-      macd: { ...base.macd, interval: 'weekly' as const, arrangement: 'bear-history-unknown' as const },
+      macd: { ...base.macd, interval: 'weekly' as const, crossEvent: 'unknown' as const, arrangement: 'bear-history-unknown' as const },
     };
     const monthly = {
       ...base,
@@ -177,9 +177,8 @@ describe('combined BOLL/MACD technical state engine', () => {
       monthly: { ...full, interval: 'monthly' as const, macd: { ...full.macd, interval: 'monthly' as const } },
     };
     const summary = describeTechnicalMultiTimeframeState(periods).summary;
-    expect(summary).toContain('BOLL：');
-    expect(summary).toContain('MACD：日线历史数据不足');
-    expect(summary).toContain('周、月线均');
+    expect(summary).toContain('日线：BOLL未配置＋MACD历史不足');
+    expect(summary).toContain('周线：BOLL未配置＋MACD无新交叉');
     expect(summary).not.toContain('BOLL 有效');
   });
 
