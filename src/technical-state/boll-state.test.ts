@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculateBollState } from './boll-state';
+import { calculateBollHistory, calculateBollState } from './boll-state';
 import type { BollStateConfig, ConfirmedTechnicalSeries, TechnicalBar } from './types';
 
 const config: BollStateConfig = {
@@ -99,6 +99,24 @@ describe('calculateBollState', () => {
     const state = calculateBollState(series(closes), config);
     expect(state.validity).toBe('VALID');
     expect(state.middleDirection).toBe('turning-up');
+  });
+
+  it('returns date-aligned BOLL history and matches the latest snapshot values', () => {
+    const input = series(Array.from({ length: 100 }, (_, index) => 18 + Math.sin(index / 4) * 0.4 + index * 0.003));
+    const history = calculateBollHistory(input, config);
+    const latest = history.at(-1)!;
+    const state = calculateBollState(input, config);
+    expect(history).toHaveLength(input.bars.length);
+    expect(history[0].date).toBe(input.bars[0].date);
+    expect(history[0].upper).toBeUndefined();
+    expect(latest.date).toBe(input.asOfDate);
+    expect(latest.upper).toBeCloseTo(state.upper!, 12);
+    expect(latest.middle).toBeCloseTo(state.middle!, 12);
+    expect(latest.lower).toBeCloseTo(state.lower!, 12);
+    expect(latest.bandwidthPercent).toBeCloseTo(state.bandwidthPercent!, 12);
+    expect(latest.bandwidthPhase).toBe(state.bandwidthPhase);
+    expect(latest.middleDirection).toBe(state.middleDirection);
+    expect(latest.bandwidthSampleCount).toBe(state.bandwidthSampleCount);
   });
 
 });
