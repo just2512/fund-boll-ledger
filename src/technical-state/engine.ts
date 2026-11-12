@@ -234,15 +234,15 @@ function macdPeriodSummary(snapshot: TechnicalStateSnapshot): string {
 
 function compactBollSummary(snapshot: TechnicalStateSnapshot): string {
   const boll = snapshot.boll;
-  if (boll.validity === 'INSUFFICIENT') return '历史不足';
+  if (boll.validity === 'INSUFFICIENT') return '历史数据不足';
   if (boll.validity === 'INVALID') return '数据无效';
   if (boll.validity === 'UNAVAILABLE') return '数据不可用';
-  return boll.priceLocation === 'unknown' ? '位置未确认' : '收盘' + bollPriceLocationLabel(boll.priceLocation);
+  return boll.priceLocation === 'unknown' ? '收盘位置未确认' : '收盘位于' + bollPriceLocationLabel(boll.priceLocation);
 }
 
 function compactMacdSummary(snapshot: TechnicalStateSnapshot): string {
   const macd = snapshot.macd;
-  if (macd.availability === 'insufficient-history') return '历史不足';
+  if (macd.availability === 'insufficient-history') return '历史数据不足';
   if (macd.availability === 'invalid-data') return '数据无效';
   if (macd.availability === 'unavailable') return '数据不可用';
   const arrangement = macd.arrangement === 'new-golden' ? '新金叉'
@@ -278,7 +278,7 @@ export function describeTechnicalMultiTimeframeState(
       groups.set(value, [...(groups.get(value) ?? []), label.replace('线', '')]);
     }
     return [...groups.entries()].map(([value, labels]) =>
-      (labels.length === 1 ? labels[0] + '线' : labels.join('、') + '线') + value,
+      (labels.length === 1 ? labels[0] + '线' : labels.join('、') + '线均') + value,
     ).join('；');
   };
   const summary = 'BOLL：' + compactGroups(compactBollSummary)
