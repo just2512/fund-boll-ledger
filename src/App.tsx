@@ -656,7 +656,7 @@ function MacdPeriodCard({ label, period, state, technical }: { label: string; pe
               <span>分位样本 {boll.bandwidthSampleCount ?? (bollConfig ? 0 : '未配置')}/{bollConfig?.bandwidthRankLookback ?? '—'}</span>
               <span>带宽阶段 {bollPhaseLabel(boll.bandwidthPhase, Boolean(bollConfig))}</span>
               <span>中轨方向 {bollMiddleLabel(boll.middleDirection, Boolean(bollConfig))}</span>
-              <span>确认收盘位置 {boll.closeLocationPercent === undefined ? '未确认' : bollNumber(boll.closeLocationPercent, 2) + '%'} · {bollLocationLabel(boll.priceLocation, Boolean(bollConfig))}</span>
+              <span>确认收盘位置 {boll.closeLocationPercent === undefined ? (bollConfig ? '未确认' : '未配置') : bollNumber(boll.closeLocationPercent, 2) + '%'} · {bollLocationLabel(boll.priceLocation, Boolean(bollConfig))}</span>
             </div>
             <small className="boll-period-note">带宽阶段确认日期：{boll.bandwidthPhaseStartDate ?? '未知'} · 观察窗口起点：{boll.bandwidthPhaseObservationStartDate ?? '未知'}</small>
             <small className="boll-period-note">中轨方向确认日期：{boll.middleDirectionStartDate ?? '未知'} · 观察窗口起点：{boll.middleDirectionObservationStartDate ?? '未知'}</small>
@@ -703,7 +703,7 @@ function MacdPeriodCard({ label, period, state, technical }: { label: string; pe
                   <td>{row.boll?.upper === undefined ? '预热' : row.boll.bandwidthPercent === undefined ? '不可计算' : bollNumber(row.boll.bandwidthPercent, 4) + '%'}</td>
                   <td>{row.boll?.bandwidthPercentile === undefined ? (row.boll?.upper === undefined ? '预热' : technical?.bollConfig ? '样本不足' : '未配置') : bollNumber(row.boll.bandwidthPercentile, 1) + '%'}</td>
                   <td>{!row.boll ? '—' : row.boll.upper === undefined ? '预热' : bollPhaseLabel(row.boll.bandwidthPhase, Boolean(technical?.bollConfig))}</td><td>{!row.boll ? '—' : row.boll.upper === undefined ? '预热' : bollMiddleLabel(row.boll.middleDirection, Boolean(technical?.bollConfig))}</td>
-                  <td>{row.boll?.closeLocationPercent === undefined ? (row.boll?.upper === undefined ? '预热' : '未确认') : bollNumber(row.boll.closeLocationPercent, 2) + '%'}</td>
+                  <td>{row.boll?.closeLocationPercent === undefined ? (row.boll?.upper === undefined ? '预热' : technical?.bollConfig ? '未确认' : '未配置') : bollNumber(row.boll.closeLocationPercent, 2) + '%'}</td>
                   <td>{!row.boll ? '—' : row.boll.upper === undefined ? '预热' : bollLocationLabel(row.boll.priceLocation, Boolean(technical?.bollConfig))}</td>
                 </tr>)}</tbody>
               </table>
