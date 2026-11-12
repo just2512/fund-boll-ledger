@@ -277,10 +277,15 @@
           "commit": "891b63f8422844387b05339b05808d402868b106",
           "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43153256086",
           "note": "2026-11-12 最新完整前端 CI：Playwright 47/47 通过，覆盖无确认 K 线、K 线三源失败、现价源全部失败及刷新失败后旧技术数据标记；134 项单测通过、2 项 live-data 测试跳过；benchmark、类型检查和生产构建通过。原生构建与 OPPO Find N2 真机仍无证据。"
+        },
+        {
+          "commit": "5604bcde85929144ee2b4ba9cae69790dafb78cc",
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43155823629",
+          "note": "2026-11-12 Native App Build：Windows desktop installer 与 Android ARM64 debug-only APK 构建、临时签名验证、artifact 上传均成功；Android 持久签名 release job 因未配置启用条件而 skipped。该证据不覆盖 Windows 桌面实际操作和 OPPO Find N2 真机验收。"
         }
       ],
-      "currentReview": "BLOCKED：浏览器自动化最新 Playwright 48/48 通过，覆盖技术详情、无确认历史、数据源失败、旧行情标记及备份隔离；真实行情验收也已通过。但 Windows Tauri/Android ARM64 原生构建和 OPPO Find N2 外屏/内屏真机验收尚未执行，不能以浏览器视口替代。",
-      "blocker": "自动化浏览器视口 E2E 已通过；但 Windows Tauri 原生构建、Android ARM64 构建及 OPPO Find N2 外屏/内屏真机验收尚未执行，不能以浏览器视口替代。"
+      "currentReview": "BLOCKED：当前 head 的 Playwright、Windows Tauri installer 和 Android ARM64 debug-only APK 构建均通过；Android 持久签名 release job skipped。Windows 桌面窗口实际检查、Android 安装运行与 OPPO Find N2 外屏/内屏/横竖屏/输入法真机验收尚未取得证据。",
+      "blocker": "仍需在 Windows 安装程序和 Android ARM64 debug APK 上完成实际安装/启动与界面检查，并在 OPPO Find N2 真机验证外屏、内屏、横竖屏和输入法；debug APK 不可用于正式版覆盖升级。"
     },
     {
       "id": "T-10",
