@@ -171,3 +171,10 @@
 - run 497 的 Playwright 新增窄屏用例执行到最终尺寸断言时失败。失败原因是 `page.evaluate()` 返回 DOM 元素，跨浏览器上下文序列化后不是可读取 `scrollWidth/clientWidth` 的 HTMLElement；此前页面宽度断言、历史表格行数、分页和周期切换断言均已通过。
 - 已修复：只从页面上下文返回 `tableScrollWidth`、`tableClientWidth` 两个数值，不再返回 DOM 元素。修复提交：`8e79d6593a42744faaffc678a814448ed632f694`。
 - run 498 在修复提交前启动，不能作为该修复的验证；后续以包含修复提交的 CI 结果为准。当前 head 的 UI/E2E 项继续保持未验收状态，直到相应 run 完成。
+
+
+## 13. 历史 BOLL 通道位置字段补齐（2026-11-12）
+
+- 复核第三层逐根字段时发现：历史数据模型已有 `closeLocationPercent`，但 BOLL 历史表格只显示位置分类，没有显示对应百分比，无法逐行核对通道位置计算值。
+- 已补齐历史表格两列：`通道位置 %` 与 `位置分类`；新增 Playwright 断言验证最新历史行两列均有真实值。代码提交：`e3fd819f9d44d27b922be6f50be380a122b3273d`；E2E 提交：`aa2ff1781377f35ed21c3f13eb110a15aecc2ec8`。
+- 此项仍待包含上述提交的 CI 通过后标记 PASS。
