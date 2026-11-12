@@ -263,3 +263,8 @@
 .technical-history-hint{color:#8792a1!important}
 @media(max-width:820px){.top-summary-wrap{order:3;flex:1 0 100%;max-width:none}.top-summary-wrap .top-summary{order:unset;flex:1 1 auto;max-width:none}.macd-period-overview{grid-template-columns:1fr}}
 @media(max-width:640px){.top-summary-refresh{flex-basis:36px;width:36px;height:36px}.technical-history-section>summary{align-items:flex-start;flex-wrap:wrap}.technical-history-hint{margin-left:auto}}
+
+/* Details uses a single minmax track so its wide tables scroll inside, not expand the card. */
+.technical-history-section{grid-template-columns:minmax(0,1fr);width:100%;max-width:100%}
+.technical-history-section>*:not(summary){min-width:0;max-width:100%}
+.technical-history-scroll{width:100%;max-width:100%;min-width:0;overflow-x:auto}
