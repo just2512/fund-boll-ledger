@@ -1424,7 +1424,8 @@ test('K 线来源全部失败时，技术详情明确显示无确认历史和缺
   await expect(page.getByText('K 线来源：未提供 · 现价来源：东方财富')).toBeVisible();
   await expect(page.locator('.macd-period-overview')).toContainText('BOLL数据不可用');
   await expect(page.locator('.macd-period-overview')).toContainText('MACD数据不可用');
-  await expect(page.locator('.macd-summary')).toContainText(/东方财富失败|腾讯失败|百度失败/);
+  await expect(page.locator('.macd-period-error')).toContainText(/东方财富失败.*腾讯失败.*百度失败/);
+  await expect(page.locator('.macd-summary')).not.toContainText(/东方财富失败|腾讯失败|百度失败/);
 });
 
 
