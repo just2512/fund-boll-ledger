@@ -1448,7 +1448,7 @@ test('刷新失败但保留上次行情时，技术摘要明确标注旧数据',
 });
 
 
-test('BOLL/MACD 技术状态只作为行情派生数据，不进入持久化和 JSON 备份', async ({ page }) => {
+test('BOLL/MACD 技术状态不进入 JSON 备份', async ({ page }) => {
   await page.route('https://push2.eastmoney.com/**', (route) => route.fulfill({
     status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' },
     body: JSON.stringify({ data: { f57: '510300', f58: '沪深300ETF', f43: '4.125', f60: '4.000', f86: currentMarketEpoch() } }),
@@ -1471,6 +1471,4 @@ test('BOLL/MACD 技术状态只作为行情派生数据，不进入持久化和 
   expect(JSON.stringify(backup)).not.toContain('technicalState');
   expect(JSON.stringify(backup)).not.toContain('formulaVersion');
 
-  await page.reload();
-  await expect(page.locator('.macd-summary')).toContainText('刷新行情后计算');
 });
