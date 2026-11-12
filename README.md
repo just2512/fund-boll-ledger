@@ -93,6 +93,8 @@ cargo tauri icon public/icon.svg
 - [验收与测试计划](docs/TEST_PLAN.md)
 - [迭代路线图](docs/ROADMAP.md)
 - [数据模型与公式](docs/DATA_AND_FORMULAS.md)
+- [BOLL + MACD 信息架构与技术约束](docs/BOLL_MACD_INFORMATION_ARCHITECTURE.md)
+- [BOLL + MACD 验收标准](docs/BOLL_MACD_ACCEPTANCE.md)
 
 ## License
 
