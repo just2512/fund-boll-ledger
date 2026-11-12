@@ -1,6 +1,6 @@
-import { calculateMacdFromConfirmedSeries, insufficientMacdPeriod, macdArrangementLabel, macdMomentumLabel, macdZeroAxisLabel, minimumMacdHistoryBars, unavailableMacdPeriod } from '../macd';
+import { calculateMacdFromConfirmedSeries, calculateMacdHistoryFromConfirmedSeries, insufficientMacdPeriod, macdArrangementLabel, macdMomentumLabel, macdZeroAxisLabel, minimumMacdHistoryBars, unavailableMacdPeriod } from '../macd';
 import type { MacdPeriodState } from '../macd';
-import { calculateBollState } from './boll-state';
+import { calculateBollHistory, calculateBollState } from './boll-state';
 import type {
   BollState,
   BollStateConfig,
@@ -23,7 +23,14 @@ export function calculateTechnicalStateSnapshot(
   config?: BollStateConfig,
   quoteSource?: TechnicalQuoteSource,
 ): TechnicalStateSnapshot {
-  const boll = calculateBollState(series, config);
+  const bollHistory = calculateBollHistory(series, config);
+  const latestBollHistory = bollHistory.at(-1);
+  const boll = {
+    ...calculateBollState(series, config),
+    ...(latestBollHistory?.bandwidthPhaseStartDate ? { bandwidthPhaseStartDate: latestBollHistory.bandwidthPhaseStartDate } : {}),
+    ...(latestBollHistory?.middleDirectionStartDate ? { middleDirectionStartDate: latestBollHistory.middleDirectionStartDate } : {}),
+  };
+  const macdHistory = calculateMacdHistoryFromConfirmedSeries(series);
   const minimumBars = minimumMacdHistoryBars(series.interval);
   const macd = series.bars.length < minimumBars
     ? insufficientMacdPeriod(series.interval, '已确认历史 K 线不足 ' + minimumBars + ' 根，当前周期 MACD 状态不发布')
@@ -40,7 +47,9 @@ export function calculateTechnicalStateSnapshot(
     confirmedBarCount: series.bars.length,
     excludedInProgressBar: series.excludedInProgressBar,
     boll,
+    bollHistory,
     macd,
+    macdHistory,
     validity,
     ...(reasons.length ? { reason: reasons.join('；') } : {}),
   };
@@ -68,7 +77,9 @@ export function unavailableTechnicalState(
     confirmedBarCount: 0,
     excludedInProgressBar: false,
     boll,
+    bollHistory: [],
     macd: unavailableMacdPeriod(interval, reason),
+    macdHistory: [],
     validity,
     reason,
   };
