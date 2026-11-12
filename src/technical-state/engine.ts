@@ -214,6 +214,6 @@ export function describeTechnicalMultiTimeframeState(
   ).join('。');
   return {
     summary,
-    detail: ordered.map(({ snapshot }) => describeTechnicalStateSnapshot(snapshot)).join('\\n'),
+    detail: ordered.map(({ snapshot }) => describeTechnicalStateSnapshot(snapshot)).join('\n'),
   };
 }
