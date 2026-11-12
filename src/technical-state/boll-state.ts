@@ -232,3 +232,108 @@ export function calculateBollState(
     ...(reasons.length === 0 ? {} : { reason: reasons.join('；') }),
   };
 }
+
+
+/**
+ * Build one BOLL result per confirmed bar. Rows remain date-aligned with the
+ * source series; warm-up rows carry unknown classifications rather than being
+ * dropped or backfilled.
+ */
+export function calculateBollHistory(
+  series: ConfirmedTechnicalSeries,
+  config?: BollStateConfig,
+): import('./types').BollHistoryPoint[] {
+  if (config && validateConfig(config)) return [];
+  if (series.bars.length === 0) return [];
+  if (series.asOfDate !== series.bars[series.bars.length - 1]?.date) return [];
+  let previousDate = '';
+  for (const bar of series.bars) {
+    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(bar.date) || bar.date <= previousDate ||
+        !Number.isFinite(bar.close) || bar.close <= 0) return [];
+    previousDate = bar.date;
+  }
+
+  const points = calculatePoints(series);
+  const bandwidths = points.map((point) => point?.bandwidthPercent);
+  const bandwidthChanges = bandwidths.map((value, index) =>
+    value === undefined ? undefined : percentChange(value, bandwidths[index - 1]));
+  const middleChanges = points.map((point, index) => {
+    const prior = config ? points[index - config.middleDirectionLookback] : undefined;
+    return point && prior ? percentChange(point.middle, prior.middle) : undefined;
+  });
+  const bandwidthDirections = bandwidthChanges.map((value) =>
+    config ? classifyChange(value, config.flatTolerancePercent) : 'unknown' as Direction);
+  const middleDirections = middleChanges.map((value) =>
+    config ? classifyChange(value, config.flatTolerancePercent) : 'unknown' as Direction);
+
+  const mapPhase = (phase: ReturnType<typeof classifyConfirmedTrend>): BollBandwidthPhase => {
+    if (phase === 'up') return 'expanding';
+    if (phase === 'down') return 'contracting';
+    if (phase === 'turning-up') return 'contracting-to-expanding';
+    if (phase === 'turning-down') return 'expanding-to-contracting';
+    if (phase === 'flat') return 'flat';
+    return 'unknown';
+  };
+  const phases: BollBandwidthPhase[] = [];
+  const directions: Array<ReturnType<typeof classifyConfirmedTrend>> = [];
+  const baseRows = points.map((point, index) => {
+    const phase = config
+      ? mapPhase(classifyConfirmedTrend(bandwidthDirections.slice(0, index + 1), config.confirmationBars))
+      : 'unknown';
+    const middleDirection = config
+      ? classifyConfirmedTrend(middleDirections.slice(0, index + 1), config.confirmationBars)
+      : 'unknown';
+    const confirmedChanges = bandwidthDirections.slice(Math.max(0, index - config!.confirmationBars + 1), index + 1);
+    const persistentPhase: BollBandwidthPhase =
+      phase === 'expanding' && confirmedChanges.length === config?.confirmationBars && confirmedChanges.every((item) => item === 'up') ? 'expanding-persistent' :
+      phase === 'contracting' && confirmedChanges.length === config?.confirmationBars && confirmedChanges.every((item) => item === 'down') ? 'contracting-persistent' :
+      phase;
+    const rankWindow = config
+      ? bandwidths.slice(Math.max(0, index - config.bandwidthRankLookback + 1), index + 1)
+          .filter((value): value is number => value !== undefined)
+      : [];
+    const percentile = config && point && rankWindow.length >= config.bandwidthRankMinimumSamples
+      ? rankWindow.filter((value) => value <= point.bandwidthPercent).length / rankWindow.length * 100
+      : undefined;
+    const locationPercent = point && point.upper !== point.lower
+      ? ((point.close - point.lower) / (point.upper - point.lower)) * 100
+      : undefined;
+    phases.push(persistentPhase);
+    directions.push(middleDirection);
+    return {
+      date: series.bars[index].date,
+      close: series.bars[index].close,
+      ...(point ? {
+        upper: point.upper,
+        middle: point.middle,
+        lower: point.lower,
+        bandwidthPercent: point.bandwidthPercent,
+      } : {}),
+      ...(percentile === undefined ? {} : { bandwidthPercentile: percentile }),
+      ...(config && point ? { bandwidthSampleCount: rankWindow.length } : {}),
+      bandwidthPhase: persistentPhase,
+      middleDirection,
+      ...(locationPercent === undefined ? {} : { closeLocationPercent: locationPercent }),
+      priceLocation: config && locationPercent !== undefined
+        ? priceLocation(locationPercent, config.nearBandDistancePercent)
+        : priceLocationWithoutThresholds(locationPercent),
+    };
+  });
+
+  const startDateAt = <T,>(index: number, values: readonly T[], current: T): string | undefined => {
+    if (current === 'unknown') return undefined;
+    let start = index;
+    while (start > 0 && values[start - 1] === current) start -= 1;
+    return series.bars[start]?.date;
+  };
+
+  return baseRows.map((row, index) => ({
+    ...row,
+    ...(row.bandwidthPhase === 'unknown' ? {} : {
+      bandwidthPhaseStartDate: startDateAt(index, phases, row.bandwidthPhase),
+    }),
+    ...(row.middleDirection === 'unknown' ? {} : {
+      middleDirectionStartDate: startDateAt(index, directions, row.middleDirection),
+    }),
+  }));
+}
