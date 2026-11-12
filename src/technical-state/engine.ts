@@ -174,18 +174,22 @@ export function describeTechnicalStateSnapshot(snapshot: TechnicalStateSnapshot)
       ].join('；') + (boll.reason ? '；' + boll.reason : '');
 
   const macd = snapshot.macd;
-  const macdText = macd.error
-    ? 'MACD 数据不可用：' + macd.error
-    : [
-        'MACD(12,26,9) DIF/DEA/柱体 ' +
-          formatTechnicalNumber(macd.dif, 6) + '/' +
-          formatTechnicalNumber(macd.dea, 6) + '/' +
-          formatTechnicalNumber(macd.histogram, 6),
-        '排列 ' + macdArrangementLabel(macd),
-        macdZeroAxisLabel(macd),
-        '本根交叉 ' + (macd.crossEvent === 'golden' ? '金叉' : macd.crossEvent === 'death' ? '死叉' : macd.crossEvent === 'none' ? '无新交叉' : '未知'),
-        macdMomentumLabel(macd),
-      ].join('；');
+  const macdText = macd.availability === 'insufficient-history'
+    ? 'MACD 历史不足：' + (macd.error ?? '未达到状态发布历史门槛')
+    : macd.availability === 'unavailable'
+      ? 'MACD 数据不可用：' + (macd.error ?? '数据来源不可用')
+      : macd.availability === 'invalid-data' || macd.error
+        ? 'MACD 数据无效：' + (macd.error ?? '输入数据无效')
+        : [
+            'MACD(12,26,9) DIF/DEA/柱体 ' +
+              formatTechnicalNumber(macd.dif, 6) + '/' +
+              formatTechnicalNumber(macd.dea, 6) + '/' +
+              formatTechnicalNumber(macd.histogram, 6),
+            '排列 ' + macdArrangementLabel(macd),
+            macdZeroAxisLabel(macd),
+            '本根交叉 ' + (macd.crossEvent === 'golden' ? '金叉' : macd.crossEvent === 'death' ? '死叉' : macd.crossEvent === 'none' ? '无新交叉' : '未知'),
+            macdMomentumLabel(macd),
+          ].join('；');
 
   return period + '（' + date + '）：' + bollText + '。' + macdText +
     '。以上仅描述已确认 K 线的计算状态，不构成买卖方向或交易指令。';
