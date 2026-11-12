@@ -700,7 +700,7 @@ function MacdPeriodCard({ label, period, state, technical }: { label: string; pe
                 <thead><tr><th>日期</th><th>收盘</th><th>上轨</th><th>中轨</th><th>下轨</th><th>带宽</th><th>分位</th><th>阶段</th><th>中轨方向</th><th>通道位置 %</th><th>位置分类</th></tr></thead>
                 <tbody>{historyRows.map((row) => <tr key={'boll-' + row.date}>
                   <td>{row.date}</td><td>{bollNumber(row.boll?.close)}</td><td>{bollNumber(row.boll?.upper)}</td><td>{bollNumber(row.boll?.middle)}</td><td>{bollNumber(row.boll?.lower)}</td>
-                  <td>{row.boll?.bandwidthPercent === undefined ? '预热' : bollNumber(row.boll.bandwidthPercent, 4) + '%'}</td>
+                  <td>{row.boll?.upper === undefined ? '预热' : row.boll.bandwidthPercent === undefined ? '不可计算' : bollNumber(row.boll.bandwidthPercent, 4) + '%'}</td>
                   <td>{row.boll?.bandwidthPercentile === undefined ? (row.boll?.upper === undefined ? '预热' : technical?.bollConfig ? '样本不足' : '未配置') : bollNumber(row.boll.bandwidthPercentile, 1) + '%'}</td>
                   <td>{!row.boll ? '—' : row.boll.upper === undefined ? '预热' : bollPhaseLabel(row.boll.bandwidthPhase, Boolean(technical?.bollConfig))}</td><td>{!row.boll ? '—' : row.boll.upper === undefined ? '预热' : bollMiddleLabel(row.boll.middleDirection, Boolean(technical?.bollConfig))}</td>
                   <td>{row.boll?.closeLocationPercent === undefined ? (row.boll?.upper === undefined ? '预热' : '未确认') : bollNumber(row.boll.closeLocationPercent, 2) + '%'}</td>
