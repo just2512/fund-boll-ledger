@@ -562,6 +562,10 @@ test('真实确认历史驱动 BOLL/MACD 完整详情、历史分页和窄屏滚
   await createFund(page, '技术状态验收 ETF', '510300');
   await page.locator('.top-summary > summary').click();
   await expect(page.locator('.top-summary[open]')).toHaveCount(1);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.top-summary[open]')).toHaveCount(0);
+  await page.locator('.top-summary > summary').click();
+  await expect(page.locator('.top-summary[open]')).toHaveCount(1);
   await page.getByRole('heading', { name: '价格计算' }).click();
   await expect(page.locator('.top-summary[open]')).toHaveCount(0);
   await page.getByRole('button', { name: '顶部刷新' }).click();
