@@ -159,4 +159,21 @@ describe('combined BOLL/MACD technical state engine', () => {
     expect(summary).toContain('MACD 数据不可用：缺少可信行情日期');
   });
 
+  it('keeps MACD formula history available below the stable-state publication gate', () => {
+    const snapshot = calculateTechnicalStateSnapshot(series('东方财富', 100));
+    expect(snapshot.macd.availability).toBe('insufficient-history');
+    expect(snapshot.macdHistory).toHaveLength(100);
+    expect(snapshot.macdHistory.at(-1)?.formulaReady).toBe(true);
+    expect(snapshot.macdHistory.at(-1)?.dif).toBeDefined();
+  });
+
+  it('keeps BOLL and MACD history rows aligned to the same confirmed dates', () => {
+    const input = series();
+    const snapshot = calculateTechnicalStateSnapshot(input, bollStateConfigFor('daily'));
+    expect(snapshot.bollHistory).toHaveLength(input.bars.length);
+    expect(snapshot.macdHistory).toHaveLength(input.bars.length);
+    expect(snapshot.bollHistory.map((point) => point.date)).toEqual(input.bars.map((bar) => bar.date));
+    expect(snapshot.macdHistory.map((point) => point.date)).toEqual(input.bars.map((bar) => bar.date));
+  });
+
 });
