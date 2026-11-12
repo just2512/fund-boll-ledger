@@ -505,6 +505,81 @@ test('行情仅在手动点击时请求，东方财富成功后更新当前价�
   expect(baiduCalls).toBe(0);
 });
 
+test('真实确认历史驱动 BOLL/MACD 完整详情、历史分页和窄屏滚动', async ({ page }) => {
+  const pad = (value: number) => String(value).padStart(2, '0');
+  const asDate = (date: Date) => date.getUTCFullYear() + '-' + pad(date.getUTCMonth() + 1) + '-' + pad(date.getUTCDate());
+  const closeAt = (index: number) => (4 + index * 0.0008 + Math.sin(index / 6) * 0.06 + Math.cos(index / 17) * 0.025).toFixed(4);
+  const makeBars = (count: number, stepDays: number, anchor: Date) => {
+    const rows: string[] = [];
+    for (let index = count - 1; index >= 0; index -= 1) {
+      const date = new Date(anchor);
+      date.setUTCDate(date.getUTCDate() - index * stepDays);
+      const close = closeAt(count - 1 - index);
+      rows.push([asDate(date), close, close, close, close, '0', '0', '0', '0', '0', '0'].join(','));
+    }
+    return rows;
+  };
+  const today = new Date();
+  const anchor = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - 7));
+  const currentWeekMonday = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+  currentWeekMonday.setUTCDate(currentWeekMonday.getUTCDate() - ((currentWeekMonday.getUTCDay() + 6) % 7));
+  currentWeekMonday.setUTCDate(currentWeekMonday.getUTCDate() - 7);
+  const previousMonth = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 1, 1));
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.route('https://push2.eastmoney.com/**', async (route) => {
+    await route.fulfill({
+      status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' },
+      body: JSON.stringify({ data: { f57: '510300', f58: '沪深300ETF', f43: '4.125', f60: '4.000', f86: currentMarketEpoch() } }),
+    });
+  });
+  await page.route('https://push2his.eastmoney.com/**', async (route) => {
+    const url = new URL(route.request().url());
+    const interval = url.searchParams.get('klt');
+    const bars = interval === '101'
+      ? makeBars(240, 1, anchor)
+      : interval === '102'
+        ? makeBars(180, 7, currentWeekMonday)
+        : makeBars(120, 30, previousMonth);
+    await route.fulfill({
+      status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' },
+      body: JSON.stringify({ data: { code: '510300', klines: bars } }),
+    });
+  });
+  await page.route('https://qt.gtimg.cn/**', (route) => route.fulfill({ status: 503, body: 'fallback not expected' }));
+  await page.route('https://ifzq.gtimg.cn/**', (route) => route.fulfill({ status: 503, body: 'fallback not expected' }));
+
+  await createFund(page, '技术状态验收 ETF', '510300');
+  await page.getByRole('button', { name: '刷新行情' }).click();
+  await expect(page.getByText('日线 · 指标计算依据')).toBeVisible();
+  await expect(page.getByText(/EMA 初始化：快线\/慢线以首根确认收盘价为种子/)).toBeVisible();
+  await expect(page.getByText(/EMA 种子日期：.*实际输入 240 根/)).toBeVisible();
+  await expect(page.getByText(/观察窗口起点/).first()).toBeVisible();
+  await expect(page.getByText('历史计算明细')).toBeVisible();
+  await expect(page.locator('.technical-history-scroll').nth(0).locator('tbody tr')).toHaveCount(20);
+  await expect(page.locator('.technical-history-scroll').nth(1).locator('tbody tr')).toHaveCount(20);
+  await expect(page.getByText(/第 1 \/ 12 页 · 显示 20 根/)).toBeVisible();
+  await expect(page.locator('.macd-period-card details')).toHaveCount(0);
+
+  await page.getByRole('button', { name: '更早 20 根' }).click();
+  await expect(page.getByText(/第 2 \/ 12 页 · 显示 20 根/)).toBeVisible();
+  await page.getByRole('tab', { name: '周线' }).click();
+  await expect(page.getByText('周线 · 指标计算依据')).toBeVisible();
+  await expect(page.getByText(/实际输入 180 根/)).toBeVisible();
+  await page.getByRole('tab', { name: '月线' }).click();
+  await expect(page.getByText('月线 · 指标计算依据')).toBeVisible();
+  await expect(page.getByText(/实际输入 120 根/)).toBeVisible();
+
+  const dimensions = await page.evaluate(() => ({
+    viewport: document.documentElement.clientWidth,
+    document: document.documentElement.scrollWidth,
+    table: document.querySelector('.technical-history-scroll') as HTMLElement | null,
+  }));
+  expect(dimensions.document).toBeLessThanOrEqual(dimensions.viewport);
+  expect(dimensions.table).not.toBeNull();
+  expect(dimensions.table!.scrollWidth).toBeGreaterThan(dimensions.table!.clientWidth);
+});
+
 test('东方财富与腾讯都失败时百度自动兜底，三源都失败时保留手动价格', async ({ page }) => {
   await createFund(page, '双源测试 ETF', '510300');
   await page.route('https://qt.gtimg.cn/**', async (route) => {
