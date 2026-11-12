@@ -11,7 +11,7 @@
 
 PUG110 对应 ARM64 Android 设备，因此应使用 --target aarch64 生成的 APK，而不是仅生成 32 位 ARMv7 APK。
 
-布局通过动态视口单位、safe-area 和断点做自适应：
+布局通过动态视口单位、safe-area、Android 原生窗口 inset 和断点做自适应：
 - 折叠外屏窄视口：竖向堆叠价格输入、对比卡片、账本表单。
 - 展开内屏：使用更宽的两列/多列布局，避免字号过小。
 - 横屏：减少头部和面板的垂直留白，弹窗允许滚动。
@@ -21,7 +21,7 @@ PUG110 对应 ARM64 Android 设备，因此应使用 --target aarch64 生成的 
 
 ## Android 16
 
-构建配置锁定在 Tauri 2.11 系列，目标是 API 36 的 Android 16 构建环境。安装成功与否仍取决于实际 APK、设备固件、WebView 与系统安装策略。当前环境没有连接你的 PUG110 真机，因此不能声称已完成实机兼容测试。
+构建配置锁定在 Tauri 2.11 系列，目标是 API 36 的 Android 16 构建环境。安装成功与否仍取决于实际 APK、设备固件、WebView 与系统安装策略。当前环境没有连接你的 PUG110 真机，因此不能声称已完成实机兼容测试。\n\n## Android 系统栏安全区\n\nAndroid 15/API 35 及以上在目标 SDK 35+ 时强制采用 edge-to-edge，状态栏可能覆盖 WebView 内容；仅依赖 CSS `env(safe-area-inset-top)` 不能替代原生窗口 inset。Android 构建流程在 `cargo tauri android init` 后执行 `scripts/configure-android-window-insets.mjs`，对生成的 `MainActivity.kt` 增加 `WindowCompat` / `WindowInsetsCompat` 处理，将状态栏与 display cutout 安全区应用到 WebView 根内容视图。脚本具备幂等检查，生成文件不提交到仓库，每次原生构建均重新应用。\n\n真机必须确认：状态栏不遮挡应用品牌栏、导出备份、导入备份按钮；状态栏高度变化、旋转横屏和折叠/展开后仍保持安全区；页面没有因重复 inset 产生双倍顶部留白。
 
 ## Windows 首次准备
 
