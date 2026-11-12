@@ -36,7 +36,9 @@ export function calculateTechnicalStateSnapshot(
   const boll = {
     ...calculateBollState(series, config),
     ...(latestBollHistory?.bandwidthPhaseStartDate ? { bandwidthPhaseStartDate: latestBollHistory.bandwidthPhaseStartDate } : {}),
+    ...(latestBollHistory?.bandwidthPhaseObservationStartDate ? { bandwidthPhaseObservationStartDate: latestBollHistory.bandwidthPhaseObservationStartDate } : {}),
     ...(latestBollHistory?.middleDirectionStartDate ? { middleDirectionStartDate: latestBollHistory.middleDirectionStartDate } : {}),
+    ...(latestBollHistory?.middleDirectionObservationStartDate ? { middleDirectionObservationStartDate: latestBollHistory.middleDirectionObservationStartDate } : {}),
   };
   const macdHistory = calculateMacdHistoryFromConfirmedSeries(series);
   const minimumBars = minimumMacdHistoryBars(series.interval);
