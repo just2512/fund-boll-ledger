@@ -625,7 +625,8 @@ function MacdPeriodCard({ label, period, state, technical }: { label: string; pe
               <span>中轨方向 {bollMiddleLabel(boll.middleDirection)}</span>
               <span>确认收盘位置 {boll.closeLocationPercent === undefined ? '未知' : bollNumber(boll.closeLocationPercent, 2) + '%'} · {bollLocationLabel(boll.priceLocation)}</span>
             </div>
-            <small className="boll-period-note">带宽阶段开始：{boll.bandwidthPhaseStartDate ?? '未知'} · 中轨方向开始：{boll.middleDirectionStartDate ?? '未知'}</small>
+            <small className="boll-period-note">带宽阶段确认日期：{boll.bandwidthPhaseStartDate ?? '未知'} · 观察窗口起点：{boll.bandwidthPhaseObservationStartDate ?? '未知'}</small>
+            <small className="boll-period-note">中轨方向确认日期：{boll.middleDirectionStartDate ?? '未知'} · 观察窗口起点：{boll.middleDirectionObservationStartDate ?? '未知'}</small>
             {bollConfig && <small className="boll-period-note">分类配置：中轨回看 {bollConfig.middleDirectionLookback} 根；连续确认 {bollConfig.confirmationBars} 根；走平容差 {bollConfig.flatTolerancePercent}%；近轨距离为通道宽度的 {bollConfig.nearBandDistancePercent}%。</small>}
           </> : <p className="macd-period-message">{boll?.reason ?? '当前周期尚无可用 BOLL 计算结果。'}</p>}
         </section>
