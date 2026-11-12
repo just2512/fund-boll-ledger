@@ -136,3 +136,6 @@ The frontend browser CI and multi-ETF live calibration are recorded in the requi
 - **由用户本地执行**：下载并安装 Windows installer、Android ARM64 debug-only APK；检查启动、价格计算/交易账本/JSON 备份恢复回归；OPPO Find N2（PUG110）外屏/内屏、横竖屏、输入法、真实行情下 BOLL/MACD 详情和历史表格操作。结果需回填设备型号、系统版本、artifact 文件名、操作步骤、实际结果及截图。
 - Android 持久签名 Release 仍 SKIPPED；debug-only APK 不可覆盖正式版。安装前先导出 JSON 备份，避免本地 IndexedDB 数据丢失。
 - PR #4 仍保持 open、未合并；feature branch 相对 main ahead 130 / behind 0。当前没有授权或证据要求在本轮合并。
+
+
+- 需求矩阵同步：T-09 的 currentReview/blocker 已同步本轮 Native run 43162417531 与 Frontend Checks run 43164060173 的证据边界，并明确 Windows/Android/Find N2 的本地验收责任。该矩阵更新提交晚于 Run 43164799096 的 checkout；需由本次台账提交触发的后续 CI 再验证最新 JSON 矩阵，不能把 Run 43164799096 提前记为验证该 JSON 更新。
