@@ -277,12 +277,14 @@ export function calculateBollHistory(
   const phases: BollBandwidthPhase[] = [];
   const directions: Array<ReturnType<typeof classifyConfirmedTrend>> = [];
   const baseRows = points.map((point, index) => {
-    const phase = config
-      ? mapPhase(classifyConfirmedTrend(bandwidthDirections.slice(0, index + 1), config.confirmationBars))
-      : 'unknown';
-    const middleDirection = config
-      ? classifyConfirmedTrend(middleDirections.slice(0, index + 1), config.confirmationBars)
-      : 'unknown';
+    const phaseWindow = config
+      ? bandwidthDirections.slice(Math.max(0, index - config.confirmationBars * 2 + 1), index + 1)
+      : [];
+    const middleWindow = config
+      ? middleDirections.slice(Math.max(0, index - config.confirmationBars * 2 + 1), index + 1)
+      : [];
+    const phase = config ? mapPhase(classifyConfirmedTrend(phaseWindow, config.confirmationBars)) : 'unknown';
+    const middleDirection = config ? classifyConfirmedTrend(middleWindow, config.confirmationBars) : 'unknown';
     const confirmedChanges = config ? bandwidthDirections.slice(Math.max(0, index - config.confirmationBars + 1), index + 1) : [];
     const persistentPhase: BollBandwidthPhase =
       phase === 'expanding' && confirmedChanges.length === config?.confirmationBars && confirmedChanges.every((item) => item === 'up') ? 'expanding-persistent' :
@@ -320,20 +322,24 @@ export function calculateBollHistory(
     };
   });
 
-  const startDateAt = <T extends string>(index: number, values: readonly T[], current: T): string | undefined => {
-    if (current === 'unknown') return undefined;
-    let start = index;
-    while (start > 0 && values[start - 1] === current) start -= 1;
-    return series.bars[start]?.date;
-  };
+  const phaseStartDates: Array<string | undefined> = [];
+  const directionStartDates: Array<string | undefined> = [];
+  let phaseStartDate: string | undefined;
+  let directionStartDate: string | undefined;
+  for (let index = 0; index < baseRows.length; index += 1) {
+    if (index === 0 || phases[index] !== phases[index - 1]) {
+      phaseStartDate = phases[index] === 'unknown' ? undefined : series.bars[index].date;
+    }
+    if (index === 0 || directions[index] !== directions[index - 1]) {
+      directionStartDate = directions[index] === 'unknown' ? undefined : series.bars[index].date;
+    }
+    phaseStartDates.push(phaseStartDate);
+    directionStartDates.push(directionStartDate);
+  }
 
   return baseRows.map((row, index) => ({
     ...row,
-    ...(row.bandwidthPhase === 'unknown' ? {} : {
-      bandwidthPhaseStartDate: startDateAt(index, phases, row.bandwidthPhase),
-    }),
-    ...(row.middleDirection === 'unknown' ? {} : {
-      middleDirectionStartDate: startDateAt(index, directions, row.middleDirection),
-    }),
+    ...(phaseStartDates[index] ? { bandwidthPhaseStartDate: phaseStartDates[index] } : {}),
+    ...(directionStartDates[index] ? { middleDirectionStartDate: directionStartDates[index] } : {}),
   }));
 }
