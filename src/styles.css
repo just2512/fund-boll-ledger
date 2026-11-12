@@ -226,3 +226,18 @@
 .macd-period-values strong{color:#263449;font-size:12px;font-variant-numeric:tabular-nums}
 .macd-summary>strong{white-space:pre-line;line-height:1.7}
 @media(max-width:640px){.macd-period-selector{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}.macd-period-tab{padding:7px 8px}.macd-period-values{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.macd-period-values>span{justify-content:space-between;flex-wrap:wrap;padding:6px}}
+
+
+/* 历史指标表只在自身容器内横向滚动，不扩大页面视口。 */
+.technical-history-section{display:grid;gap:9px;min-width:0;padding-top:12px;border-top:1px solid #e8ecf1}
+.technical-history-heading{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.technical-history-heading strong{font-size:12px;color:#273143}
+.technical-history-heading span,.technical-history-subheading{font-size:10px;color:#7a8493}
+.technical-history-subheading{font-weight:700;padding-top:4px}
+.technical-history-scroll{max-width:100%;min-width:0;overflow-x:auto;overscroll-behavior-x:contain}
+.technical-history-scroll table{min-width:880px;font-size:10px;font-variant-numeric:tabular-nums}
+.technical-history-scroll th,.technical-history-scroll td{padding:7px 8px;white-space:nowrap}
+.technical-history-pagination{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.technical-history-pagination span{font-size:10px;color:#7a8493}
+.technical-history-pagination button:disabled{opacity:.4;cursor:not-allowed}
+@media(max-width:640px){.technical-history-heading{align-items:flex-start;flex-direction:column;gap:3px}.technical-history-scroll table{min-width:840px}.technical-history-pagination{font-size:10px}}
