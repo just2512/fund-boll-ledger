@@ -323,23 +323,37 @@ export function calculateBollHistory(
   });
 
   const phaseStartDates: Array<string | undefined> = [];
+  const phaseObservationStartDates: Array<string | undefined> = [];
   const directionStartDates: Array<string | undefined> = [];
+  const directionObservationStartDates: Array<string | undefined> = [];
   let phaseStartDate: string | undefined;
+  let phaseObservationStartDate: string | undefined;
   let directionStartDate: string | undefined;
+  let directionObservationStartDate: string | undefined;
   for (let index = 0; index < baseRows.length; index += 1) {
     if (index === 0 || phases[index] !== phases[index - 1]) {
       phaseStartDate = phases[index] === 'unknown' ? undefined : series.bars[index].date;
+      phaseObservationStartDate = phases[index] === 'unknown' || !config
+        ? undefined
+        : series.bars[Math.max(0, index - config.confirmationBars + 1)].date;
     }
     if (index === 0 || directions[index] !== directions[index - 1]) {
       directionStartDate = directions[index] === 'unknown' ? undefined : series.bars[index].date;
+      directionObservationStartDate = directions[index] === 'unknown' || !config
+        ? undefined
+        : series.bars[Math.max(0, index - config.confirmationBars + 1)].date;
     }
     phaseStartDates.push(phaseStartDate);
+    phaseObservationStartDates.push(phaseObservationStartDate);
     directionStartDates.push(directionStartDate);
+    directionObservationStartDates.push(directionObservationStartDate);
   }
 
   return baseRows.map((row, index) => ({
     ...row,
     ...(phaseStartDates[index] ? { bandwidthPhaseStartDate: phaseStartDates[index] } : {}),
+    ...(phaseObservationStartDates[index] ? { bandwidthPhaseObservationStartDate: phaseObservationStartDates[index] } : {}),
     ...(directionStartDates[index] ? { middleDirectionStartDate: directionStartDates[index] } : {}),
+    ...(directionObservationStartDates[index] ? { middleDirectionObservationStartDate: directionObservationStartDates[index] } : {}),
   }));
 }
