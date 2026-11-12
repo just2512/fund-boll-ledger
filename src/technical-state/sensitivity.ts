@@ -81,6 +81,7 @@ function summarizeCandidate(
   for (const entry of replay) {
     const state = entry.result;
     statesByDate.set(entry.asOfDate, state);
+    if (state.validity === 'UNAVAILABLE') throw new Error('BOLL sensitivity calculation requires confirmed input, not an unavailable snapshot');
     validityCounts[state.validity] += 1;
     increment(bandwidthPhaseCounts, state.bandwidthPhase);
     increment(middleDirectionCounts, state.middleDirection);
