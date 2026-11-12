@@ -114,11 +114,14 @@ describe('combined BOLL/MACD technical state engine', () => {
     const weekly = { ...base, interval: 'weekly' as const, macd: { ...base.macd, interval: 'weekly' as const, crossEvent: 'golden' as const, arrangement: 'new-golden' as const } };
     const daily = { ...base, interval: 'daily' as const, macd: { ...base.macd, interval: 'daily' as const } };
     const description = describeTechnicalMultiTimeframeState({ monthly, weekly, daily });
-    expect(description.summary).toContain('日线：BOLL');
-    expect(description.summary).toContain('周线：BOLL');
-    expect(description.summary).toContain('月线：BOLL');
-    expect(description.summary).toContain('周线：BOLL');
+    expect(description.summary).toContain('BOLL：');
+    expect(description.summary).toContain('MACD：');
+    expect(description.summary).toContain('日线');
+    expect(description.summary).toContain('周线');
+    expect(description.summary).toContain('月线');
     expect(description.summary).toContain('新金叉');
+    expect(description.periods).toHaveLength(3);
+    expect(description.periods.find((period) => period.label === '周线')?.macd).toContain('新金叉');
     expect(description.summary).not.toContain('BOLL 有效 3/3');
     expect(description.summary).not.toContain('MACD 稳定可用 3/3');
     expect(description.summary).not.toContain('无新交叉');
@@ -137,9 +140,9 @@ describe('combined BOLL/MACD technical state engine', () => {
       monthly: { ...full, interval: 'monthly' as const, macd: { ...full.macd, interval: 'monthly' as const } },
     };
     const summary = describeTechnicalMultiTimeframeState(periods).summary;
-    expect(summary).toContain('日线：BOLL');
-    expect(summary).toContain('MACD 历史不足');
-    expect(summary).toContain('周线：BOLL');
+    expect(summary).toContain('BOLL：');
+    expect(summary).toContain('MACD：日线历史不足');
+    expect(summary).toContain('周线');
     expect(summary).not.toContain('BOLL 有效');
   });
 
@@ -169,13 +172,13 @@ describe('combined BOLL/MACD technical state engine', () => {
         crossEvent: 'unknown' as const,
       },
     };
-    const summary = describeTechnicalMultiTimeframeState({
+    const description = describeTechnicalMultiTimeframeState({
       daily: full,
       weekly: { ...full, interval: 'weekly' as const, macd: { ...full.macd, interval: 'weekly' as const } },
       monthly: unavailable,
-    }).summary;
-    expect(summary).toContain('月线：BOLL');
-    expect(summary).toContain('MACD 数据不可用：缺少可信行情日期');
+    });
+    expect(description.summary).toContain('月线数据不可用');
+    expect(description.periods.find((period) => period.label === '月线')?.macd).toContain('数据不可用：缺少可信行情日期');
   });
 
   it('keeps MACD formula history available below the stable-state publication gate', () => {
@@ -205,8 +208,8 @@ describe('combined BOLL/MACD technical state engine', () => {
       weekly: calculateTechnicalStateSnapshot(series()),
       monthly: calculateTechnicalStateSnapshot(series()),
     }).summary;
-    expect(summary).toContain('日线：BOLL 数据不可用');
-    expect(summary).toContain('MACD 数据不可用');
+    expect(summary).toContain('BOLL：日线数据不可用');
+    expect(summary).toContain('MACD：日线数据不可用');
   });
 
 });
