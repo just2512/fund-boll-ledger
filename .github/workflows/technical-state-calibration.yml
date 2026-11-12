@@ -30,6 +30,35 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/technical-state-calibration.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/market-data.ts'
+      - 'src/macd.ts'
+      - 'src/macd.test.ts'
+      - 'src/technical-state/types.ts'
+      - 'src/technical-state/series.ts'
+      - 'src/technical-state/series.test.ts'
+      - 'src/technical-state/history-replay.ts'
+      - 'src/technical-state/boll-state.ts'
+      - 'src/technical-state/boll-state.test.ts'
+      - 'src/technical-state/engine.ts'
+      - 'src/technical-state/engine.test.ts'
+      - 'src/technical-state/boll-macd-events.ts'
+      - 'src/technical-state/boll-macd-events.test.ts'
+      - 'src/technical-state/calibration.ts'
+      - 'src/technical-state/calibration.test.ts'
+      - 'src/technical-state/real-data.acceptance.live.test.ts'
+      - 'src/technical-state/real-data.calibration.live.test.ts'
+      - 'src/technical-state/sensitivity.ts'
+      - 'src/technical-state/sensitivity.test.ts'
+      - 'src/technical-state/macd-seed-sensitivity.ts'
+      - 'src/technical-state/macd-seed-sensitivity.test.ts'
+      - 'scripts/run-live-technical-acceptance.mjs'
+      - 'scripts/run-live-technical-calibration.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/technical-state-calibration.yml'
   workflow_dispatch:
 
 permissions:
