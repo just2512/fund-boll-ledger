@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { calculateTechnicalStateSnapshot, describeTechnicalMultiTimeframeState, describeTechnicalStateSnapshot, unavailableTechnicalState } from './engine';
 import { compareBatchWithReplay, hasNoFutureBars, replayConfirmedTechnicalSeries } from './history-replay';
 import { bollStateConfigFor } from './config';
-import type { ConfirmedTechnicalSeries, TechnicalBar } from './types';
+import type { ConfirmedTechnicalSeries, TechnicalBar, TechnicalStateSnapshot } from './types';
 
 function series(source: '东方财富' | '百度行情' = '东方财富', count = 220): ConfirmedTechnicalSeries {
   const first = new Date('2025-01-01T00:00:00.000Z');
@@ -114,7 +114,7 @@ describe('combined BOLL/MACD technical state engine', () => {
       middleDirection: 'up' | 'down' | 'flat' | 'turning-up' | 'turning-down' | 'unknown',
       lineRelation: 'bullish' | 'bearish' | 'equal' | 'unknown',
       zeroAxis: 'above' | 'below' | 'at-zero' | 'unknown',
-    ) => {
+    ): TechnicalStateSnapshot => {
       const base = calculateTechnicalStateSnapshot({ ...series(), interval }, bollStateConfigFor(interval));
       return {
         ...base,
@@ -128,7 +128,7 @@ describe('combined BOLL/MACD technical state engine', () => {
         },
       };
     };
-    const set = (daily: ReturnType<typeof makePeriod>, weekly: ReturnType<typeof makePeriod>, monthly: ReturnType<typeof makePeriod>) =>
+    const set = (daily: TechnicalStateSnapshot, weekly: TechnicalStateSnapshot, monthly: TechnicalStateSnapshot) =>
       describeTechnicalMultiTimeframeState({ daily, weekly, monthly }).overallTrend;
     const bull = (period: 'daily' | 'weekly' | 'monthly') => makePeriod(period, 'up', 'bullish', 'above');
     const bear = (period: 'daily' | 'weekly' | 'monthly') => makePeriod(period, 'down', 'bearish', 'below');
