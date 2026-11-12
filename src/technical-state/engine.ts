@@ -1,6 +1,7 @@
-import { calculateMacdFromConfirmedSeries, insufficientMacdPeriod, macdArrangementLabel, macdMomentumLabel, macdZeroAxisLabel, minimumMacdHistoryBars, unavailableMacdPeriod } from '../macd';
+import { calculateMacdFromConfirmedSeries, calculateMacdHistoryFromConfirmedSeries, insufficientMacdPeriod, invalidMacdPeriod, macdArrangementLabel, macdMomentumLabel, macdZeroAxisLabel, minimumMacdHistoryBars, unavailableMacdPeriod } from '../macd';
 import type { MacdPeriodState } from '../macd';
-import { calculateBollState } from './boll-state';
+import { calculateBollHistory, calculateBollState } from './boll-state';
+import { BOLL_STATE_CONFIG_VERSION, TECHNICAL_FORMULA_VERSION, bollStateConfigFor } from './config';
 import type {
   BollState,
   BollStateConfig,
@@ -14,6 +15,7 @@ import type {
 function macdValidity(_series: ConfirmedTechnicalSeries, macd: MacdPeriodState): TechnicalValidity {
   if (macd.availability === 'ready') return 'VALID';
   if (macd.availability === 'insufficient-history') return 'INSUFFICIENT';
+  if (macd.availability === 'unavailable') return 'UNAVAILABLE';
   return 'INVALID';
 }
 
@@ -23,16 +25,32 @@ export function calculateTechnicalStateSnapshot(
   config?: BollStateConfig,
   quoteSource?: TechnicalQuoteSource,
 ): TechnicalStateSnapshot {
-  const boll = calculateBollState(series, config);
+  const bollHistory = calculateBollHistory(series, config);
+  const referenceConfig = bollStateConfigFor(series.interval);
+  const bollConfigVersion = config
+    ? Object.keys(referenceConfig).every((key) =>
+        config[key as keyof BollStateConfig] === referenceConfig[key as keyof BollStateConfig],
+      ) ? BOLL_STATE_CONFIG_VERSION : 'custom-unversioned'
+    : undefined;
+  const latestBollHistory = bollHistory.at(-1);
+  const boll = {
+    ...calculateBollState(series, config, bollHistory),
+    ...(latestBollHistory?.bandwidthPhaseStartDate ? { bandwidthPhaseStartDate: latestBollHistory.bandwidthPhaseStartDate } : {}),
+    ...(latestBollHistory?.bandwidthPhaseObservationStartDate ? { bandwidthPhaseObservationStartDate: latestBollHistory.bandwidthPhaseObservationStartDate } : {}),
+    ...(latestBollHistory?.middleDirectionStartDate ? { middleDirectionStartDate: latestBollHistory.middleDirectionStartDate } : {}),
+    ...(latestBollHistory?.middleDirectionObservationStartDate ? { middleDirectionObservationStartDate: latestBollHistory.middleDirectionObservationStartDate } : {}),
+  };
+  const macdHistory = calculateMacdHistoryFromConfirmedSeries(series);
   const minimumBars = minimumMacdHistoryBars(series.interval);
   const macd = series.bars.length < minimumBars
     ? insufficientMacdPeriod(series.interval, '已确认历史 K 线不足 ' + minimumBars + ' 根，当前周期 MACD 状态不发布')
-    : calculateMacdFromConfirmedSeries(series);
+    : calculateMacdFromConfirmedSeries(series, macdHistory);
   const macdStatus = macdValidity(series, macd);
   const validity: TechnicalValidity = boll.validity !== 'VALID' ? boll.validity : macdStatus;
   const reasons = [boll.reason, macd.error].filter((value): value is string => Boolean(value));
   return {
     interval: series.interval,
+    formulaVersion: TECHNICAL_FORMULA_VERSION,
     asOfDate: series.asOfDate,
     ...(series.source ? { source: series.source } : {}),
     ...(quoteSource ? { quoteSource } : {}),
@@ -40,7 +58,11 @@ export function calculateTechnicalStateSnapshot(
     confirmedBarCount: series.bars.length,
     excludedInProgressBar: series.excludedInProgressBar,
     boll,
+    ...(config ? { bollConfig: config } : {}),
+    ...(bollConfigVersion ? { bollConfigVersion } : {}),
+    bollHistory,
     macd,
+    macdHistory,
     validity,
     ...(reasons.length ? { reason: reasons.join('；') } : {}),
   };
@@ -63,12 +85,19 @@ export function unavailableTechnicalState(
   };
   return {
     interval,
+    formulaVersion: TECHNICAL_FORMULA_VERSION,
     ...(source ? { source } : {}),
     ...(quoteSource ? { quoteSource } : {}),
     confirmedBarCount: 0,
     excludedInProgressBar: false,
     boll,
-    macd: unavailableMacdPeriod(interval, reason),
+    bollHistory: [],
+    macd: validity === 'INSUFFICIENT'
+      ? insufficientMacdPeriod(interval, reason)
+      : validity === 'UNAVAILABLE'
+        ? unavailableMacdPeriod(interval, reason)
+        : invalidMacdPeriod(interval, reason),
+    macdHistory: [],
     validity,
     reason,
   };
@@ -147,18 +176,22 @@ export function describeTechnicalStateSnapshot(snapshot: TechnicalStateSnapshot)
       ].join('；') + (boll.reason ? '；' + boll.reason : '');
 
   const macd = snapshot.macd;
-  const macdText = macd.error
-    ? 'MACD 数据不可用：' + macd.error
-    : [
-        'MACD(12,26,9) DIF/DEA/柱体 ' +
-          formatTechnicalNumber(macd.dif, 6) + '/' +
-          formatTechnicalNumber(macd.dea, 6) + '/' +
-          formatTechnicalNumber(macd.histogram, 6),
-        '排列 ' + macdArrangementLabel(macd),
-        macdZeroAxisLabel(macd),
-        '本根交叉 ' + (macd.crossEvent === 'golden' ? '金叉' : macd.crossEvent === 'death' ? '死叉' : macd.crossEvent === 'none' ? '无新交叉' : '未知'),
-        macdMomentumLabel(macd),
-      ].join('；');
+  const macdText = macd.availability === 'insufficient-history'
+    ? 'MACD 历史不足：' + (macd.error ?? '未达到状态发布历史门槛')
+    : macd.availability === 'unavailable'
+      ? 'MACD 数据不可用：' + (macd.error ?? '数据来源不可用')
+      : macd.availability === 'invalid-data' || macd.error
+        ? 'MACD 数据无效：' + (macd.error ?? '输入数据无效')
+        : [
+            'MACD(12,26,9) DIF/DEA/柱体 ' +
+              formatTechnicalNumber(macd.dif, 6) + '/' +
+              formatTechnicalNumber(macd.dea, 6) + '/' +
+              formatTechnicalNumber(macd.histogram, 6),
+            '排列 ' + macdArrangementLabel(macd),
+            macdZeroAxisLabel(macd),
+            '本根交叉 ' + (macd.crossEvent === 'golden' ? '金叉' : macd.crossEvent === 'death' ? '死叉' : macd.crossEvent === 'none' ? '无新交叉' : '未知'),
+            macdMomentumLabel(macd),
+          ].join('；');
 
   return period + '（' + date + '）：' + bollText + '。' + macdText +
     '。以上仅描述已确认 K 线的计算状态，不构成买卖方向或交易指令。';
@@ -172,46 +205,46 @@ export interface TechnicalMultiTimeframeDescription {
   detail: string;
 }
 
-function macdCrossEventText(snapshot: TechnicalStateSnapshot): string {
+function bollPeriodSummary(snapshot: TechnicalStateSnapshot): string {
+  const boll = snapshot.boll;
+  if (boll.validity === 'INSUFFICIENT') return '历史不足' + (boll.reason ? '：' + boll.reason : '');
+  if (boll.validity === 'INVALID') return '数据无效' + (boll.reason ? '：' + boll.reason : '');
+  if (boll.validity === 'UNAVAILABLE') return '数据不可用' + (boll.reason ? '：' + boll.reason : '');
+  return [
+    '中轨' + bollMiddleLabel(boll.middleDirection),
+    '带宽' + bollBandwidthLabel(boll.bandwidthPhase),
+    '确认收盘' + bollPriceLocationLabel(boll.priceLocation),
+  ].join('，');
+}
+
+function macdPeriodSummary(snapshot: TechnicalStateSnapshot): string {
   const macd = snapshot.macd;
-  if (macd.availability !== 'ready') return '未知';
-  if (macd.crossEvent === 'golden') return '新金叉';
-  if (macd.crossEvent === 'death') return '新死叉';
-  if (macd.crossEvent === 'none') return '无新交叉';
-  return '未知';
+  if (macd.availability === 'insufficient-history') return '历史不足' + (macd.error ? '：' + macd.error : '');
+  if (macd.availability === 'invalid-data') return '数据无效' + (macd.error ? '：' + macd.error : '');
+  if (macd.availability === 'unavailable') return '数据不可用' + (macd.error ? '：' + macd.error : '');
+  return [
+    macdZeroAxisLabel(macd),
+    macdArrangementLabel(macd),
+    macdMomentumLabel(macd),
+  ].join('，');
 }
 
 /**
- * Summarize the three independently calculated periods without collapsing
- * their states into a bullish/bearish recommendation.
+ * Summarize each period as a self-contained unit. Indicator validity is
+ * reported independently; no cross-period aggregation or trading direction
+ * is inferred in the copy layer.
  */
 export function describeTechnicalMultiTimeframeState(
   periods: import('./types').TechnicalMultiTimeframeState,
 ): TechnicalMultiTimeframeDescription {
   const ordered: Array<{ label: string; snapshot: TechnicalStateSnapshot }> = [
-    { label: '月线', snapshot: periods.monthly },
-    { label: '周线', snapshot: periods.weekly },
     { label: '日线', snapshot: periods.daily },
+    { label: '周线', snapshot: periods.weekly },
+    { label: '月线', snapshot: periods.monthly },
   ];
-  const bollValidCount = ordered.filter(({ snapshot }) => snapshot.boll.validity === 'VALID').length;
-  const macdReadyCount = ordered.filter(({ snapshot }) => snapshot.macd.availability === 'ready').length;
-  const describe = (select: (snapshot: TechnicalStateSnapshot) => string) =>
-    ordered.map(({ label, snapshot }) => label + ' ' + select(snapshot)).join('；');
-  const bandwidth = describe((snapshot) =>
-    snapshot.boll.validity === 'VALID' ? bollBandwidthLabel(snapshot.boll.bandwidthPhase) : '不可用');
-  const middle = describe((snapshot) =>
-    snapshot.boll.validity === 'VALID' ? bollMiddleLabel(snapshot.boll.middleDirection) : '不可用');
-  const zeroAxis = describe((snapshot) => macdZeroAxisLabel(snapshot.macd));
-  const crossEvents = ordered
-    .filter(({ snapshot }) => macdCrossEventText(snapshot) === '新金叉' || macdCrossEventText(snapshot) === '新死叉')
-    .map(({ label, snapshot }) => label + ' ' + macdCrossEventText(snapshot));
-  const crossSummary = crossEvents.length ? crossEvents.join('、') : '当前无可确认的新交叉事件';
-  const summary =
-    'BOLL 有效 ' + bollValidCount + '/3 周期，MACD 稳定可用 ' + macdReadyCount + '/3 周期。BOLL 带宽阶段：' + bandwidth +
-    '。BOLL 中轨方向：' + middle +
-    '。MACD DIF 零轴位置：' + zeroAxis +
-    '。MACD 新交叉：' + crossSummary +
-    '。各周期独立描述，不合成为买卖方向。';
+  const summary = ordered.map(({ label, snapshot }) =>
+    label + '：BOLL ' + bollPeriodSummary(snapshot) + '；MACD ' + macdPeriodSummary(snapshot),
+  ).join('\n');
   return {
     summary,
     detail: ordered.map(({ snapshot }) => describeTechnicalStateSnapshot(snapshot)).join('\n'),

@@ -20,7 +20,8 @@
     "calibrate:technical-live": "node scripts/run-live-technical-calibration.mjs",
     "test:dependency-security": "node scripts/verify-dependency-security.mjs",
     "verify:upgrade-contract": "node scripts/verify-upgrade-contract.mjs",
-    "verify:execution-contract": "node scripts/verify-execution-contract.mjs"
+    "verify:execution-contract": "node scripts/verify-execution-contract.mjs",
+    "bench:technical-state": "vitest bench src/technical-state/technical-state.bench.ts"
   },
   "dependencies": {
     "@tauri-apps/plugin-dialog": "^2.6.0",

@@ -1,7 +1,7 @@
 import type { MacdPeriodState } from '../macd';
 
 export type TechnicalInterval = 'daily' | 'weekly' | 'monthly';
-export type TechnicalValidity = 'VALID' | 'INSUFFICIENT' | 'INVALID';
+export type TechnicalValidity = 'VALID' | 'INSUFFICIENT' | 'INVALID' | 'UNAVAILABLE';
 export type TechnicalQuoteSource = '东方财富' | '腾讯行情' | '百度行情';
 
 export interface TechnicalRawBar {
@@ -49,7 +49,8 @@ export interface ConfirmedTechnicalSeries {
 export type TechnicalNormalizationResult =
   | { validity: 'VALID'; series: ConfirmedTechnicalSeries }
   | { validity: 'INSUFFICIENT'; reason: string; interval: TechnicalInterval }
-  | { validity: 'INVALID'; reason: string; interval: TechnicalInterval };
+  | { validity: 'INVALID'; reason: string; interval: TechnicalInterval }
+  | { validity: 'UNAVAILABLE'; reason: string; interval: TechnicalInterval };
 
 export type BollBandwidthPhase =
   | 'contracting'
@@ -78,6 +79,27 @@ export type BollPriceLocation =
   | 'above-upper'
   | 'unknown';
 
+export interface BollHistoryPoint {
+  date: string;
+  close: number;
+  upper?: number;
+  middle?: number;
+  lower?: number;
+  bandwidthPercent?: number;
+  bandwidthPercentile?: number;
+  bandwidthSampleCount?: number;
+  bandwidthPhase: BollBandwidthPhase;
+  bandwidthPhaseStartDate?: string;
+  /** First bar in the N-bar confirmation window for the current bandwidth phase. */
+  bandwidthPhaseObservationStartDate?: string;
+  middleDirection: BollMiddleDirection;
+  middleDirectionStartDate?: string;
+  /** First bar in the N-bar confirmation window for the current middle direction. */
+  middleDirectionObservationStartDate?: string;
+  closeLocationPercent?: number;
+  priceLocation: BollPriceLocation;
+}
+
 export interface BollState {
   validity: TechnicalValidity;
   asOfDate?: string;
@@ -94,7 +116,11 @@ export interface BollState {
   bandwidthChange5?: number;
   middleChangePercent?: number;
   bandwidthPhase: BollBandwidthPhase;
+  bandwidthPhaseStartDate?: string;
+  bandwidthPhaseObservationStartDate?: string;
   middleDirection: BollMiddleDirection;
+  middleDirectionStartDate?: string;
+  middleDirectionObservationStartDate?: string;
   /** Historical close relative to same-bar bands; never the live quote. */
   closeLocationPercent?: number;
   priceLocation: BollPriceLocation;
@@ -103,6 +129,8 @@ export interface BollState {
 
 export interface TechnicalStateSnapshot {
   interval: TechnicalInterval;
+  /** Versioned formula contract shared by BOLL and MACD calculations. */
+  formulaVersion: string;
   /** Absent only when no confirmed bar could be produced. */
   asOfDate?: string;
   /** K-line provider and spot-quote provider are tracked independently. */
@@ -113,7 +141,11 @@ export interface TechnicalStateSnapshot {
   confirmedBarCount: number;
   excludedInProgressBar: boolean;
   boll: BollState;
+  bollConfig?: BollStateConfig;
+  bollConfigVersion?: string;
+  bollHistory: BollHistoryPoint[];
   macd: MacdPeriodState;
+  macdHistory: import('../macd').MacdHistoryPoint[];
   validity: TechnicalValidity;
   reason?: string;
 }

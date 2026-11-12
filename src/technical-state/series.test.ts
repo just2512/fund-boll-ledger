@@ -58,7 +58,7 @@ describe('normalizeConfirmedTechnicalSeries', () => {
   it('fails closed when the source trading date is missing', () => {
     const bars = dailyBars(40);
     const result = normalizeConfirmedTechnicalSeries({ interval: 'daily', bars, quote: {} });
-    expect(result.validity).toBe('INVALID');
+    expect(result.validity).toBe('UNAVAILABLE');
   });
 
   it('excludes the active daily candle before 15:00 and includes it at 15:00 source time', () => {

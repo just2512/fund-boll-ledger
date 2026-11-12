@@ -651,7 +651,7 @@ export async function fetchLatestMarketData(request: MarketQuoteRequest): Promis
     monthly: monthlyData?.macd ?? failed('monthly', monthly.status === 'rejected' ? monthly.reason : '月线指标不可用'),
   });
   const failedTechnicalState = (interval: MacdInterval, reason: unknown): TechnicalStateSnapshot =>
-    unavailableTechnicalState(interval, 'INVALID', errorText(reason, interval + '历史 K 线不可用'), undefined, quote.source);
+    unavailableTechnicalState(interval, 'UNAVAILABLE', errorText(reason, interval + '历史 K 线不可用'), undefined, quote.source);
   const technicalState: TechnicalMultiTimeframeState = {
     daily: dailyData?.technicalState ?? failedTechnicalState('daily', daily.status === 'rejected' ? daily.reason : '日线指标不可用'),
     weekly: weeklyData?.technicalState ?? failedTechnicalState('weekly', weekly.status === 'rejected' ? weekly.reason : '周线指标不可用'),

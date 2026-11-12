@@ -81,3 +81,14 @@
 - 本轮没有修改指标公式、历史数据契约、账本结构或产品范围。
 - 中间 CI Run [42736482009](https://github.com/just2512/fund-boll-ledger/actions/runs/42736482009) 曾因需求矩阵将 T-00/T-06/T-09 设为 IN_PROGRESS 却缺少执行契约要求的具体 blocker 而失败；随后在提交 `4011d5e7640f41fdce6b0c4519348d998d21e75e` 补齐 blocker，最新 Run `42736555527` 全部通过。失败记录保留，不以重跑覆盖。
 - 下一项外部验收仍未完成：`.github/workflows/native-build.yml` 只有 `workflow_dispatch`，当前 GitHub 操作连接没有 workflow dispatch 写操作；因此本轮不能触发 Windows 安装包/Android APK 构建。没有物理 OPPO Find N2 外屏/内屏验收证据。不得把浏览器视口 E2E 等同于真机 PASS。
+
+
+## 2026-11-12 审计基线更新说明
+
+本文前半部分记录的是本次重构前的 main 基线，包含“详细依据折叠在同一面板内”等旧 UI 描述。这些文字是历史审计事实，不再是当前 UI 约束。当前实现及后续验收必须遵循：
+
+- `docs/BOLL_MACD_INFORMATION_ARCHITECTURE.md`
+- `docs/BOLL_MACD_ACCEPTANCE.md`
+- `docs/TECHNICAL_STATE_REQUIREMENTS.json`
+
+当前目标行为是周期选择一次直达完整依据；BOLL/MACD 逐根历史表直接显示在所选周期详情下方，不存在第二层折叠。

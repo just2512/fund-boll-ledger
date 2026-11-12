@@ -10,6 +10,7 @@ import { save as saveDialog, open as openDialog } from '@tauri-apps/plugin-dialo
 import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
 import type { TechnicalMultiTimeframeState, TechnicalStateSnapshot } from './technical-state/types';
 import { describeTechnicalMultiTimeframeState } from './technical-state/engine';
+
 import { createId, emptyAppData, newFund, type AppData, type Fund, type FundCategory, type FundPrices, type LadderDirection, type PriceBasisKey, type PriceSnapshot, type Trade, type TradeSide } from './types';
 
 const NAV_ITEMS = [
@@ -565,79 +566,162 @@ function bollLocationLabel(value: TechnicalStateSnapshot['boll']['priceLocation'
   };
   return labels[value];
 }
-function MacdPeriodCard({ label, state, technical, expanded, onToggle }: { label: string; state?: MacdPeriodState; technical?: TechnicalStateSnapshot; expanded: boolean; onToggle: () => void }) {
+function MacdPeriodCard({ label, period, state, technical }: { label: string; period: 'daily' | 'weekly' | 'monthly'; state?: MacdPeriodState; technical?: TechnicalStateSnapshot }) {
+  const [historyPage, setHistoryPage] = useState(0);
   const boll = technical?.boll;
-  const bollStatus = !boll ? 'BOLL 待计算' : boll.validity === 'VALID' ? 'BOLL 已计算' : boll.validity === 'INSUFFICIENT' ? 'BOLL 历史不足' : 'BOLL 数据无效';
-  const macdStatus = !state ? 'MACD 待计算' : state.availability === 'ready' && !state.error ? macdArrangementLabel(state) : macdAvailabilityLabel(state);
+  const bollConfig = technical?.bollConfig;
+  const bollStatus = !boll ? '待计算' : boll.validity === 'VALID' ? '有效' : boll.validity === 'INSUFFICIENT' ? '历史不足' : boll.validity === 'UNAVAILABLE' ? '数据不可用' : '数据无效';
+  const macdStatus = !state ? '待计算' : macdAvailabilityLabel(state);
   const coverage = technical
     ? (technical.historyStartDate ?? '—') + ' 至 ' + (technical.asOfDate ?? state?.asOfDate ?? '—') + ' · ' + technical.confirmedBarCount + ' 根确认 K 线'
-    : '确认历史元数据不可用';
-  const source = technical?.source ?? '未知';
-  const quoteSource = technical?.quoteSource ?? '未知';
-  const confirmation = technical?.excludedInProgressBar ? '未收盘周期已排除' : '仅使用已确认收盘数据';
-  return <article className={'macd-period-card ' + (expanded ? 'expanded' : 'collapsed')}>
-    <button type="button" className="macd-period-trigger" aria-expanded={expanded} onClick={onToggle}>
-      <span className="macd-period-trigger-name">{label}</span>
-      <span className={state?.availability === 'ready' && !state.error ? 'macd-tone-neutral' : 'macd-tone-unknown'}>{state ? macdAvailabilityLabel(state) : '待计算'}</span>
-      <span className="macd-period-trigger-chevron" aria-hidden="true">{expanded ? '−' : '+'}</span>
-    </button>
-    <div className="macd-period-glance"><span>{bollStatus}</span><span>{macdStatus}</span></div>
-    {expanded && <div className="macd-period-content">
-      {!state ? <p className="macd-period-message">刷新行情后获取已确认历史数据</p> : <details className="macd-detail-tray">
-        <summary>展开指标依据与历史明细</summary>
-        <div className="macd-detail-content">
-          <div className="macd-period-meta">
-            <small>历史覆盖：{coverage}</small>
-            <small>K 线来源：{source} · 现价来源：{quoteSource}</small>
-            <small>{confirmation}</small>
-          </div>
-          {boll && <div className="boll-period-state">
-            <div className="boll-period-state-head"><strong>BOLL(20,2)</strong><span>{boll.validity === 'VALID' ? '已计算' : boll.validity === 'INSUFFICIENT' ? '历史不足' : '数据无效'}</span></div>
-            {boll.validity === 'VALID' ? <>
-              <div className="boll-period-values">上/中/下轨：{bollNumber(boll.upper)}/{bollNumber(boll.middle)}/{bollNumber(boll.lower)}</div>
-              <div className="boll-period-tags">
-                <span>带宽 {bollNumber(boll.bandwidthPercent, 4)}%</span>
-                <span>历史分位 {boll.bandwidthPercentile === undefined ? '未配置' : bollNumber(boll.bandwidthPercentile, 1) + '%'}</span>
-                <span>带宽阶段 {bollPhaseLabel(boll.bandwidthPhase)}</span>
-                <span>中轨方向 {bollMiddleLabel(boll.middleDirection)}</span>
-                <span>确认收盘位置 {boll.closeLocationPercent === undefined ? '未知' : bollNumber(boll.closeLocationPercent, 2) + '%'} · {bollLocationLabel(boll.priceLocation)}</span>
-              </div>
-            </> : <p className="macd-period-message">{boll.reason ?? '当前周期无法计算 BOLL。'}</p>}
-            {boll.reason && <small className="boll-period-note">{boll.reason}</small>}
-          </div>}
-          {state.availability !== 'ready' || state.error
-            ? <p className="macd-period-message">{state.error ?? '当前周期无法计算 MACD。'}；本周期不生成交叉判断。</p>
-            : <>
-              <div className="macd-period-head"><small>最后确认日期：{state.asOfDate ?? '—'}</small><small>EMA 种子：{state.emaSeedDate ?? '—'} · {state.barsUsed ?? 0} 根</small></div>
-              <div className="macd-period-tags">
-                <span className={macdToneClass(state.zeroTone)}>{macdZeroAxisLabel(state)}</span>
-                <span className={macdToneClass(state.arrangementTone)}>{macdArrangementLabel(state)}</span>
-              </div>
-              <div className={'macd-momentum ' + macdToneClass(state.momentumTone)}>{macdMomentumLabel(state)}</div>
-              <small className="macd-period-event">{macdCrossEventLabel(state)}</small>
-            </>}
+    : '确认历史元数据未提供';
+  const source = technical?.source ?? '未提供';
+  const quoteSource = technical?.quoteSource ?? '未提供';
+  const confirmation = !technical ? '确认状态元数据未提供' : technical.confirmedBarCount === 0 ? '无可确认历史 K 线' : technical.excludedInProgressBar ? '已排除进行中的 K 线' : '仅使用已确认收盘数据';
+  const bollHistory = technical?.bollHistory ?? [];
+  const macdHistory = technical?.macdHistory ?? [];
+  const historyCount = Math.max(bollHistory.length, macdHistory.length);
+  const pageSize = 20;
+  const pageCount = Math.max(1, Math.ceil(historyCount / pageSize));
+  const safePage = Math.min(historyPage, pageCount - 1);
+  const historyStart = Math.max(0, historyCount - (safePage + 1) * pageSize);
+  const historyEnd = historyCount - safePage * pageSize;
+  const historyRows = Array.from({ length: Math.max(0, historyEnd - historyStart) }, (_, offset) => {
+    const index = historyStart + offset;
+    return { boll: bollHistory[index], macd: macdHistory[index], date: bollHistory[index]?.date ?? macdHistory[index]?.date ?? '—' };
+  });
+  const latestMacdHistory = macdHistory.at(-1);
+  const lastCrossText = latestMacdHistory?.formulaReady
+    ? latestMacdHistory.lastCrossDate
+      ? (latestMacdHistory.lastCross === 'golden' ? '金叉' : '死叉') + ' · ' + latestMacdHistory.lastCrossDate
+      : '当前加载历史范围内未发现交叉'
+    : '历史不足，无法确定';
+  const arrangementStartDate = state?.arrangementStartDate ?? (latestMacdHistory?.formulaReady ? latestMacdHistory.arrangementStartDate : undefined);
+  return <article className="macd-period-card expanded" data-period={period}>
+    <div className="macd-period-head">
+      <strong>{label} · 指标计算依据</strong>
+      <small>最后确认日期：{technical?.asOfDate ?? state?.asOfDate ?? '—'}</small>
+    </div>
+    <div className="macd-period-glance"><span>BOLL {bollStatus}</span><span>MACD {macdStatus}</span></div>
+    <div className="macd-period-content">
+      {!technical && !state ? <p className="macd-period-message">刷新行情后获取该周期已确认历史数据。</p> : <>
+        <div className="macd-period-meta">
+          <small>公式版本：{technical?.formulaVersion ?? '未提供'}</small>
+          <small>历史覆盖：{coverage}</small>
+          <small>K 线来源：{source} · 现价来源：{quoteSource}</small>
+          <small>{confirmation}</small>
         </div>
-      </details>}
-    </div>}
+        <section className="boll-period-state">
+          <div className="boll-period-state-head">
+            <strong>BOLL(20,2)</strong>
+            <span>{bollStatus} · 参数版本 {technical?.bollConfigVersion ?? '未提供'}</span>
+          </div>
+          {boll?.validity === 'VALID' ? <>
+            <div className="boll-period-values">上/中/下轨：{bollNumber(boll.upper)}/{bollNumber(boll.middle)}/{bollNumber(boll.lower)}</div>
+            <div className="boll-period-tags">
+              <span>带宽 {bollNumber(boll.bandwidthPercent, 4)}%</span>
+              <span>历史分位 {boll.bandwidthPercentile === undefined ? '未知' : bollNumber(boll.bandwidthPercentile, 1) + '%'}</span>
+              <span>分位样本 {boll.bandwidthSampleCount ?? 0}/{bollConfig?.bandwidthRankLookback ?? '—'}</span>
+              <span>带宽阶段 {bollPhaseLabel(boll.bandwidthPhase)}</span>
+              <span>中轨方向 {bollMiddleLabel(boll.middleDirection)}</span>
+              <span>确认收盘位置 {boll.closeLocationPercent === undefined ? '未知' : bollNumber(boll.closeLocationPercent, 2) + '%'} · {bollLocationLabel(boll.priceLocation)}</span>
+            </div>
+            <small className="boll-period-note">带宽阶段确认日期：{boll.bandwidthPhaseStartDate ?? '未知'} · 观察窗口起点：{boll.bandwidthPhaseObservationStartDate ?? '未知'}</small>
+            <small className="boll-period-note">中轨方向确认日期：{boll.middleDirectionStartDate ?? '未知'} · 观察窗口起点：{boll.middleDirectionObservationStartDate ?? '未知'}</small>
+            {bollConfig && <small className="boll-period-note">分类配置：中轨回看 {bollConfig.middleDirectionLookback} 根；连续确认 {bollConfig.confirmationBars} 根；走平容差 {bollConfig.flatTolerancePercent}%；近轨距离为通道宽度的 {bollConfig.nearBandDistancePercent}%。</small>}
+          </> : <p className="macd-period-message">{boll?.reason ?? '当前周期尚无可用 BOLL 计算结果。'}</p>}
+        </section>
+        <section className="macd-indicator-state">
+          <div className="boll-period-state-head"><strong>MACD(12,26,9)</strong><span>{macdStatus}</span></div>
+          <div className="macd-period-meta">
+            <small>EMA 初始化：快线/慢线以首根确认收盘价为种子，信号线以首根 DIF 为种子，之后按 EMA 递推。</small>
+            <small>EMA 种子日期：{technical?.historyStartDate ?? '未提供'} · 实际输入 {technical?.confirmedBarCount ?? 0} 根 · 超出公式最低 35 根的额外历史：{Math.max(0, (technical?.confirmedBarCount ?? 0) - 35)} 根</small>
+          </div>
+          {state?.availability === 'ready' && !state.error ? <>
+            <div className="macd-period-values">
+              <span>DIF <strong>{bollNumber(state.dif, 6)}</strong></span>
+              <span>DEA <strong>{bollNumber(state.dea, 6)}</strong></span>
+              <span>柱体 <strong>{bollNumber(state.histogram, 6)}</strong></span>
+            </div>
+            <div className="macd-period-tags">
+              <span className={macdToneClass(state.zeroTone)}>{macdZeroAxisLabel(state)}</span>
+              <span className={macdToneClass(state.arrangementTone)}>{macdArrangementLabel(state)}</span>
+            </div>
+            <div className={'macd-momentum ' + macdToneClass(state.momentumTone)}>{macdMomentumLabel(state)}</div>
+            <small className="macd-period-event">本根交叉：{macdCrossEventLabel(state)}</small>
+          </> : <p className="macd-period-message">{state?.error ?? '当前周期 MACD 稳定状态尚未发布；下方仍展示实际可计算的历史公式值。'}</p>}
+          <div className="macd-period-meta">
+            <small>最近一次交叉：{lastCrossText}</small>
+            <small>当前排列开始：{arrangementStartDate ?? '未知'}</small>
+          </div>
+        </section>
+        <section className="technical-history-section">
+          <div className="technical-history-heading">
+            <strong>历史计算明细</strong>
+            <span>{historyCount} 根已确认 K 线 · 默认最近 20 根</span>
+          </div>
+          {historyCount === 0 ? <p className="macd-period-message">当前没有可展示的逐根历史计算结果。</p> : <>
+            <div className="technical-history-subheading">BOLL 历史值</div>
+            <div className="table-scroll technical-history-scroll">
+              <table>
+                <thead><tr><th>日期</th><th>收盘</th><th>上轨</th><th>中轨</th><th>下轨</th><th>带宽</th><th>分位</th><th>阶段</th><th>中轨方向</th><th>通道位置 %</th><th>位置分类</th></tr></thead>
+                <tbody>{historyRows.map((row) => <tr key={'boll-' + row.date}>
+                  <td>{row.date}</td><td>{bollNumber(row.boll?.close)}</td><td>{bollNumber(row.boll?.upper)}</td><td>{bollNumber(row.boll?.middle)}</td><td>{bollNumber(row.boll?.lower)}</td>
+                  <td>{row.boll?.bandwidthPercent === undefined ? '—' : bollNumber(row.boll.bandwidthPercent, 4) + '%'}</td>
+                  <td>{row.boll?.bandwidthPercentile === undefined ? '—' : bollNumber(row.boll.bandwidthPercentile, 1) + '%'}</td>
+                  <td>{row.boll ? bollPhaseLabel(row.boll.bandwidthPhase) : '—'}</td><td>{row.boll ? bollMiddleLabel(row.boll.middleDirection) : '—'}</td>
+                  <td>{row.boll?.closeLocationPercent === undefined ? '—' : bollNumber(row.boll.closeLocationPercent, 2) + '%'}</td>
+                  <td>{row.boll ? bollLocationLabel(row.boll.priceLocation) : '—'}</td>
+                </tr>)}</tbody>
+              </table>
+            </div>
+            <div className="technical-history-subheading">MACD 历史值</div>
+            <div className="table-scroll technical-history-scroll">
+              <table>
+                <thead><tr><th>日期</th><th>收盘</th><th>DIF</th><th>DEA</th><th>柱体</th><th>零轴</th><th>排列</th><th>动能</th><th>当根交叉</th></tr></thead>
+                <tbody>{historyRows.map((row) => {
+                  const point = row.macd;
+                  const zero = !point?.formulaReady ? '预热' : point.zeroAxis === 'above' ? '上方' : point.zeroAxis === 'below' ? '下方' : point.zeroAxis === 'at-zero' ? '零轴' : '未知';
+                  const arrangement = !point?.formulaReady ? '预热' : point.arrangement === 'new-golden' ? '新金叉' : point.arrangement === 'new-death' ? '新死叉' : point.arrangement === 'bull-after-golden' ? '金叉后多头排列' : point.arrangement === 'bear-after-death' ? '死叉后空头排列' : point.arrangement === 'bull-history-unknown' ? '多头排列·交叉历史不足' : point.arrangement === 'bear-history-unknown' ? '空头排列·交叉历史不足' : point.arrangement === 'neutral' ? 'DIF/DEA 重合' : '未知';
+                  const momentum = !point?.formulaReady ? '预热' : point.momentum === 'bull-strengthening' ? '多头动能增强' : point.momentum === 'bull-weakening' ? '多头动能减弱' : point.momentum === 'bear-strengthening' ? '空头动能增强' : point.momentum === 'bear-weakening' ? '空头动能减弱' : point.momentum === 'neutral' ? '动能变化不明显' : '未知';
+                  const cross = !point?.formulaReady ? '预热' : point.crossEvent === 'golden' ? '金叉' : point.crossEvent === 'death' ? '死叉' : point.crossEvent === 'none' ? '无新交叉' : '未知';
+                  return <tr key={'macd-' + row.date}>
+                    <td>{row.date}</td><td>{bollNumber(point?.close)}</td><td>{point?.formulaReady ? bollNumber(point.dif, 6) : '预热'}</td><td>{point?.formulaReady ? bollNumber(point.dea, 6) : '预热'}</td><td>{point?.formulaReady ? bollNumber(point.histogram, 6) : '预热'}</td>
+                    <td>{zero}</td><td>{arrangement}</td><td>{momentum}</td><td>{cross}</td>
+                  </tr>;
+                })}</tbody>
+              </table>
+            </div>
+            <div className="technical-history-pagination">
+              <button type="button" className="text-button" disabled={safePage >= pageCount - 1} onClick={() => setHistoryPage((page) => Math.min(pageCount - 1, page + 1))}>更早 20 根</button>
+              <span>第 {safePage + 1} / {pageCount} 页 · 显示 {historyRows.length} 根</span>
+              <button type="button" className="text-button" disabled={safePage === 0} onClick={() => setHistoryPage((page) => Math.max(0, page - 1))}>更新 20 根</button>
+            </div>
+          </>}
+        </section>
+      </>}
+    </div>
   </article>;
 }
-function MacdPanel({ state, technical, loading }: { state?: MacdMultiTimeframeState; technical?: TechnicalMultiTimeframeState; loading: boolean }) {
+function MacdPanel({ state, technical, loading, error, stale }: { state?: MacdMultiTimeframeState; technical?: TechnicalMultiTimeframeState; loading: boolean; error?: string; stale: boolean }) {
   const [activePeriod, setActivePeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const technicalDescription = technical ? describeTechnicalMultiTimeframeState(technical) : undefined;
-  const summary = technicalDescription?.summary ?? (loading ? '正在刷新 BOLL + MACD 数据…' : '刷新行情后计算');
-  const detail = state?.summaryDetail ?? '仅展示已确认 K 线的计算状态';
+  const summary = technicalDescription
+    ? stale ? '本次行情刷新失败，以下仍为上次成功数据。原因：' + (error ?? '未知错误') + ' · ' + technicalDescription.summary : technicalDescription.summary
+    : error ? '行情数据不可用：' + error : loading ? '正在刷新 BOLL + MACD 数据…' : '刷新行情后计算';
+  const activeLabel = activePeriod === 'daily' ? '日线' : activePeriod === 'weekly' ? '周线' : '月线';
+  const activeState = state?.[activePeriod];
+  const activeTechnical = technical?.[activePeriod];
   return <div className="macd-panel">
-    <div className="macd-panel-head"><div><h3>BOLL + MACD 技术状态</h3><p>BOLL 使用日/周/月版本化参考配置；历史不足或数据无效时明确标记未知</p></div><span className="macd-rule-label">描述性数据</span></div>
-    <div className="macd-summary"><strong className="macd-tone-neutral">{summary}</strong><span className={macdToneClass(state?.detailTone)}>{detail}</span></div>
-    <details className="technical-period-details">
-      <summary>展开日/周/月 BOLL 与 MACD 计算依据</summary>
-      <div className="macd-period-grid" data-active-period={activePeriod}>
-        <MacdPeriodCard label="日线" state={state?.daily} technical={technical?.daily} expanded={activePeriod === 'daily'} onToggle={() => setActivePeriod('daily')}/>
-        <MacdPeriodCard label="周线" state={state?.weekly} technical={technical?.weekly} expanded={activePeriod === 'weekly'} onToggle={() => setActivePeriod('weekly')}/>
-        <MacdPeriodCard label="月线" state={state?.monthly} technical={technical?.monthly} expanded={activePeriod === 'monthly'} onToggle={() => setActivePeriod('monthly')}/>
-      </div>
-    </details>
-    <small className="macd-footnote">仅描述已确认行情中的指标计算结果，不构成买卖建议。MACD 历史稳定性门槛：日线 {MACD_STABILITY_MIN_BARS.daily} 根、周线 {MACD_STABILITY_MIN_BARS.weekly} 根、月线 {MACD_STABILITY_MIN_BARS.monthly} 根确认 K 线；依据四只 ETF 三周期历史起点滚动敏感性，不代表交易有效性验证。</small>
+    <div className="macd-panel-head"><div><h3>BOLL + MACD 技术状态</h3><p>按日、周、月分别描述；只使用已确认 K 线，不生成交易方向</p></div><span className="macd-rule-label">描述性数据</span></div>
+    <div className="macd-summary"><strong className="macd-tone-neutral">{summary}</strong></div>
+    <div className="macd-period-selector" role="tablist" aria-label="选择技术状态周期">
+      <button type="button" role="tab" aria-selected={activePeriod === 'daily'} className={activePeriod === 'daily' ? 'macd-period-tab active' : 'macd-period-tab'} onClick={() => setActivePeriod('daily')}>日线</button>
+      <button type="button" role="tab" aria-selected={activePeriod === 'weekly'} className={activePeriod === 'weekly' ? 'macd-period-tab active' : 'macd-period-tab'} onClick={() => setActivePeriod('weekly')}>周线</button>
+      <button type="button" role="tab" aria-selected={activePeriod === 'monthly'} className={activePeriod === 'monthly' ? 'macd-period-tab active' : 'macd-period-tab'} onClick={() => setActivePeriod('monthly')}>月线</button>
+    </div>
+    <MacdPeriodCard key={activePeriod} label={activeLabel} period={activePeriod} state={activeState} technical={activeTechnical}/>
+    <small className="macd-footnote">仅描述已确认行情中的指标计算结果，不构成买卖建议。MACD 状态发布门槛：日线 {MACD_STABILITY_MIN_BARS.daily} 根、周线 {MACD_STABILITY_MIN_BARS.weekly} 根、月线 {MACD_STABILITY_MIN_BARS.monthly} 根确认 K 线；该门槛不代表交易有效性验证。</small>
   </div>;
 }
 
@@ -713,7 +797,7 @@ function CalculatorPage({ fund, comparisons, ladderBasis, setLadderBasis, ladder
       </div>
       {comparisonExpanded && <div id="current-price-comparison-content" className="comparison-content">
         <div className="comparison-grid">{comparisons.map((item) => <div key={item.key} className={`comparison-card ${item.percent === null ? '' : item.percent > 0 ? 'is-up' : item.percent < 0 ? 'is-down' : ''}`}><span>{item.label}</span><strong>{item.percentLabel}</strong><div className="comparison-foot"><span>基准 {item.base || '—'}</span><span>{item.delta !== null ? `${Number(item.delta) > 0 ? '+' : ''}${item.delta}` : '—'} 元</span></div><small>{item.location}</small></div>)}<div className="comparison-card daily-position-card"><span>日 BOLL 区间位置</span><strong className={dailyPositionTone}>{bollRangePosition === null ? '待输入有效价格/轨道' : (bollRangePosition * 100).toFixed(2) + '%'}</strong><div className="comparison-foot"><span>下轨 0%</span><span>上轨 100%</span></div><small>{bollRangePosition === null ? '需要有效现价、下轨和高于下轨的上轨' : bollRangePosition < 0 ? '当前价低于下轨 · 绿色' : bollRangePosition === 0 ? '当前价位于下轨 · 绿色' : bollRangePosition > 1 ? '当前价高于上轨 · 红色' : bollRangePosition === 1 ? '当前价位于上轨 · 红色' : '位置在下轨至上轨之间'}</small></div><div className={`comparison-card ${weeklyPositionClass}`}><span>周 BOLL 区间位置</span><strong>{weeklyBollRangePosition === null ? (weeklyBollRange ? '待输入有效现价/轨道' : '刷新后计算') : (weeklyBollRangePosition * 100).toFixed(2) + '%'}</strong><div className="comparison-foot"><span>下轨 0%</span><span>上轨 100%</span></div><small>{weeklyBollRangePosition !== null ? (weeklyBollRangePosition >= 0.5 ? '≥50% · 红色显示' : '<50% · 绿色显示') : quoteState?.quote?.weeklyBollRangeError ? `周线数据不可用：${quoteState.quote.weeklyBollRangeError}` : '需要刷新周线数据并输入有效当前价'}</small></div><div className={`comparison-card ${monthlyPositionClass}`}><span>月 BOLL 区间位置</span><strong>{monthlyBollRangePosition === null ? (monthlyBollRange ? '待输入有效现价/轨道' : '刷新后计算') : (monthlyBollRangePosition * 100).toFixed(2) + '%'}</strong><div className="comparison-foot"><span>下轨 0%</span><span>上轨 100%</span></div><small>{monthlyBollRangePosition !== null ? (monthlyBollRangePosition >= 0.5 ? '≥50% · 红色显示' : '<50% · 绿色显示') : quoteState?.quote?.monthlyBollRangeError ? `月线数据不可用：${quoteState.quote.monthlyBollRangeError}` : '需要刷新月线数据并输入有效当前价'}</small></div></div>
-        <MacdPanel state={quoteState?.quote?.macd} technical={quoteState?.quote?.technicalState} loading={quoteState?.status === 'loading'}/>
+        <MacdPanel state={quoteState?.quote?.macd} technical={quoteState?.quote?.technicalState} loading={quoteState?.status === 'loading'} error={quoteState?.status === 'error' ? quoteState.message : undefined} stale={quoteState?.status === 'error' && Boolean(quoteState.quote)}/>
       </div>}
     </section>
     <section className="panel ladder-panel"><div className="section-title-row"><div><h2>十档价格阶梯</h2><p>每一档均以所选参考价独立计算，不使用连续复利。</p></div><span className="tag">1%—10%</span></div><div className="ladder-controls"><label className="field basis-select"><span>选择计算基准</span><select value={ladderBasis} onChange={(e) => setLadderBasis(e.target.value as PriceKey)}>{PRICE_KEYS.map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}</select></label><div className="direction-switch" role="group" aria-label="阶梯方向"><button className={ladderDirection === 'up' ? 'active rise' : ''} onClick={() => setLadderDirection('up')}>↑ 上涨 1%—10%</button><button className={ladderDirection === 'down' ? 'active fall' : ''} onClick={() => setLadderDirection('down')}>↓ 下跌 1%—10%</button></div></div><div className="ladder-status">{!fund.prices.currentPrice.trim() || current === null || current <= 0 || baseValue === null ? <span>请输入有效的当前价格（大于零）和所选基准，系统才可标记已越过档位。</span> : <><div><span className="status-label">当前相对{baseLabels[ladderBasis]}</span><strong className={currentPct! > 0 ? 'positive' : currentPct! < 0 ? 'negative' : ''}>{formatPercent(currentPct)}</strong></div><div className="next-target">{overRange ? `当前价格已超出所选方向的十档范围（实际涨跌幅 ${formatPercent(currentPct)}）` : nextRow ? `下一档：${ladderDirection === 'up' ? '+' : '−'}${nextRow.percent}% · ${nextRow.price} 元` : ladderRows.length && ladderRows.every((r) => r.reached) ? `已越过全部十档（实际涨跌幅 ${formatPercent(currentPct)}）` : '尚未到达第一档'}</div></>}</div>{ladderRows.length ? <div className="table-scroll"><table className="ladder-table"><thead><tr><th>刻度</th><th>对应价格（元）</th><th>理论档位</th><th>当前状态</th></tr></thead><tbody>{ladderRows.map((row) => <tr key={row.percent} className={`${row.reached ? 'reached-row' : ''} ${row.isNext ? 'next-row' : ''}`}><td><span className={`level-chip ${ladderDirection}`}>{ladderDirection === 'up' ? '+' : '−'}{row.percent}%</span></td><td><strong>{row.price}</strong></td><td>{ladderDirection === 'up' ? '+' : '−'}{row.percent}.00%</td><td>{row.reached ? <span className="state-pill crossed">已越过</span> : row.isNext ? <span className="state-pill next">下一档</span> : <span className="state-pill pending">尚未到达</span>}</td></tr>)}</tbody></table></div> : <div className="empty-state compact"><strong>尚未生成阶梯</strong><span>请先填写上方选择的基准价格，并检查最小价格变动单位。</span></div>}<div className="ladder-note"><span>报价单位：{fund.tickSize} 元</span><span>价格先计算，再按报价单位四舍五入。</span><span>已越过标记只用于价格定位，不构成交易信号。</span></div></section>

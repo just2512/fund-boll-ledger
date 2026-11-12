@@ -2,7 +2,7 @@ name: Live Technical Acceptance and Multi-ETF Calibration
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'work/technical-state-information-architecture']
     paths:
       - 'src/market-data.ts'
       - 'src/macd.ts'
@@ -29,7 +29,6 @@ on:
       - 'scripts/run-live-technical-calibration.mjs'
       - 'package.json'
       - 'package-lock.json'
-      - '.github/workflows/technical-state-calibration.yml'
   workflow_dispatch:
 
 permissions:

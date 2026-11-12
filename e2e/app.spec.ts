@@ -39,15 +39,18 @@ test('当前价格对比模块可整体收起、展开并保留本地选择', as
   await expect(page.locator('.save-state.saved')).toBeVisible({ timeout: 10_000 });
   await expect(page.getByText('BOLL + MACD 技术状态')).toBeVisible();
   await expect(page.getByText('描述性数据')).toBeVisible();
-  await expect(page.getByText('BOLL 使用日/周/月版本化参考配置；历史不足或数据无效时明确标记未知')).toBeVisible();
+  await expect(page.getByText('按日、周、月分别描述；只使用已确认 K 线，不生成交易方向')).toBeVisible();
   await expect(page.getByText(/不构成买卖建议/)).toBeVisible();
-  const periodDetails = page.locator('.technical-period-details');
-  await expect(periodDetails).not.toHaveAttribute('open');
-  await periodDetails.locator('summary').click();
-  await expect(page.getByText('刷新行情后获取已确认历史数据').first()).toBeVisible();
-  await expect(periodDetails).toHaveAttribute('open');
-  await periodDetails.locator('summary').click();
-  await expect(periodDetails).not.toHaveAttribute('open');
+  await expect(page.locator('.technical-period-details')).toHaveCount(0);
+  await expect(page.getByRole('tab', { name: '日线' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByText('刷新行情后获取该周期已确认历史数据。')).toBeVisible();
+  await page.getByRole('tab', { name: '周线' }).click();
+  await expect(page.getByRole('tab', { name: '周线' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('.macd-period-card')).toHaveAttribute('data-period', 'weekly');
+  await page.getByRole('tab', { name: '月线' }).click();
+  await expect(page.locator('.macd-period-card')).toHaveAttribute('data-period', 'monthly');
+  await page.getByRole('tab', { name: '日线' }).click();
+  await expect(page.locator('.macd-period-card')).toHaveAttribute('data-period', 'daily');
   await page.getByRole('button', { name: '收起内容' }).click();
   await expect(page.getByText('BOLL + MACD 技术状态')).toHaveCount(0);
   await expect(page.locator('.comparison-card')).toHaveCount(0);
@@ -500,6 +503,160 @@ test('行情仅在手动点击时请求，东方财富成功后更新当前价�
   await expect(page.locator('.quote-refresh-meta').getByText(/BOLL\(20,2\)/)).toBeVisible();
   expect(eastmoneyCalls).toBe(1);
   expect(baiduCalls).toBe(0);
+});
+
+test('真实确认历史驱动 BOLL/MACD 完整详情、历史分页和窄屏滚动', async ({ page }) => {
+  const pad = (value: number) => String(value).padStart(2, '0');
+  const asDate = (date: Date) => date.getUTCFullYear() + '-' + pad(date.getUTCMonth() + 1) + '-' + pad(date.getUTCDate());
+  const closeAt = (index: number) => (4 + index * 0.0008 + Math.sin(index / 6) * 0.06 + Math.cos(index / 17) * 0.025).toFixed(4);
+  const makeBars = (count: number, stepDays: number, anchor: Date) => {
+    const rows: string[] = [];
+    for (let index = count - 1; index >= 0; index -= 1) {
+      const date = new Date(anchor);
+      date.setUTCDate(date.getUTCDate() - index * stepDays);
+      const close = closeAt(count - 1 - index);
+      rows.push([asDate(date), close, close, close, close, '0', '0', '0', '0', '0', '0'].join(','));
+    }
+    return rows;
+  };
+  const makeMonthlyBars = (count: number, anchor: Date) => {
+    const rows: string[] = [];
+    for (let index = count - 1; index >= 0; index -= 1) {
+      const date = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth() - index, 1));
+      const close = closeAt(count - 1 - index);
+      rows.push([asDate(date), close, close, close, close, '0', '0', '0', '0', '0', '0'].join(','));
+    }
+    return rows;
+  };
+  const today = new Date();
+  const anchor = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - 7));
+  const currentWeekMonday = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+  currentWeekMonday.setUTCDate(currentWeekMonday.getUTCDate() - ((currentWeekMonday.getUTCDay() + 6) % 7));
+  currentWeekMonday.setUTCDate(currentWeekMonday.getUTCDate() - 7);
+  const previousMonth = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 1, 1));
+  let historyMode: 'full' | 'insufficient' | 'short' = 'full';
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.route('https://push2.eastmoney.com/**', async (route) => {
+    await route.fulfill({
+      status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' },
+      body: JSON.stringify({ data: { f57: '510300', f58: '沪深300ETF', f43: '4.125', f60: '4.000', f86: currentMarketEpoch() } }),
+    });
+  });
+  await page.route('https://push2his.eastmoney.com/**', async (route) => {
+    const url = new URL(route.request().url());
+    const interval = url.searchParams.get('klt');
+    const bars = interval === '101'
+      ? makeBars(historyMode === 'full' ? 240 : historyMode === 'insufficient' ? 100 : 12, 1, anchor)
+      : interval === '102'
+        ? makeBars(historyMode === 'full' ? 180 : historyMode === 'insufficient' ? 100 : 12, 7, currentWeekMonday)
+        : makeMonthlyBars(historyMode === 'full' ? 120 : historyMode === 'insufficient' ? 80 : 12, previousMonth);
+    await route.fulfill({
+      status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' },
+      body: JSON.stringify({ data: { code: '510300', klines: bars } }),
+    });
+  });
+  await page.route('https://qt.gtimg.cn/**', (route) => route.fulfill({ status: 503, body: 'fallback not expected' }));
+  await page.route('https://ifzq.gtimg.cn/**', (route) => route.fulfill({ status: 503, body: 'fallback not expected' }));
+
+  await createFund(page, '技术状态验收 ETF', '510300');
+  await page.getByRole('button', { name: '刷新行情' }).click();
+  await expect(page.getByText('日线 · 指标计算依据')).toBeVisible();
+  await expect(page.getByText(/公式版本：technical-formula-v1/)).toBeVisible();
+  await expect(page.getByText(/EMA 初始化：快线\/慢线以首根确认收盘价为种子/)).toBeVisible();
+  await expect(page.getByText('K 线来源：东方财富 · 现价来源：东方财富')).toBeVisible();
+  await expect(page.getByText(/参数版本 reference-2026-11-09/)).toBeVisible();
+  await expect(page.getByText(/EMA 种子日期：.*实际输入 240 根/)).toBeVisible();
+  await expect(page.getByText(/观察窗口起点/).first()).toBeVisible();
+  await expect(page.getByText('历史计算明细')).toBeVisible();
+  await expect(page.locator('.technical-history-scroll').nth(0).locator('tbody tr')).toHaveCount(20);
+  await expect(page.locator('.technical-history-scroll').nth(0).getByRole('columnheader', { name: '通道位置 %' })).toBeVisible();
+  const latestBollRow = page.locator('.technical-history-scroll').nth(0).locator('tbody tr').last();
+  await expect(latestBollRow.locator('td').nth(9)).not.toHaveText('—');
+  await expect(latestBollRow.locator('td').nth(10)).not.toHaveText('—');
+  for (const column of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
+    await expect(latestBollRow.locator('td').nth(column)).not.toHaveText('—');
+  }
+  const latestMacdRow = page.locator('.technical-history-scroll').nth(1).locator('tbody tr').last();
+  expect(await latestMacdRow.locator('td').nth(0).textContent()).toBe(await latestBollRow.locator('td').nth(0).textContent());
+  for (const column of [2, 3, 4, 5, 6, 7, 8]) {
+    await expect(latestMacdRow.locator('td').nth(column)).not.toHaveText('预热');
+    await expect(latestMacdRow.locator('td').nth(column)).not.toHaveText('未知');
+  }
+  await expect(page.locator('.macd-indicator-state .macd-period-values span').nth(0)).toHaveText(/^DIF\s+-?\d/);
+  await expect(page.locator('.macd-indicator-state .macd-period-values span').nth(1)).toHaveText(/^DEA\s+-?\d/);
+  await expect(page.locator('.macd-indicator-state .macd-period-values span').nth(2)).toHaveText(/^柱体\s+-?\d/);
+  await expect(page.getByText(/最近一次交叉：/)).toBeVisible();
+
+  await expect(page.getByText(/上\/中\/下轨：/)).toBeVisible();
+  await expect(page.getByText(/带宽 /)).toBeVisible();
+  await expect(page.getByText(/历史分位 /)).toBeVisible();
+  await expect(page.getByText(/分位样本 /)).toBeVisible();
+  await expect(page.getByText(/带宽阶段 /)).toBeVisible();
+  await expect(page.getByText(/中轨方向 /)).toBeVisible();
+  await expect(page.getByText(/确认收盘位置 /)).toBeVisible();
+  await expect(page.getByText(/本根交叉：/)).toBeVisible();
+  await expect(page.getByText(/当前排列开始：/)).toBeVisible();
+  await expect(page.locator('.macd-momentum')).toBeVisible();
+
+  const stableLatestDate = await latestBollRow.locator('td').nth(0).textContent();
+  const stableLatestMacdDif = await latestMacdRow.locator('td').nth(2).textContent();
+  await page.getByRole('button', { name: '刷新行情' }).click();
+  await expect(latestBollRow.locator('td').nth(0)).toHaveText(stableLatestDate!);
+  await expect(latestMacdRow.locator('td').nth(2)).toHaveText(stableLatestMacdDif!);
+  await expect(page.getByText('K 线来源：东方财富 · 现价来源：东方财富')).toBeVisible();
+
+
+  await expect(page.locator('.technical-history-scroll').nth(1).locator('tbody tr')).toHaveCount(20);
+  await expect(page.getByText(/第 1 \/ 12 页 · 显示 20 根/)).toBeVisible();
+  await expect(page.locator('.macd-period-card details')).toHaveCount(0);
+
+  await page.getByRole('button', { name: '更早 20 根' }).click();
+  await expect(page.getByText(/第 2 \/ 12 页 · 显示 20 根/)).toBeVisible();
+  await page.getByRole('tab', { name: '周线' }).click();
+  await expect(page.getByText('周线 · 指标计算依据')).toBeVisible();
+  await expect(page.getByText(/实际输入 180 根/)).toBeVisible();
+  await page.getByRole('tab', { name: '月线' }).click();
+  await expect(page.getByText('月线 · 指标计算依据')).toBeVisible();
+  await expect(page.getByText(/实际输入 120 根/)).toBeVisible();
+
+  const dimensions = await page.evaluate(() => {
+    const table = document.querySelector('.technical-history-scroll') as HTMLElement | null;
+    return {
+      viewport: document.documentElement.clientWidth,
+      document: document.documentElement.scrollWidth,
+      tableScrollWidth: table?.scrollWidth ?? null,
+      tableClientWidth: table?.clientWidth ?? null,
+    };
+  });
+  expect(dimensions.document).toBeLessThanOrEqual(dimensions.viewport);
+  expect(dimensions.tableScrollWidth).not.toBeNull();
+  expect(dimensions.tableScrollWidth!).toBeGreaterThan(dimensions.tableClientWidth!);
+
+  historyMode = 'insufficient';
+  await page.getByRole('tab', { name: '日线' }).click();
+  await page.getByRole('button', { name: '刷新行情' }).click();
+  await expect(page.getByText('MACD 历史不足', { exact: true })).toBeVisible();
+  await expect(page.getByText(/EMA 种子日期：.*实际输入 100 根/)).toBeVisible();
+  await expect(page.getByText(/MACD 数据不可用/)).toHaveCount(0);
+
+  historyMode = 'short';
+  await page.getByRole('button', { name: '刷新行情' }).click();
+  await expect(page.locator('.technical-history-scroll').nth(0).locator('tbody tr')).toHaveCount(12);
+  await expect(page.locator('.technical-history-scroll').nth(1).locator('tbody tr')).toHaveCount(12);
+  await expect(page.getByText(/第 1 \/ 1 页 · 显示 12 根/)).toBeVisible();
+  await expect(page.getByText(/EMA 种子日期：.*实际输入 12 根/)).toBeVisible();
+
+  // 技术状态属于本次行情刷新产生的内存派生数据；reload 后不恢复，
+  // 但账本中的现价仍保留，用户可重新刷新生成新的技术状态。
+  await page.reload();
+  await expect(page.getByPlaceholder('输入你看到的最新价格')).toHaveValue('4.125');
+  await expect(page.locator('.macd-summary')).toHaveText('刷新行情后计算');
+  await expect(page.locator('.macd-period-message')).toContainText('刷新行情后获取该周期已确认历史数据。');
+  await expect(page.getByText(/公式版本：technical-formula-v1/)).toHaveCount(0);
+  await page.getByRole('button', { name: '刷新行情' }).click();
+  await expect(page.getByText('日线 · 指标计算依据')).toBeVisible();
+  await expect(page.getByText(/公式版本：technical-formula-v1/)).toBeVisible();
 });
 
 test('东方财富与腾讯都失败时百度自动兜底，三源都失败时保留手动价格', async ({ page }) => {
@@ -1232,4 +1389,97 @@ test('历史页删除快照只影响目标条目', async ({ page }) => {
   await expect(page.locator('.snapshot-card', { hasText: '快照一' })).toHaveCount(0);
   await expect(page.locator('.snapshot-card', { hasText: '快照二' })).toBeVisible();
   await expect(page.locator('.snapshot-card')).toHaveCount(1);
+});
+
+
+test('K 线来源全部失败时，技术详情明确显示无确认历史和缺失来源', async ({ page }) => {
+  await page.route('https://push2.eastmoney.com/**', (route) => route.fulfill({
+    status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' },
+    body: JSON.stringify({ data: { f57: '510300', f58: '沪深300ETF', f43: '4.125', f60: '4.000', f86: currentMarketEpoch() } }),
+  }));
+  await page.route('https://push2his.eastmoney.com/**', (route) => route.fulfill({ status: 503, body: 'eastmoney kline unavailable' }));
+  await page.route('https://qt.gtimg.cn/**', (route) => route.fulfill({ status: 503, body: 'tencent quote unavailable' }));
+  await page.route('https://ifzq.gtimg.cn/**', (route) => route.fulfill({ status: 503, body: 'tencent kline unavailable' }));
+  await page.route('https://finance.pae.baidu.com/**', (route) => route.fulfill({ status: 503, body: 'baidu quote unavailable' }));
+  await page.route('https://sp0.baidu.com/**', (route) => route.fulfill({ status: 503, body: 'baidu kline unavailable' }));
+
+  await createFund(page, 'K线来源失败验收 ETF', '510300');
+  await page.getByRole('button', { name: '刷新行情' }).click();
+
+  await expect(page.getByText('日线 · 指标计算依据')).toBeVisible();
+  await expect(page.getByText('无可确认历史 K 线', { exact: true })).toBeVisible();
+  await expect(page.getByText('K 线来源：未提供 · 现价来源：东方财富')).toBeVisible();
+  await expect(page.locator('.macd-summary')).toContainText('BOLL 数据不可用');
+  await expect(page.locator('.macd-summary')).toContainText('MACD 数据不可用');
+  await expect(page.locator('.macd-summary')).toContainText(/东方财富失败|腾讯失败|百度失败/);
+});
+
+
+test('全部现价行情源失败时，技术摘要显示真实失败原因而非空白状态', async ({ page }) => {
+  await page.route('https://push2.eastmoney.com/**', (route) => route.fulfill({ status: 503, body: 'eastmoney quote unavailable' }));
+  await page.route('https://qt.gtimg.cn/**', (route) => route.fulfill({ status: 503, body: 'tencent quote unavailable' }));
+  await page.route('https://finance.pae.baidu.com/**', (route) => route.fulfill({ status: 503, body: 'baidu quote unavailable' }));
+  await page.route('https://sp0.baidu.com/**', (route) => route.fulfill({ status: 503, body: 'baidu fallback unavailable' }));
+
+  await createFund(page, '现价行情源失败验收 ETF', '510300');
+  await page.getByRole('button', { name: '刷新行情' }).click();
+
+  await expect(page.locator('.macd-summary')).toContainText('行情数据不可用');
+  await expect(page.locator('.macd-summary')).toContainText(/东方财富失败|腾讯失败|百度失败/);
+});
+
+
+test('刷新失败但保留上次行情时，技术摘要明确标注旧数据', async ({ page }) => {
+  let quoteRequests = 0;
+  await page.route('https://push2.eastmoney.com/**', async (route) => {
+    quoteRequests += 1;
+    if (quoteRequests === 1) {
+      await route.fulfill({
+        status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' },
+        body: JSON.stringify({ data: { f57: '510300', f58: '沪深300ETF', f43: '4.125', f60: '4.000', f86: currentMarketEpoch() } }),
+      });
+    } else {
+      await route.fulfill({ status: 503, body: 'eastmoney quote unavailable on refresh' });
+    }
+  });
+  await page.route('https://qt.gtimg.cn/**', (route) => route.fulfill({ status: 503, body: 'tencent quote unavailable' }));
+  await page.route('https://ifzq.gtimg.cn/**', (route) => route.fulfill({ status: 503, body: 'tencent kline unavailable' }));
+  await page.route('https://push2his.eastmoney.com/**', (route) => route.fulfill({ status: 503, body: 'eastmoney kline unavailable' }));
+  await page.route('https://finance.pae.baidu.com/**', (route) => route.fulfill({ status: 503, body: 'baidu unavailable' }));
+  await page.route('https://sp0.baidu.com/**', (route) => route.fulfill({ status: 503, body: 'baidu fallback unavailable' }));
+
+  await createFund(page, '行情刷新失败保留旧数据验收 ETF', '510300');
+  await page.getByRole('button', { name: '刷新行情' }).click();
+  await expect(page.locator('.macd-summary')).toContainText('BOLL 数据不可用');
+
+  await page.getByRole('button', { name: '刷新行情' }).click();
+  await expect(page.locator('.macd-summary')).toContainText('本次行情刷新失败，以下仍为上次成功数据');
+  await expect(page.locator('.macd-summary')).toContainText('东方财富失败');
+  expect(quoteRequests).toBeGreaterThanOrEqual(2);
+});
+
+
+test('BOLL/MACD 技术状态不进入 JSON 备份', async ({ page }) => {
+  await page.route('https://push2.eastmoney.com/**', (route) => route.fulfill({
+    status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' },
+    body: JSON.stringify({ data: { f57: '510300', f58: '沪深300ETF', f43: '4.125', f60: '4.000', f86: currentMarketEpoch() } }),
+  }));
+  await page.route('https://push2his.eastmoney.com/**', (route) => route.fulfill({ status: 503, body: 'eastmoney kline unavailable' }));
+  await page.route('https://qt.gtimg.cn/**', (route) => route.fulfill({ status: 503, body: 'tencent quote unavailable' }));
+  await page.route('https://ifzq.gtimg.cn/**', (route) => route.fulfill({ status: 503, body: 'tencent kline unavailable' }));
+  await page.route('https://finance.pae.baidu.com/**', (route) => route.fulfill({ status: 503, body: 'baidu unavailable' }));
+  await page.route('https://sp0.baidu.com/**', (route) => route.fulfill({ status: 503, body: 'baidu fallback unavailable' }));
+
+  await createFund(page, '技术状态隔离验收 ETF', '510300');
+  await page.getByRole('button', { name: '刷新行情' }).click();
+  await expect(page.locator('.macd-summary')).toContainText('BOLL 数据不可用');
+
+  await page.getByRole('button', { name: '历史与备份' }).click();
+  const jsonDownload = page.waitForEvent('download');
+  await page.getByRole('button', { name: '导出 JSON' }).click();
+  const backup = JSON.parse(readFileSync(await (await jsonDownload).path(), 'utf8'));
+  expect(Object.keys(backup).sort()).toEqual(['funds', 'schemaVersion', 'snapshots', 'trades']);
+  expect(JSON.stringify(backup)).not.toContain('technicalState');
+  expect(JSON.stringify(backup)).not.toContain('formulaVersion');
+
 });

@@ -30,6 +30,10 @@ function insufficient(interval: TechnicalInterval, reason: string): TechnicalNor
   return { validity: 'INSUFFICIENT', interval, reason };
 }
 
+function unavailable(interval: TechnicalInterval, reason: string): TechnicalNormalizationResult {
+  return { validity: 'UNAVAILABLE', interval, reason };
+}
+
 function normalizeBars(rawBars: readonly TechnicalRawBar[], interval: TechnicalInterval): TechnicalBar[] | TechnicalNormalizationResult {
   const byDate = new Map<string, number>();
   for (const bar of rawBars) {
@@ -63,7 +67,7 @@ function latestBarIsClosed(
 export function normalizeConfirmedTechnicalSeries(input: TechnicalHistoryInput): TechnicalNormalizationResult {
   const { interval, quote } = input;
   if (!quote.tradingDate || !isCalendarDate(quote.tradingDate)) {
-    return invalid(interval, '缺少有效的源端交易日期，无法确认最新 K 线收盘状态');
+    return unavailable(interval, '缺少有效的源端交易日期，无法确认最新 K 线收盘状态');
   }
   const normalized = normalizeBars(input.bars, interval);
   if (!Array.isArray(normalized)) return normalized;

@@ -5,6 +5,8 @@ import type { BollStateConfig, TechnicalInterval } from './types';
  * These are display-classification parameters, not trading thresholds or a
  * performance-optimized strategy. Keep the sensitivity report alongside them.
  */
+export const TECHNICAL_FORMULA_VERSION = 'technical-formula-v1';
+
 export const BOLL_STATE_CONFIG_VERSION = 'reference-2026-11-09';
 
 export const BOLL_STATE_CONFIG_BY_INTERVAL: Readonly<Record<TechnicalInterval, BollStateConfig>> = {

@@ -122,9 +122,10 @@ if (byId.get('T-07')?.status === 'PASS' && !read('src/technical-state/engine.ts'
 if (byId.get('T-09')?.status === 'PASS') {
   const app = read('src/App.tsx');
   const e2e = read('e2e/app.spec.ts') + read('e2e/foldable.spec.ts');
-  if (!app.includes('technical-period-details') || !app.includes('BOLL + MACD 技术状态') ||
-      !e2e.includes('technical-period-details')) {
-    throw new Error('T-09 cannot be PASS without the folded BOLL/MACD panel and viewport E2E coverage.');
+  if (!app.includes('macd-period-selector') || !app.includes('BOLL + MACD 技术状态') ||
+      app.includes('technical-period-details') || app.includes('macd-detail-tray') ||
+      !e2e.includes('macd-period-selector') || !e2e.includes("getByRole('tab'")) {
+    throw new Error('T-09 cannot be PASS without direct period selection, visible evidence, and viewport E2E coverage.');
   }
 }
 

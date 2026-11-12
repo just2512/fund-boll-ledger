@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculateMacdFromConfirmedSeries, calculateMacdPeriod, macdArrangementLabel, macdMomentumLabel, macdZeroAxisLabel, minimumMacdHistoryBars, summarizeMacdPeriods, unavailableMacdPeriod, type MacdBar } from './macd';
+import { calculateMacdFromConfirmedSeries, calculateMacdHistoryFromConfirmedSeries, calculateMacdPeriod, macdArrangementLabel, macdMomentumLabel, macdZeroAxisLabel, minimumMacdHistoryBars, summarizeMacdPeriods, unavailableMacdPeriod, type MacdBar } from './macd';
 import type { ConfirmedTechnicalSeries } from './technical-state/types';
 
 function barsWithReversal(): MacdBar[] {
@@ -139,6 +139,21 @@ describe('MACD deterministic multi-timeframe rules', () => {
     expect(invalidCloseState.error).toContain('收盘价');
     expect(invalidCloseState.availability).toBe('invalid-data');
     expect(invalidCloseState.crossEvent).toBe('unknown');
+  });
+
+  it('reuses date-aligned MACD history without changing the current snapshot', () => {
+    const source = barsWithReversal();
+    const confirmed: ConfirmedTechnicalSeries = {
+      interval: 'daily',
+      asOfDate: source[source.length - 1].date,
+      bars: source.map((bar) => ({ date: bar.date, close: Number(bar.close) })),
+      excludedInProgressBar: false,
+      source: '东方财富',
+    };
+    const history = calculateMacdHistoryFromConfirmedSeries(confirmed);
+    expect(calculateMacdFromConfirmedSeries(confirmed, history)).toEqual(calculateMacdFromConfirmedSeries(confirmed));
+    const mismatched = history.map((point, index) => index === 0 ? { ...point, date: '1900-01-01' } : point);
+    expect(calculateMacdFromConfirmedSeries(confirmed, mismatched).availability).toBe('invalid-data');
   });
 
   it('returns date-aligned MACD history and the exact latest confirmed cross date', () => {

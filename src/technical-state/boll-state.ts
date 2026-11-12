@@ -1,4 +1,5 @@
 import type {
+  BollHistoryPoint,
   BollState,
   BollStateConfig,
   BollBandwidthPhase,
@@ -124,6 +125,7 @@ function priceLocation(position: number | undefined, nearDistance: number): Boll
 export function calculateBollState(
   series: ConfirmedTechnicalSeries,
   config?: BollStateConfig,
+  history?: readonly BollHistoryPoint[],
 ): BollState {
   const configError = config ? validateConfig(config) : undefined;
   if (configError) return invalid(configError);
@@ -144,7 +146,14 @@ export function calculateBollState(
     return invalid('最近 20 根收盘价计算出的 BOLL 下轨小于或等于 0');
   }
 
-  const points = calculatePoints(series);
+  if (history && (history.length !== series.bars.length || history.some((point, index) =>
+    point.date !== series.bars[index]?.date || point.close !== series.bars[index]?.close
+  ))) return invalid('BOLL 历史结果与确认序列日期或收盘价不一致');
+  const points: Array<BollPoint | undefined> = history
+    ? history.map((point) => point.upper === undefined || point.middle === undefined || point.lower === undefined || point.bandwidthPercent === undefined
+      ? undefined
+      : { date: point.date, close: point.close, upper: point.upper, middle: point.middle, lower: point.lower, bandwidthPercent: point.bandwidthPercent })
+    : calculatePoints(series);
   const current = points.at(-1);
   if (!current || current.date !== series.asOfDate) return invalid('最近一根确认 K 线无法形成有效 BOLL 轨道');
   const bandwidths = points.map((point) => point?.bandwidthPercent);
@@ -231,4 +240,129 @@ export function calculateBollState(
     priceLocation: priceLocation(closeLocationPercent, config.nearBandDistancePercent),
     ...(reasons.length === 0 ? {} : { reason: reasons.join('；') }),
   };
+}
+
+
+/**
+ * Build one BOLL result per confirmed bar. Rows remain date-aligned with the
+ * source series; warm-up rows carry unknown classifications rather than being
+ * dropped or backfilled.
+ */
+export function calculateBollHistory(
+  series: ConfirmedTechnicalSeries,
+  config?: BollStateConfig,
+): import('./types').BollHistoryPoint[] {
+  if (config && validateConfig(config)) return [];
+  if (series.bars.length === 0) return [];
+  if (series.asOfDate !== series.bars[series.bars.length - 1]?.date) return [];
+  let previousDate = '';
+  for (const bar of series.bars) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(bar.date) || bar.date <= previousDate ||
+        !Number.isFinite(bar.close) || bar.close <= 0) return [];
+    previousDate = bar.date;
+  }
+
+  const points = calculatePoints(series);
+  const bandwidths = points.map((point) => point?.bandwidthPercent);
+  const bandwidthChanges = bandwidths.map((value, index) =>
+    value === undefined ? undefined : percentChange(value, bandwidths[index - 1]));
+  const middleChanges = points.map((point, index) => {
+    const prior = config ? points[index - config.middleDirectionLookback] : undefined;
+    return point && prior ? percentChange(point.middle, prior.middle) : undefined;
+  });
+  const bandwidthDirections = bandwidthChanges.map((value) =>
+    config ? classifyChange(value, config.flatTolerancePercent) : 'unknown' as Direction);
+  const middleDirections = middleChanges.map((value) =>
+    config ? classifyChange(value, config.flatTolerancePercent) : 'unknown' as Direction);
+
+  const mapPhase = (phase: ReturnType<typeof classifyConfirmedTrend>): BollBandwidthPhase => {
+    if (phase === 'up') return 'expanding';
+    if (phase === 'down') return 'contracting';
+    if (phase === 'turning-up') return 'contracting-to-expanding';
+    if (phase === 'turning-down') return 'expanding-to-contracting';
+    if (phase === 'flat') return 'flat';
+    return 'unknown';
+  };
+  const phases: BollBandwidthPhase[] = [];
+  const directions: Array<ReturnType<typeof classifyConfirmedTrend>> = [];
+  const baseRows = points.map((point, index) => {
+    const phaseWindow = config
+      ? bandwidthDirections.slice(Math.max(0, index - config.confirmationBars * 2 + 1), index + 1)
+      : [];
+    const middleWindow = config
+      ? middleDirections.slice(Math.max(0, index - config.confirmationBars * 2 + 1), index + 1)
+      : [];
+    const phase = config ? mapPhase(classifyConfirmedTrend(phaseWindow, config.confirmationBars)) : 'unknown';
+    const middleDirection = config ? classifyConfirmedTrend(middleWindow, config.confirmationBars) : 'unknown';
+    const confirmedChanges = config ? bandwidthDirections.slice(Math.max(0, index - config.confirmationBars + 1), index + 1) : [];
+    const persistentPhase: BollBandwidthPhase =
+      phase === 'expanding' && confirmedChanges.length === config?.confirmationBars && confirmedChanges.every((item) => item === 'up') ? 'expanding-persistent' :
+      phase === 'contracting' && confirmedChanges.length === config?.confirmationBars && confirmedChanges.every((item) => item === 'down') ? 'contracting-persistent' :
+      phase;
+    const rankWindow = config
+      ? bandwidths.slice(Math.max(0, index - config.bandwidthRankLookback + 1), index + 1)
+          .filter((value): value is number => value !== undefined)
+      : [];
+    const percentile = config && point && rankWindow.length >= config.bandwidthRankMinimumSamples
+      ? rankWindow.filter((value) => value <= point.bandwidthPercent).length / rankWindow.length * 100
+      : undefined;
+    const locationPercent = point && point.upper !== point.lower
+      ? ((point.close - point.lower) / (point.upper - point.lower)) * 100
+      : undefined;
+    phases.push(persistentPhase);
+    directions.push(middleDirection);
+    return {
+      date: series.bars[index].date,
+      close: series.bars[index].close,
+      ...(point ? {
+        upper: point.upper,
+        middle: point.middle,
+        lower: point.lower,
+        bandwidthPercent: point.bandwidthPercent,
+      } : {}),
+      ...(percentile === undefined ? {} : { bandwidthPercentile: percentile }),
+      ...(config && point ? { bandwidthSampleCount: rankWindow.length } : {}),
+      bandwidthPhase: persistentPhase,
+      middleDirection,
+      ...(locationPercent === undefined ? {} : { closeLocationPercent: locationPercent }),
+      priceLocation: config && locationPercent !== undefined
+        ? priceLocation(locationPercent, config.nearBandDistancePercent)
+        : priceLocationWithoutThresholds(locationPercent),
+    };
+  });
+
+  const phaseStartDates: Array<string | undefined> = [];
+  const phaseObservationStartDates: Array<string | undefined> = [];
+  const directionStartDates: Array<string | undefined> = [];
+  const directionObservationStartDates: Array<string | undefined> = [];
+  let phaseStartDate: string | undefined;
+  let phaseObservationStartDate: string | undefined;
+  let directionStartDate: string | undefined;
+  let directionObservationStartDate: string | undefined;
+  for (let index = 0; index < baseRows.length; index += 1) {
+    if (index === 0 || phases[index] !== phases[index - 1]) {
+      phaseStartDate = phases[index] === 'unknown' ? undefined : series.bars[index].date;
+      phaseObservationStartDate = phases[index] === 'unknown' || !config
+        ? undefined
+        : series.bars[Math.max(0, index - config.confirmationBars + 1)].date;
+    }
+    if (index === 0 || directions[index] !== directions[index - 1]) {
+      directionStartDate = directions[index] === 'unknown' ? undefined : series.bars[index].date;
+      directionObservationStartDate = directions[index] === 'unknown' || !config
+        ? undefined
+        : series.bars[Math.max(0, index - config.confirmationBars + 1)].date;
+    }
+    phaseStartDates.push(phaseStartDate);
+    phaseObservationStartDates.push(phaseObservationStartDate);
+    directionStartDates.push(directionStartDate);
+    directionObservationStartDates.push(directionObservationStartDate);
+  }
+
+  return baseRows.map((row, index) => ({
+    ...row,
+    ...(phaseStartDates[index] ? { bandwidthPhaseStartDate: phaseStartDates[index] } : {}),
+    ...(phaseObservationStartDates[index] ? { bandwidthPhaseObservationStartDate: phaseObservationStartDates[index] } : {}),
+    ...(directionStartDates[index] ? { middleDirectionStartDate: directionStartDates[index] } : {}),
+    ...(directionObservationStartDates[index] ? { middleDirectionObservationStartDate: directionObservationStartDates[index] } : {}),
+  }));
 }

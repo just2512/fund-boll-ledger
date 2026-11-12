@@ -34,6 +34,8 @@ jobs:
           node --check scripts/export-android-signing-secrets.mjs
       - name: Run unit tests
         run: npm run test
+      - name: Benchmark BOLL/MACD history reuse
+        run: npm run bench:technical-state
       - name: Type-check and production build
         run: npm run build
 
