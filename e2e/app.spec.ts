@@ -651,7 +651,8 @@ test('真实确认历史驱动 BOLL/MACD 完整详情、历史分页和窄屏滚
   // 但账本中的现价仍保留，用户可重新刷新生成新的技术状态。
   await page.reload();
   await expect(page.getByPlaceholder('输入你看到的最新价格')).toHaveValue('4.125');
-  await expect(page.getByText('日线 · 指标计算依据')).toHaveCount(0);
+  await expect(page.locator('.macd-summary')).toHaveText('刷新行情后计算');
+  await expect(page.locator('.macd-period-message')).toContainText('刷新行情后获取该周期已确认历史数据。');
   await expect(page.getByText(/公式版本：technical-formula-v1/)).toHaveCount(0);
   await page.getByRole('button', { name: '刷新行情' }).click();
   await expect(page.getByText('日线 · 指标计算依据')).toBeVisible();
