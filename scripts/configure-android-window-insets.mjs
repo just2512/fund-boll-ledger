@@ -29,12 +29,12 @@ if (source.includes(marker)) {
   process.exit(0);
 }
 
-const classPattern = /class MainActivity\\s*:\\s*TauriActivity\\s*\\(\\s*\\)\\s*(?:\\{\\s*\\})?/;
+const classPattern = /class MainActivity\s*:\s*TauriActivity\s*\(\s*\)\s*(?:\{\s*\})?/;
 if (!classPattern.test(source)) {
   throw new Error('Generated MainActivity.kt does not match the expected TauriActivity class shape; refusing to rewrite it.');
 }
 
-const packageMatch = source.match(/^package [^\\r\\n]+/m);
+const packageMatch = source.match(/^package [^\r\n]+/m);
 if (!packageMatch) throw new Error('Generated MainActivity.kt has no package declaration.');
 const imports = [
   'import android.os.Bundle',
@@ -42,7 +42,7 @@ const imports = [
   'import androidx.core.view.WindowCompat',
   'import androidx.core.view.WindowInsetsCompat',
 ].filter((item) => !source.includes(item));
-if (imports.length) source = source.replace(packageMatch[0], packageMatch[0] + '\\n' + imports.join('\\n'));
+if (imports.length) source = source.replace(packageMatch[0], packageMatch[0] + '\n' + imports.join('\n'));
 
 const activity = [
   'class MainActivity : TauriActivity() {',
@@ -70,7 +70,7 @@ const activity = [
   '        ViewCompat.requestApplyInsets(content)',
   '    }',
   '}',
-].join('\\n');
+].join('\n');
 
 source = source.replace(classPattern, activity);
 fs.writeFileSync(activityPath, source, 'utf8');
