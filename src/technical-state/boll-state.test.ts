@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculateBollState } from './boll-state';
+import { calculateBollHistory, calculateBollState } from './boll-state';
 import type { BollStateConfig, ConfirmedTechnicalSeries, TechnicalBar } from './types';
 
 const config: BollStateConfig = {
@@ -99,6 +99,15 @@ describe('calculateBollState', () => {
     const state = calculateBollState(series(closes), config);
     expect(state.validity).toBe('VALID');
     expect(state.middleDirection).toBe('turning-up');
+  });
+
+  it('records both the first confirmed state date and its N-bar observation window start', () => {
+    const input = series(Array.from({ length: 40 }, (_, index) => 10 + index * 0.1));
+    const history = calculateBollHistory(input, { ...config, confirmationBars: 2 });
+    const firstConfirmed = history.findIndex((point) => point.bandwidthPhase !== 'unknown');
+    expect(firstConfirmed).toBeGreaterThan(0);
+    expect(history[firstConfirmed].bandwidthPhaseStartDate).toBe(history[firstConfirmed].date);
+    expect(history[firstConfirmed].bandwidthPhaseObservationStartDate).toBe(history[firstConfirmed - 1].date);
   });
 
 });
