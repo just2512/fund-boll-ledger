@@ -617,7 +617,7 @@ test('真实确认历史驱动 BOLL/MACD 完整详情、历史分页和窄屏滚
   historyMode = 'insufficient';
   await page.getByRole('tab', { name: '日线' }).click();
   await page.getByRole('button', { name: '刷新行情' }).click();
-  await expect(page.getByText('MACD 历史不足')).toBeVisible();
+  await expect(page.getByText('MACD 历史不足', { exact: true })).toBeVisible();
   await expect(page.getByText(/EMA 种子日期：.*实际输入 100 根/)).toBeVisible();
   await expect(page.getByText(/MACD 数据不可用/)).toHaveCount(0);
 
