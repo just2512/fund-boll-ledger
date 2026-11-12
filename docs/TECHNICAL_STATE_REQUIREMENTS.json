@@ -218,7 +218,7 @@
       "id": "T-07",
       "area": "multi-timeframe",
       "title": "日/周/月 BOLL + MACD 综合关系描述",
-      "status": "IN_PROGRESS",
+      "status": "PASS",
       "acceptance": [
         "日、周、月各自的 BOLL/MACD 状态和确认日期分别保留",
         "顶部技术条件摘要每周期仅显示带宽阶段、中轨方向和最新确认 K 线的 MACD 交叉事件",
@@ -249,10 +249,14 @@
           "commit": "0bd0d2ce8b960d9357ff48053c7dc2924080127c",
           "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43166497217",
           "note": "合并后 main 前端 CI（run attempt 2）：单元测试/生产构建 job 与浏览器 E2E job 均 completed/success。E2E 首次 attempt 曾有 1 项既有空状态用例 30 秒超时；仅重跑失败的 Browser end-to-end regression job 后通过，首次失败保留，不视为产品缺陷。"
+        },
+        {
+          "commit": "4ad95c268ca5a3e1f6b4e3cfdc43d364b3f564ac",
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43239044062",
+          "note": "多周期技术趋势硬条件和顶部趋势展示验收：137 passed / 2 skipped；engine.test.ts 17/17；Playwright 48/48；类型检查和生产构建通过。无评分/权重，金叉/死叉不单独决定整体方向。"
         }
       ],
-      "currentReview": "IN_PROGRESS：已获用户明确授权增加整体多空技术倾向；本轮新增硬条件判定、单测、E2E 和文档约束，等待当前提交 CI 验证后补充证据并转 PASS。",
-      "blocker": "多周期整体趋势判断的新实现与边界测试尚待本轮最新提交的单元测试、生产构建和 Playwright E2E 全部通过。"
+      "currentReview": "PASS：Frontend Checks Run 43239044062 对应提交 4ad95c268ca5a3e1f6b4e3cfdc43d364b3f564ac；137 项单测通过、2 项实时数据测试跳过，技术状态引擎 17/17，通过 Playwright 48/48；覆盖多周期偏多/偏空、短线回调/反弹、震荡、分歧、数据待确认和零轴不一致边界。Windows/Android 原生构建与真机验收另行跟踪。"
     },
     {
       "id": "T-08",
