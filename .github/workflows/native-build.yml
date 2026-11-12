@@ -2,7 +2,7 @@ name: Native App Build (manual)
 
 on:
   push:
-    branches: [work/technical-state-information-architecture]
+    branches: [main, 'work/technical-state-information-architecture']
     paths:
       - 'src/**'
       - 'src-tauri/**'
