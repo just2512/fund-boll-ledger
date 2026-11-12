@@ -646,6 +646,16 @@ test('真实确认历史驱动 BOLL/MACD 完整详情、历史分页和窄屏滚
   await expect(page.locator('.technical-history-scroll').nth(1).locator('tbody tr')).toHaveCount(12);
   await expect(page.getByText(/第 1 \/ 1 页 · 显示 12 根/)).toBeVisible();
   await expect(page.getByText(/EMA 种子日期：.*实际输入 12 根/)).toBeVisible();
+
+  // 技术状态属于本次行情刷新产生的内存派生数据；reload 后不恢复，
+  // 但账本中的现价仍保留，用户可重新刷新生成新的技术状态。
+  await page.reload();
+  await expect(page.getByPlaceholder('输入你看到的最新价格')).toHaveValue('4.125');
+  await expect(page.getByText('日线 · 指标计算依据')).toHaveCount(0);
+  await expect(page.getByText(/公式版本：technical-formula-v1/)).toHaveCount(0);
+  await page.getByRole('button', { name: '刷新行情' }).click();
+  await expect(page.getByText('日线 · 指标计算依据')).toBeVisible();
+  await expect(page.getByText(/公式版本：technical-formula-v1/)).toBeVisible();
 });
 
 test('东方财富与腾讯都失败时百度自动兜底，三源都失败时保留手动价格', async ({ page }) => {
