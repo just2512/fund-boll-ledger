@@ -279,7 +279,7 @@
           "note": "2026-11-12 最新完整前端 CI：Playwright 47/47 通过，覆盖无确认 K 线、K 线三源失败、现价源全部失败及刷新失败后旧技术数据标记；134 项单测通过、2 项 live-data 测试跳过；benchmark、类型检查和生产构建通过。原生构建与 OPPO Find N2 真机仍无证据。"
         }
       ],
-      "currentReview": "BLOCKED：最新 CI Run 43153256086 的 47 项 Playwright、134 项单测及 benchmark/TypeScript/生产构建通过；新增无确认历史、K 线三源失败、现价源全部失败和旧行情保留标记 UI 覆盖。但 Windows Tauri 原生构建、Android ARM64 构建及 OPPO Find N2 外屏/内屏真机验收尚未执行，不能以浏览器视口替代。",
+      "currentReview": "BLOCKED：浏览器自动化最新 Playwright 48/48 通过，覆盖技术详情、无确认历史、数据源失败、旧行情标记及备份隔离；真实行情验收也已通过。但 Windows Tauri/Android ARM64 原生构建和 OPPO Find N2 外屏/内屏真机验收尚未执行，不能以浏览器视口替代。",
       "blocker": "自动化浏览器视口 E2E 已通过；但 Windows Tauri 原生构建、Android ARM64 构建及 OPPO Find N2 外屏/内屏真机验收尚未执行，不能以浏览器视口替代。"
     },
     {
@@ -297,8 +297,14 @@
           "commit": "8bdb64a85f4dec5360400315915960791589566d",
           "url": "https://github.com/just2512/fund-boll-ledger/blob/main/src/storage.ts",
           "note": "storage.ts与types.ts相对用户指定回退基线blob SHA一致；本轮没有增加账本持久化字段或改变交易记录语义。"
+        },
+        {
+          "commit": "95f6960ccc9523e579f7ca385098ee0e55c62d88",
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43154771624",
+          "note": "Playwright 48/48 通过。新增 E2E 在技术状态已生成后导出 JSON，确认只包含 funds/schemaVersion/snapshots/trades，不含 technicalState/formulaVersion；与 AppData 类型和 IndexedDB 存储调用链审计一致。"
         }
-      ]
+      ],
+      "currentReview": "PASS：Fund、Trade、PriceSnapshot、AppData 不含技术状态；MarketQuote.technicalState 只作为行情响应派生字段。新增 E2E 在技术状态已生成后导出 JSON，确认仅输出 funds/schemaVersion/snapshots/trades，不含 technicalState/formulaVersion。现有交易行为回归及 Playwright 48/48 通过。"
     },
     {
       "id": "T-11",

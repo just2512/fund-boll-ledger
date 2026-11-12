@@ -253,3 +253,5 @@
 
 - **PASS（真实数据复验）**：专用 Live Technical Acceptance and Multi-ETF Calibration Run [43153956310](https://github.com/just2512/fund-boll-ledger/actions/runs/43153956310)，提交 4bf0c5e892e41888fda106b551cb9c9218ddbe05，第二次 attempt 成功。510300 日/周/月实时验收 1/1 通过；4 只 ETF × 3 周期共 12 组、7,351 根确认 K 线，全部 noFutureBars=true、逐根最终结果与批量结果一致，sourcePolicy.violations=[]。东方财富为 12 组主 K 线/现价来源；另行强制回退探针实际取得百度 K 线 2,000 根，百度报价解析到价格 4.153 和昨收 4.150，但无可信交易日期，因此不参与技术状态日期确认。thresholdSelection 继续 NOT_PERFORMED。
 - 首次真实校准 attempt 因百度直连 HTTP 403、CDN 代理超时失败；保留该失败记录，第二次 attempt 重新执行后通过。不得将首次失败删除或写成从未发生。
+
+- **PASS（持久化边界）**：Playwright Run [43154771624](https://github.com/just2512/fund-boll-ledger/actions/runs/43154771624) 中新增 E2E：行情刷新后 BOLL/MACD 技术状态可见，但 JSON 备份仅包含 funds、schemaVersion、snapshots、trades，不含 technicalState/formulaVersion。该测试验证导出边界；IndexedDB 持久化结构仍以 AppData 类型和存储调用链审计为依据。
