@@ -566,7 +566,7 @@ function bollLocationLabel(value: TechnicalStateSnapshot['boll']['priceLocation'
   };
   return labels[value];
 }
-function MacdPeriodCard({ label, state, technical }: { label: string; state?: MacdPeriodState; technical?: TechnicalStateSnapshot }) {
+function MacdPeriodCard({ label, period, state, technical }: { label: string; period: 'daily' | 'weekly' | 'monthly'; state?: MacdPeriodState; technical?: TechnicalStateSnapshot }) {
   const [historyPage, setHistoryPage] = useState(0);
   const boll = technical?.boll;
   const bollConfig = technical ? bollStateConfigFor(technical.interval) : undefined;
@@ -595,7 +595,7 @@ function MacdPeriodCard({ label, state, technical }: { label: string; state?: Ma
     ? (latestMacdHistory.lastCross === 'golden' ? '金叉' : '死叉') + ' · ' + latestMacdHistory.lastCrossDate
     : latestMacdHistory?.formulaReady ? '当前加载历史范围内未发现交叉' : '历史不足，无法确定';
   const arrangementStartDate = state?.arrangementStartDate ?? latestMacdHistory?.arrangementStartDate;
-  return <article className="macd-period-card expanded" data-period={technical?.interval ?? state?.interval ?? 'unknown'}>
+  return <article className="macd-period-card expanded" data-period={period}>
     <div className="macd-period-head">
       <strong>{label} · 指标计算依据</strong>
       <small>最后确认日期：{technical?.asOfDate ?? state?.asOfDate ?? '—'}</small>
@@ -710,7 +710,7 @@ function MacdPanel({ state, technical, loading }: { state?: MacdMultiTimeframeSt
       <button type="button" role="tab" aria-selected={activePeriod === 'weekly'} className={activePeriod === 'weekly' ? 'macd-period-tab active' : 'macd-period-tab'} onClick={() => setActivePeriod('weekly')}>周线</button>
       <button type="button" role="tab" aria-selected={activePeriod === 'monthly'} className={activePeriod === 'monthly' ? 'macd-period-tab active' : 'macd-period-tab'} onClick={() => setActivePeriod('monthly')}>月线</button>
     </div>
-    <MacdPeriodCard key={activePeriod} label={activeLabel} state={activeState} technical={activeTechnical}/>
+    <MacdPeriodCard key={activePeriod} label={activeLabel} period={activePeriod} state={activeState} technical={activeTechnical}/>
     <small className="macd-footnote">仅描述已确认行情中的指标计算结果，不构成买卖建议。MACD 状态发布门槛：日线 {MACD_STABILITY_MIN_BARS.daily} 根、周线 {MACD_STABILITY_MIN_BARS.weekly} 根、月线 {MACD_STABILITY_MIN_BARS.monthly} 根确认 K 线；该门槛不代表交易有效性验证。</small>
   </div>;
 }
