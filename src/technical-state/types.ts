@@ -49,7 +49,8 @@ export interface ConfirmedTechnicalSeries {
 export type TechnicalNormalizationResult =
   | { validity: 'VALID'; series: ConfirmedTechnicalSeries }
   | { validity: 'INSUFFICIENT'; reason: string; interval: TechnicalInterval }
-  | { validity: 'INVALID'; reason: string; interval: TechnicalInterval };
+  | { validity: 'INVALID'; reason: string; interval: TechnicalInterval }
+  | { validity: 'UNAVAILABLE'; reason: string; interval: TechnicalInterval };
 
 export type BollBandwidthPhase =
   | 'contracting'
