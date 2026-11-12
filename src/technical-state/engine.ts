@@ -1,6 +1,7 @@
 import { calculateMacdFromConfirmedSeries, calculateMacdHistoryFromConfirmedSeries, insufficientMacdPeriod, macdArrangementLabel, macdMomentumLabel, macdZeroAxisLabel, minimumMacdHistoryBars, unavailableMacdPeriod } from '../macd';
 import type { MacdPeriodState } from '../macd';
 import { calculateBollHistory, calculateBollState } from './boll-state';
+import { BOLL_STATE_CONFIG_VERSION, bollStateConfigFor } from './config';
 import type {
   BollState,
   BollStateConfig,
@@ -24,6 +25,12 @@ export function calculateTechnicalStateSnapshot(
   quoteSource?: TechnicalQuoteSource,
 ): TechnicalStateSnapshot {
   const bollHistory = calculateBollHistory(series, config);
+  const referenceConfig = bollStateConfigFor(series.interval);
+  const bollConfigVersion = config
+    ? Object.keys(referenceConfig).every((key) =>
+        config[key as keyof BollStateConfig] === referenceConfig[key as keyof BollStateConfig],
+      ) ? BOLL_STATE_CONFIG_VERSION : 'custom-unversioned'
+    : undefined;
   const latestBollHistory = bollHistory.at(-1);
   const boll = {
     ...calculateBollState(series, config),
@@ -47,6 +54,8 @@ export function calculateTechnicalStateSnapshot(
     confirmedBarCount: series.bars.length,
     excludedInProgressBar: series.excludedInProgressBar,
     boll,
+    ...(config ? { bollConfig: config } : {}),
+    ...(bollConfigVersion ? { bollConfigVersion } : {}),
     bollHistory,
     macd,
     macdHistory,
