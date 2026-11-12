@@ -284,3 +284,12 @@
 - 解释边界：MACD 在四档基准中均显示复用路径耗时较低；BOLL 的差异较小且不稳定，2,000 根这一档复用路径反而更慢。本次不据此追加算法优化，也不把单次云端合成数据基准外推为 Windows/Android/OPPO 真机性能。行情源常规日线历史上限约 1,000 根，2,000/5,000 根仅作为压力测试。
 - 先前两次 CI 失败已保留：第一次暴露 benchmark 测试来源值不符合 `TechnicalQuoteSource` 联合类型；修正后，E2E 又指出周期详情标题即使无行情也会保留，因此不能用标题存在与否判断技术状态是否持久化。最终断言改为检查摘要占位文案、详情提示和公式版本，当前 Run 43162737208 已通过。
 - T-09 仍 **BLOCKED**：浏览器 E2E 与原生构建不等于 Windows 桌面实际操作或 OPPO Find N2 真机验收。Android 持久签名 Release 未启用，debug APK 不可覆盖正式版。
+
+
+## 12. 原生构建复核更新（2026-11-12）
+
+- Native workflow [Run 43162417531](https://github.com/just2512/fund-boll-ledger/actions/runs/43162417531) 的 Windows desktop installer job：**PASS**。步骤覆盖依赖安装、升级契约、Tauri CLI、图标生成、测试/桌面构建和 artifact 上传，全部成功。
+- 同一 run 的 Android ARM64 ephemeral-signed smoke APK job：**PASS**。Android SDK/NDK、Rust ARM64 target、Gradle、APK 构建、debug keystore 签名、apksigner 验证和 artifact 上传全部成功。
+- Android ARM64 signed release job：**SKIPPED**，原因是仓库变量 `ANDROID_RELEASE_SIGNING_ENABLED` 未启用；没有可用于覆盖升级的持久签名 APK。
+- 上述结果只更新原生构建项，不改变设备验收状态：Windows 桌面实际操作、Android 安装/启动、OPPO Find N2 外屏/内屏/横竖屏/输入法和真实行情下的技术详情核对继续 **BLOCKED**。不得将 CI 构建成功解释为设备验收通过。
+- 当前文档修改提交之后，仍需由后续 CI 对文档/代码 head 进行验证；本节记录的是 run 43162417531 对其实际构建提交的 job 结果，不宣称验证了本次文档更新提交。
