@@ -91,3 +91,13 @@ The frontend browser CI and multi-ETF live calibration are recorded in the requi
 - Live calibration workflow 已加入 work/technical-state-information-architecture 分支的 push 触发，仅在技术计算相关路径变化时运行；移除 PR 事件触发以避免同一提交重复执行。workflow_dispatch 保留。
 
 - 持久化边界新增 E2E：在行情派生技术状态已生成后导出 JSON，确认只包含账本字段，不包含 technicalState/formulaVersion；AppData/IndexedDB schema 不变。
+
+
+## 2026-11-12 原生构建与当前 head CI 复核
+
+- 当前 PR head：`5604bcde85929144ee2b4ba9cae69790dafb78cc`；PR #4 仍 open、未合并，feature branch 相对 main behind 0。
+- 最新前端 CI [Run 537](https://github.com/just2512/fund-boll-ledger/actions/runs/43155831276)：unit/build/benchmark/contract job 与 browser E2E job 均成功。
+- 原生构建 [Run 8](https://github.com/just2512/fund-boll-ledger/actions/runs/43155823629)：Windows installer 成功；Android ARM64 debug-only APK 编译、临时签名、apksigner 验证和 artifact 上传成功。Artifacts：Windows `fund-boll-ledger-windows-x64`（ID `13917120140`）；Android `fund-boll-ledger-android-arm64-debug-only`（ID `13916337229`），均于 2026-11-26 到期。
+- 前一原生 run [43154632857](https://github.com/just2512/fund-boll-ledger/actions/runs/43154632857) 的 Android artifact copy 因目标路径包含分支斜杠失败；已在提交 `5604bcde85929144ee2b4ba9cae69790dafb78cc` 改为平面文件名，Run 8 已验证修复。
+- Android 持久签名 release job 因未启用 `ANDROID_RELEASE_SIGNING_ENABLED` 跳过；debug APK 不可覆盖升级正式签名版。
+- Windows/Android 原生构建现有 CI 证据，不再列为 BLOCKED；Windows 桌面窗口、Android 安装运行及 OPPO Find N2 外屏/内屏/横竖屏/输入法检查仍 BLOCKED，必须取得真实设备证据后才能关闭。
