@@ -172,48 +172,48 @@ export interface TechnicalMultiTimeframeDescription {
   detail: string;
 }
 
-function macdCrossEventText(snapshot: TechnicalStateSnapshot): string {
+function bollPeriodSummary(snapshot: TechnicalStateSnapshot): string {
+  const boll = snapshot.boll;
+  if (boll.validity === 'INSUFFICIENT') return '历史不足' + (boll.reason ? '：' + boll.reason : '');
+  if (boll.validity === 'INVALID') return '数据无效' + (boll.reason ? '：' + boll.reason : '');
+  return [
+    '中轨' + bollMiddleLabel(boll.middleDirection),
+    '带宽' + bollBandwidthLabel(boll.bandwidthPhase),
+    '确认收盘' + bollPriceLocationLabel(boll.priceLocation),
+  ].join('，');
+}
+
+function macdPeriodSummary(snapshot: TechnicalStateSnapshot): string {
   const macd = snapshot.macd;
-  if (macd.availability !== 'ready') return '未知';
-  if (macd.crossEvent === 'golden') return '新金叉';
-  if (macd.crossEvent === 'death') return '新死叉';
-  if (macd.crossEvent === 'none') return '无新交叉';
-  return '未知';
+  if (macd.availability === 'insufficient-history') return '历史不足' + (macd.error ? '：' + macd.error : '');
+  if (macd.availability === 'invalid-data') return '数据无效' + (macd.error ? '：' + macd.error : '');
+  if (macd.availability === 'unavailable') return '数据不可用' + (macd.error ? '：' + macd.error : '');
+  return [
+    macdZeroAxisLabel(macd),
+    macdArrangementLabel(macd),
+    macdMomentumLabel(macd),
+    '本根' + (macd.crossEvent === 'golden' ? '新金叉' : macd.crossEvent === 'death' ? '新死叉' : macd.crossEvent === 'none' ? '无新交叉' : '交叉未知'),
+  ].join('，');
 }
 
 /**
- * Summarize the three independently calculated periods without collapsing
- * their states into a bullish/bearish recommendation.
+ * Summarize each period as a self-contained unit. Indicator validity is
+ * reported independently; no cross-period aggregation or trading direction
+ * is inferred in the copy layer.
  */
 export function describeTechnicalMultiTimeframeState(
   periods: import('./types').TechnicalMultiTimeframeState,
 ): TechnicalMultiTimeframeDescription {
   const ordered: Array<{ label: string; snapshot: TechnicalStateSnapshot }> = [
-    { label: '月线', snapshot: periods.monthly },
-    { label: '周线', snapshot: periods.weekly },
     { label: '日线', snapshot: periods.daily },
+    { label: '周线', snapshot: periods.weekly },
+    { label: '月线', snapshot: periods.monthly },
   ];
-  const bollValidCount = ordered.filter(({ snapshot }) => snapshot.boll.validity === 'VALID').length;
-  const macdReadyCount = ordered.filter(({ snapshot }) => snapshot.macd.availability === 'ready').length;
-  const describe = (select: (snapshot: TechnicalStateSnapshot) => string) =>
-    ordered.map(({ label, snapshot }) => label + ' ' + select(snapshot)).join('；');
-  const bandwidth = describe((snapshot) =>
-    snapshot.boll.validity === 'VALID' ? bollBandwidthLabel(snapshot.boll.bandwidthPhase) : '不可用');
-  const middle = describe((snapshot) =>
-    snapshot.boll.validity === 'VALID' ? bollMiddleLabel(snapshot.boll.middleDirection) : '不可用');
-  const zeroAxis = describe((snapshot) => macdZeroAxisLabel(snapshot.macd));
-  const crossEvents = ordered
-    .filter(({ snapshot }) => macdCrossEventText(snapshot) === '新金叉' || macdCrossEventText(snapshot) === '新死叉')
-    .map(({ label, snapshot }) => label + ' ' + macdCrossEventText(snapshot));
-  const crossSummary = crossEvents.length ? crossEvents.join('、') : '当前无可确认的新交叉事件';
-  const summary =
-    'BOLL 有效 ' + bollValidCount + '/3 周期，MACD 稳定可用 ' + macdReadyCount + '/3 周期。BOLL 带宽阶段：' + bandwidth +
-    '。BOLL 中轨方向：' + middle +
-    '。MACD DIF 零轴位置：' + zeroAxis +
-    '。MACD 新交叉：' + crossSummary +
-    '。各周期独立描述，不合成为买卖方向。';
+  const summary = ordered.map(({ label, snapshot }) =>
+    label + '：BOLL ' + bollPeriodSummary(snapshot) + '；MACD ' + macdPeriodSummary(snapshot),
+  ).join('。');
   return {
     summary,
-    detail: ordered.map(({ snapshot }) => describeTechnicalStateSnapshot(snapshot)).join('\n'),
+    detail: ordered.map(({ snapshot }) => describeTechnicalStateSnapshot(snapshot)).join('\\n'),
   };
 }
