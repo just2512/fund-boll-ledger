@@ -314,3 +314,13 @@
   - **PASS：Browser end-to-end regression**。Playwright browser E2E 步骤成功。
 - 本次 run 是对前一轮尚未被 CI 覆盖的需求矩阵/台账提交的后续验证；未取得 job 日志中的测试数量明细，因此不补写单测或 E2E 通过数量。
 - 本次 run 不改变外部验收边界：Windows 桌面实际安装/操作、Android 安装/启动及 OPPO Find N2 外屏/内屏/横竖屏/输入法/真实行情详情核对仍 **BLOCKED**；Android 持久签名 Release 仍 **SKIPPED**。浏览器 CI 与云端构建不得替代真机验收。
+
+
+## 合并后 main 最终云端复核（2026-11-12）
+
+- 基线提交：`0bd0d2ce8b960d9357ff48053c7dc2924080127c`（PR #4 已 squash merge 至 main）。
+- **PASS：前端 CI** [Run 43166497217](https://github.com/just2512/fund-boll-ledger/actions/runs/43166497217)，run attempt 2。单元测试/生产构建与浏览器 E2E 两个 job 均 completed/success。首次 attempt 的浏览器 E2E 有 1 项既有空状态用例在 30 秒内超时；仅重跑失败的 E2E job 后通过。首次失败记录保留，不将其改写为从未发生，也不据此认定产品缺陷。
+- **PASS：真实行情验收与多 ETF 校准** [Run 43166497187](https://github.com/just2512/fund-boll-ledger/actions/runs/43166497187)，对应同一 main 提交，completed/success。4 ETF × 3 周期共 12 组、7,351 根确认 K 线；全部 `noFutureBars=true`，逐根最终结果与批量计算一致，主源策略违规 0。百度 K 线备用探针取得 2,000 根；百度现价无可信交易日期，正确排除在技术状态确认之外。阈值选择为 `NOT_PERFORMED`，不代表完成交易参数优化。
+- **PASS：云端验收范围**：除物理设备项外，当前需求矩阵 T-00 至 T-08、T-10、T-11 均为 PASS；前端自动化和真实行情验收已在合并后的 main 提交上完成。
+- **BLOCKED：T-09 物理设备专项**：Windows 桌面安装后的实际操作、Android 安装/启动、OPPO Find N2（PUG110）外屏/内屏、横竖屏、输入法及真实行情下详情核对仍待本地执行。浏览器 E2E 和云端原生构建不能替代该项。Android 持久签名 release 仍未启用；debug-only APK 不可作为正式版覆盖升级包。
+- 本次仅同步已有验收证据与状态，不增加产品功能、算法范围或测试范围；历史失败记录与 `NOT_PERFORMED` 结论均保留。
