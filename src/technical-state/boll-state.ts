@@ -1,4 +1,5 @@
 import type {
+  BollHistoryPoint,
   BollState,
   BollStateConfig,
   BollBandwidthPhase,
@@ -124,6 +125,7 @@ function priceLocation(position: number | undefined, nearDistance: number): Boll
 export function calculateBollState(
   series: ConfirmedTechnicalSeries,
   config?: BollStateConfig,
+  history?: readonly BollHistoryPoint[],
 ): BollState {
   const configError = config ? validateConfig(config) : undefined;
   if (configError) return invalid(configError);
@@ -144,7 +146,14 @@ export function calculateBollState(
     return invalid('最近 20 根收盘价计算出的 BOLL 下轨小于或等于 0');
   }
 
-  const points = calculatePoints(series);
+  if (history && (history.length !== series.bars.length || history.some((point, index) =>
+    point.date !== series.bars[index]?.date || point.close !== series.bars[index]?.close
+  ))) return invalid('BOLL 历史结果与确认序列日期或收盘价不一致');
+  const points: Array<BollPoint | undefined> = history
+    ? history.map((point) => point.upper === undefined || point.middle === undefined || point.lower === undefined || point.bandwidthPercent === undefined
+      ? undefined
+      : { date: point.date, close: point.close, upper: point.upper, middle: point.middle, lower: point.lower, bandwidthPercent: point.bandwidthPercent })
+    : calculatePoints(series);
   const current = points.at(-1);
   if (!current || current.date !== series.asOfDate) return invalid('最近一根确认 K 线无法形成有效 BOLL 轨道');
   const bandwidths = points.map((point) => point?.bandwidthPercent);

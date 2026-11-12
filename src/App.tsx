@@ -577,7 +577,7 @@ function MacdPeriodCard({ label, period, state, technical }: { label: string; pe
     : '确认历史元数据未提供';
   const source = technical?.source ?? '未提供';
   const quoteSource = technical?.quoteSource ?? '未提供';
-  const confirmation = technical?.excludedInProgressBar ? '已排除进行中的 K 线' : '仅使用已确认收盘数据';
+  const confirmation = !technical ? '确认状态元数据未提供' : technical.confirmedBarCount === 0 ? '无可确认历史 K 线' : technical.excludedInProgressBar ? '已排除进行中的 K 线' : '仅使用已确认收盘数据';
   const bollHistory = technical?.bollHistory ?? [];
   const macdHistory = technical?.macdHistory ?? [];
   const historyCount = Math.max(bollHistory.length, macdHistory.length);

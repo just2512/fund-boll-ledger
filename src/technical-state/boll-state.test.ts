@@ -110,6 +110,14 @@ describe('calculateBollState', () => {
     expect(history[firstConfirmed].bandwidthPhaseObservationStartDate).toBe(history[firstConfirmed - 1].date);
   });
 
+  it('reuses date-aligned history without changing the current BOLL snapshot', () => {
+    const input = series(Array.from({ length: 100 }, (_, index) => 18 + Math.sin(index / 4) * 0.4 + index * 0.003));
+    const history = calculateBollHistory(input, config);
+    expect(calculateBollState(input, config, history)).toEqual(calculateBollState(input, config));
+    const mismatched = history.map((point, index) => index === 0 ? { ...point, date: '1900-01-01' } : point);
+    expect(calculateBollState(input, config, mismatched).validity).toBe('INVALID');
+  });
+
   it('returns date-aligned BOLL history and matches the latest snapshot values', () => {
     const input = series(Array.from({ length: 100 }, (_, index) => 18 + Math.sin(index / 4) * 0.4 + index * 0.003));
     const history = calculateBollHistory(input, config);

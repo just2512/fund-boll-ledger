@@ -34,7 +34,7 @@ export function calculateTechnicalStateSnapshot(
     : undefined;
   const latestBollHistory = bollHistory.at(-1);
   const boll = {
-    ...calculateBollState(series, config),
+    ...calculateBollState(series, config, bollHistory),
     ...(latestBollHistory?.bandwidthPhaseStartDate ? { bandwidthPhaseStartDate: latestBollHistory.bandwidthPhaseStartDate } : {}),
     ...(latestBollHistory?.bandwidthPhaseObservationStartDate ? { bandwidthPhaseObservationStartDate: latestBollHistory.bandwidthPhaseObservationStartDate } : {}),
     ...(latestBollHistory?.middleDirectionStartDate ? { middleDirectionStartDate: latestBollHistory.middleDirectionStartDate } : {}),
@@ -44,7 +44,7 @@ export function calculateTechnicalStateSnapshot(
   const minimumBars = minimumMacdHistoryBars(series.interval);
   const macd = series.bars.length < minimumBars
     ? insufficientMacdPeriod(series.interval, '已确认历史 K 线不足 ' + minimumBars + ' 根，当前周期 MACD 状态不发布')
-    : calculateMacdFromConfirmedSeries(series);
+    : calculateMacdFromConfirmedSeries(series, macdHistory);
   const macdStatus = macdValidity(series, macd);
   const validity: TechnicalValidity = boll.validity !== 'VALID' ? boll.validity : macdStatus;
   const reasons = [boll.reason, macd.error].filter((value): value is string => Boolean(value));

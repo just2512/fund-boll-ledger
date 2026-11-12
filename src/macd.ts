@@ -263,7 +263,10 @@ export function calculateMacdPeriod(
 }
 
 /** MACD calculation entry point for the shared, already-confirmed historical series. */
-export function calculateMacdFromConfirmedSeries(series: ConfirmedTechnicalSeries): MacdPeriodState {
+export function calculateMacdFromConfirmedSeries(
+  series: ConfirmedTechnicalSeries,
+  history?: readonly MacdHistoryPoint[],
+): MacdPeriodState {
   const { interval, bars } = series;
   if (bars.length === 0) return emptyPeriod(interval, '没有已确认收盘的历史 K 线', 'insufficient-history');
   if (series.asOfDate !== bars[bars.length - 1]?.date) return emptyPeriod(interval, 'asOfDate 与最后一根确认 K 线日期不一致');
@@ -276,8 +279,11 @@ export function calculateMacdFromConfirmedSeries(series: ConfirmedTechnicalSerie
   if (bars.length < MIN_MACD_BARS) {
     return emptyPeriod(interval, '已确认历史 K 线不足 ' + MIN_MACD_BARS + ' 根，无法计算 MACD(12,26,9)', 'insufficient-history');
   }
-  const history = buildMacdHistory(bars);
-  const latest = history[history.length - 1];
+  if (history && (history.length !== bars.length || history.some((point, index) =>
+    point.date !== bars[index]?.date || point.close !== bars[index]?.close
+  ))) return emptyPeriod(interval, 'MACD 历史结果与确认序列日期或收盘价不一致');
+  const calculatedHistory = history ?? buildMacdHistory(bars);
+  const latest = calculatedHistory[calculatedHistory.length - 1];
   if (!latest) return emptyPeriod(interval, 'MACD 历史计算结果不完整');
 
   return {
