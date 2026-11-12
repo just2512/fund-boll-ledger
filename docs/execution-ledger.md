@@ -11,11 +11,13 @@ Explicitly excluded: strategy backtesting, order/fill simulation, position/capit
 ## Required reading order after any interruption or new session
 
 1. [EXECUTION_CONTRACT.md](EXECUTION_CONTRACT.md)
-2. [TECHNICAL_STATE_ANALYSIS_IMPLEMENTATION_PLAN.md](TECHNICAL_STATE_ANALYSIS_IMPLEMENTATION_PLAN.md), especially sections 24–26
-3. [TECHNICAL_STATE_SOURCE_AUDIT.md](TECHNICAL_STATE_SOURCE_AUDIT.md)
-4. [BOLL_MACD_CALIBRATION_REPORT.md](BOLL_MACD_CALIBRATION_REPORT.md)
-5. [TECHNICAL_STATE_REQUIREMENTS.json](TECHNICAL_STATE_REQUIREMENTS.json)
-6. Current main commit, working tree, latest frontend CI, latest technical-state calibration run, and native build/device acceptance status
+2. [BOLL_MACD_INFORMATION_ARCHITECTURE.md](BOLL_MACD_INFORMATION_ARCHITECTURE.md) — 本轮 BOLL + MACD 信息架构和数据管线强制约束
+3. [BOLL_MACD_ACCEPTANCE.md](BOLL_MACD_ACCEPTANCE.md) — 本轮强制验收清单和 BLOCKED 规则
+4. [TECHNICAL_STATE_ANALYSIS_IMPLEMENTATION_PLAN.md](TECHNICAL_STATE_ANALYSIS_IMPLEMENTATION_PLAN.md), especially sections 24–26; if older UI wording conflicts, the new information architecture takes precedence
+5. [TECHNICAL_STATE_SOURCE_AUDIT.md](TECHNICAL_STATE_SOURCE_AUDIT.md)
+6. [BOLL_MACD_CALIBRATION_REPORT.md](BOLL_MACD_CALIBRATION_REPORT.md)
+7. [TECHNICAL_STATE_REQUIREMENTS.json](TECHNICAL_STATE_REQUIREMENTS.json)
+8. Current main commit, working tree, latest frontend CI, latest technical-state calibration run, and native build/device acceptance status
 
 Do not continue from chat memory alone. Reconcile the matrix with the actual current source and CI before changing any status.
 
@@ -28,7 +30,7 @@ A requirement is PASS only when its current implementation, acceptance tests and
 - BOLL uses the explicit daily/weekly/monthly descriptive reference configuration in `src/technical-state/config.ts`; it is not a trading threshold or optimized strategy.
 - MACD status is not published before the empirical confirmed-history minimum: daily 160, weekly 160, monthly 100 bars.
 - Historical replay uses confirmed-bar prefixes and checks for future-data leakage.
-- The UI remains inside the existing price-comparison module; details are collapsible.
+- The UI remains inside the existing price-comparison module; the selected daily/weekly/monthly period directly shows its full evidence. No nested details, drawer, or second expansion is allowed. The outer price-comparison module may retain its existing collapse behavior.
 - Fund/Trade/Snapshot persistence structures are unchanged.
 - The two out-of-scope strategy experiment branches are reset to main; no backtest code is retained or merged.
 
