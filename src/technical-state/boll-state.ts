@@ -283,7 +283,7 @@ export function calculateBollHistory(
     const middleDirection = config
       ? classifyConfirmedTrend(middleDirections.slice(0, index + 1), config.confirmationBars)
       : 'unknown';
-    const confirmedChanges = bandwidthDirections.slice(Math.max(0, index - config!.confirmationBars + 1), index + 1);
+    const confirmedChanges = config ? bandwidthDirections.slice(Math.max(0, index - config.confirmationBars + 1), index + 1) : [];
     const persistentPhase: BollBandwidthPhase =
       phase === 'expanding' && confirmedChanges.length === config?.confirmationBars && confirmedChanges.every((item) => item === 'up') ? 'expanding-persistent' :
       phase === 'contracting' && confirmedChanges.length === config?.confirmationBars && confirmedChanges.every((item) => item === 'down') ? 'contracting-persistent' :
@@ -320,7 +320,7 @@ export function calculateBollHistory(
     };
   });
 
-  const startDateAt = <T,>(index: number, values: readonly T[], current: T): string | undefined => {
+  const startDateAt = <T extends string>(index: number, values: readonly T[], current: T): string | undefined => {
     if (current === 'unknown') return undefined;
     let start = index;
     while (start > 0 && values[start - 1] === current) start -= 1;
