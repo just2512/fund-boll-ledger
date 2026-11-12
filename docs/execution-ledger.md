@@ -101,3 +101,14 @@ The frontend browser CI and multi-ETF live calibration are recorded in the requi
 - 前一原生 run [43154632857](https://github.com/just2512/fund-boll-ledger/actions/runs/43154632857) 的 Android artifact copy 因目标路径包含分支斜杠失败；已在提交 `5604bcde85929144ee2b4ba9cae69790dafb78cc` 改为平面文件名，Run 8 已验证修复。
 - Android 持久签名 release job 因未启用 `ANDROID_RELEASE_SIGNING_ENABLED` 跳过；debug APK 不可覆盖升级正式签名版。
 - Windows/Android 原生构建现有 CI 证据，不再列为 BLOCKED；Windows 桌面窗口、Android 安装运行及 OPPO Find N2 外屏/内屏/横竖屏/输入法检查仍 BLOCKED，必须取得真实设备证据后才能关闭。
+
+
+## 2026-11-12 多规模性能与 reload 隔离复核
+
+- 当前代码分支 head：`d43773ff0ece483f68d861994e41d9f0fb401d14`。
+- 当前 head 前端 CI [Run 43162737208](https://github.com/just2512/fund-boll-ledger/actions/runs/43162737208)：14 个单测文件通过，134 passed / 2 skipped；执行契约、升级契约、benchmark、TypeScript、生产构建通过；Playwright 48/48 通过。
+- 新增 reload E2E：行情刷新后技术状态出现；reload 后本地账本现价恢复，但技术状态回到未刷新状态、公式版本不再显示；再次手动刷新后技术状态重建。确认派生状态不跨 reload 持久化。
+- 多规模 Vitest benchmark 覆盖 240/1,000/2,000/5,000 根。MACD 历史复用四档耗时均低于重复独立计算；BOLL 变化幅度较小，2,000 根档复用路径略慢，暂不据单次基准增加优化。5,000 根为合成压力输入，不代表行情源可返回 5,000 根。
+- 本轮 benchmark 类型错误与 E2E 断言错误均已按实际日志修正，最终 Run 43162737208 通过；失败 run 保留。
+- PR #4 仍 open、未合并；当前 feature branch 与 main 比较 ahead 121 / behind 0（以本记录生成时 compare 结果为准）。
+- T-09 仍 BLOCKED：Windows 桌面实际操作、Android 安装运行、OPPO Find N2 外屏/内屏/横竖屏/输入法真机验收；Android 持久签名 release 仍未启用。
