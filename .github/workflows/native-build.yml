@@ -130,7 +130,7 @@ jobs:
             --out "$RUNNER_TEMP/signed.apk" "$RUNNER_TEMP/aligned.apk"
           "$BT/apksigner" verify "$RUNNER_TEMP/signed.apk"
           mkdir -p artifacts
-          cp "$RUNNER_TEMP/signed.apk" "artifacts/基金阶梯账本-${{ github.ref_name }}-arm64-debug-only.apk"
+          cp "$RUNNER_TEMP/signed.apk" "artifacts/基金阶梯账本-arm64-debug-only.apk"
       - uses: actions/upload-artifact@v4
         with:
           name: fund-boll-ledger-android-arm64-debug-only
