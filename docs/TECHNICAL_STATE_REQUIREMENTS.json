@@ -289,8 +289,8 @@
           "note": "当前 head 前端 CI：14 个测试文件、134 passed/2 skipped，TypeScript/生产构建/执行契约/升级契约通过，Playwright 48/48。原生设备验收不在该 run 范围。"
         }
       ],
-      "currentReview": "BLOCKED：当前 head Run 43162737208 的前端 CI 与 Playwright 48/48 通过；Windows installer 和 Android ARM64 debug-only APK 曾由 Native run 43155823629 构建/签名验证/上传成功。Windows 桌面实际操作、Android 安装运行与 OPPO Find N2 外屏/内屏/横竖屏/输入法真机验收尚无证据。",
-      "blocker": "仍需在 Windows 安装程序和 Android ARM64 debug APK 上完成实际安装/启动与界面检查，并在 OPPO Find N2 真机验证外屏、内屏、横竖屏和输入法；debug APK 不可用于正式版覆盖升级。"
+      "currentReview": "BLOCKED：Frontend Checks Run 43164060173 已关联提交 e655841acc568ef88d424a2268832765eee43200，unit/build/benchmark/contract 与 Playwright E2E 两个 job 均成功；该 run 不覆盖其后的文档提交。Native run 43162417531 的 Windows installer 与 Android ARM64 debug-only APK 构建/上传成功；Android 持久签名 release skipped。Windows 桌面实际操作、Android 安装运行与 OPPO Find N2 外屏/内屏/横竖屏/输入法真机验收由用户本地执行，尚无设备证据。",
+      "blocker": "本地验收待执行：安装 Windows installer 和 Android ARM64 debug-only APK，验证启动、价格计算、账本与 JSON 备份恢复；在 OPPO Find N2（PUG110）检查外屏/内屏、横竖屏、输入法和真实行情下 BOLL/MACD 详情。Android debug APK 不可覆盖正式签名版；卸载或更换安装前先导出 JSON 备份。"
     },
     {
       "id": "T-10",
