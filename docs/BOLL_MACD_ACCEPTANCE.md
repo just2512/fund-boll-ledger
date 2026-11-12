@@ -163,3 +163,11 @@
 - 当前 head：d57e62416d9889776ad18958d6303f928978d090（合并主线测试后的双父提交）。
 - CI 证据边界：run 496 为 PASS，但其实际执行提交为 65486fefff184be428f9152d6578bab348c0dd7e，早于本记录中的后续 engine/UI/E2E 修改；因此不能将 run 496 记作当前 head 的完整验证。当前 head 的新测试仍待新的 GitHub Actions run 验证。
 - 尚未通过当前 head CI 的 UI/交互条目继续保持未勾选；Windows Tauri、Android ARM64 和 OPPO Find N2 真机项仍为 BLOCKED。
+
+
+## 12. CI 复核与修复（2026-11-12）
+
+- run 497（执行提交 `d57e62416d9889776ad18958d6303f928978d090`）：单元测试 14 个文件通过、132 项通过、2 项 live 测试跳过；TypeScript 检查与生产构建通过。
+- run 497 的 Playwright 新增窄屏用例执行到最终尺寸断言时失败。失败原因是 `page.evaluate()` 返回 DOM 元素，跨浏览器上下文序列化后不是可读取 `scrollWidth/clientWidth` 的 HTMLElement；此前页面宽度断言、历史表格行数、分页和周期切换断言均已通过。
+- 已修复：只从页面上下文返回 `tableScrollWidth`、`tableClientWidth` 两个数值，不再返回 DOM 元素。修复提交：`8e79d6593a42744faaffc678a814448ed632f694`。
+- run 498 在修复提交前启动，不能作为该修复的验证；后续以包含修复提交的 CI 结果为准。当前 head 的 UI/E2E 项继续保持未验收状态，直到相应 run 完成。
