@@ -19,8 +19,9 @@ test('折叠屏外屏、内屏、横屏和桌面视口无页面级横向溢出',
   await page.setViewportSize(viewports[0]);
   await createFund(page);
   await expect(page.getByText('BOLL + MACD 技术状态')).toBeVisible();
-  await page.locator('.technical-period-details summary').click();
-  await expect(page.locator('.technical-period-details')).toHaveAttribute('open');
+  await expect(page.locator('.technical-period-details')).toHaveCount(0);
+  await expect(page.getByRole('tab', { name: '日线' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByText('刷新行情后获取该周期已确认历史数据。')).toBeVisible();
   await page.getByPlaceholder('输入上轨').fill('10.800');
   await page.getByPlaceholder('输入中轨').fill('10.000');
   await page.getByPlaceholder('输入下轨').fill('9.200');
@@ -103,7 +104,7 @@ test('viewport meta 携带 viewport-fit=cover（静态检查）', async ({ page 
   expect(content).toContain('interactive-widget=resizes-content');
 });
 
-test('v0.3.0 顶部摘要托盘与多周期手风琴交互', async ({ page }) => {
+test('顶部摘要托盘与多周期一次点击切换交互', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await createFund(page);
 
@@ -118,18 +119,18 @@ test('v0.3.0 顶部摘要托盘与多周期手风琴交互', async ({ page }) =>
   await expect(topSummary.locator('.top-summary-tray')).toContainText('基金代码');
   await expect(topSummary.locator('.top-summary-tray')).toContainText('当前价格');
 
-  const technicalDetails = page.locator('.technical-period-details');
-  await technicalDetails.locator('summary').click();
-  const daily = page.getByRole('button', { name: /日线/ });
-  const weekly = page.getByRole('button', { name: /周线/ });
-  const monthly = page.getByRole('button', { name: /月线/ });
-  await expect(daily).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.locator('.technical-period-details')).toHaveCount(0);
+  const daily = page.getByRole('tab', { name: '日线' });
+  const weekly = page.getByRole('tab', { name: '周线' });
+  const monthly = page.getByRole('tab', { name: '月线' });
+  await expect(daily).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('.macd-period-card')).toHaveAttribute('data-period', 'daily');
   await weekly.click();
-  await expect(weekly).toHaveAttribute('aria-expanded', 'true');
-  await expect(daily).toHaveAttribute('aria-expanded', 'false');
+  await expect(weekly).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('.macd-period-card')).toHaveAttribute('data-period', 'weekly');
   await monthly.click();
-  await expect(monthly).toHaveAttribute('aria-expanded', 'true');
-  await expect(page.locator('.macd-period-card.expanded')).toHaveCount(1);
+  await expect(monthly).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('.macd-period-card')).toHaveAttribute('data-period', 'monthly');
 
   await page.setViewportSize({ width: 360, height: 780 });
   const dimensions = await page.evaluate(() => ({
