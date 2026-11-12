@@ -132,6 +132,8 @@ export interface TechnicalStateSnapshot {
   confirmedBarCount: number;
   excludedInProgressBar: boolean;
   boll: BollState;
+  bollConfig?: BollStateConfig;
+  bollConfigVersion?: string;
   bollHistory: BollHistoryPoint[];
   macd: MacdPeriodState;
   macdHistory: import('../macd').MacdHistoryPoint[];
