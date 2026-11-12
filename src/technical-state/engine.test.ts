@@ -116,6 +116,7 @@ describe('combined BOLL/MACD technical state engine', () => {
     expect(description.summary).toContain('新金叉');
     expect(description.summary).not.toContain('BOLL 有效 3/3');
     expect(description.summary).not.toContain('MACD 稳定可用 3/3');
+    expect(description.summary).not.toContain('无新交叉');
     expect(description.detail).toContain('月线');
     expect(description.detail).toContain('周线');
     expect(description.detail).toContain('日线');
