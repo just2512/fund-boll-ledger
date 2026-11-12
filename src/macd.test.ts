@@ -141,4 +141,27 @@ describe('MACD deterministic multi-timeframe rules', () => {
     expect(invalidCloseState.crossEvent).toBe('unknown');
   });
 
+  it('returns date-aligned MACD history and the exact latest confirmed cross date', () => {
+    const source = barsWithReversal();
+    const confirmed: ConfirmedTechnicalSeries = {
+      interval: 'daily',
+      asOfDate: source[source.length - 1].date,
+      bars: source.map((bar) => ({ date: bar.date, close: Number(bar.close) })),
+      excludedInProgressBar: false,
+      source: '东方财富',
+    };
+    const history = calculateMacdHistoryFromConfirmedSeries(confirmed);
+    const state = calculateMacdFromConfirmedSeries(confirmed);
+    const latest = history.at(-1)!;
+    expect(history).toHaveLength(confirmed.bars.length);
+    expect(history[0].date).toBe(confirmed.bars[0].date);
+    expect(latest.date).toBe(confirmed.asOfDate);
+    expect(latest.formulaReady).toBe(true);
+    expect(latest.dif).toBeCloseTo(state.dif!, 12);
+    expect(latest.dea).toBeCloseTo(state.dea!, 12);
+    expect(latest.histogram).toBeCloseTo(state.histogram!, 12);
+    expect(latest.lastCrossDate).toBe(state.lastCrossDate);
+    expect(latest.arrangementStartDate).toBe(state.arrangementStartDate);
+  });
+
 });
