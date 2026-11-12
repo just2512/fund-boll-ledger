@@ -519,6 +519,15 @@ test('真实确认历史驱动 BOLL/MACD 完整详情、历史分页和窄屏滚
     }
     return rows;
   };
+  const makeMonthlyBars = (count: number, anchor: Date) => {
+    const rows: string[] = [];
+    for (let index = count - 1; index >= 0; index -= 1) {
+      const date = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth() - index, 1));
+      const close = closeAt(count - 1 - index);
+      rows.push([asDate(date), close, close, close, close, '0', '0', '0', '0', '0', '0'].join(','));
+    }
+    return rows;
+  };
   const today = new Date();
   const anchor = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - 7));
   const currentWeekMonday = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
@@ -540,7 +549,7 @@ test('真实确认历史驱动 BOLL/MACD 完整详情、历史分页和窄屏滚
       ? makeBars(240, 1, anchor)
       : interval === '102'
         ? makeBars(180, 7, currentWeekMonday)
-        : makeBars(120, 30, previousMonth);
+        : makeMonthlyBars(120, previousMonth);
     await route.fulfill({
       status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' },
       body: JSON.stringify({ data: { code: '510300', klines: bars } }),
