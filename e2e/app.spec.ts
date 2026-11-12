@@ -1416,3 +1416,33 @@ test('全部现价行情源失败时，技术摘要显示真实失败原因而�
   await expect(page.locator('.macd-summary')).toContainText('行情数据不可用');
   await expect(page.locator('.macd-summary')).toContainText(/东方财富失败|腾讯失败|百度失败/);
 });
+
+
+test('刷新失败但保留上次行情时，技术摘要明确标注旧数据', async ({ page }) => {
+  let quoteRequests = 0;
+  await page.route('https://push2.eastmoney.com/**', async (route) => {
+    quoteRequests += 1;
+    if (quoteRequests === 1) {
+      await route.fulfill({
+        status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' },
+        body: JSON.stringify({ data: { f57: '510300', f58: '沪深300ETF', f43: '4.125', f60: '4.000', f86: currentMarketEpoch() } }),
+      });
+    } else {
+      await route.fulfill({ status: 503, body: 'eastmoney quote unavailable on refresh' });
+    }
+  });
+  await page.route('https://qt.gtimg.cn/**', (route) => route.fulfill({ status: 503, body: 'tencent quote unavailable' }));
+  await page.route('https://ifzq.gtimg.cn/**', (route) => route.fulfill({ status: 503, body: 'tencent kline unavailable' }));
+  await page.route('https://push2his.eastmoney.com/**', (route) => route.fulfill({ status: 503, body: 'eastmoney kline unavailable' }));
+  await page.route('https://finance.pae.baidu.com/**', (route) => route.fulfill({ status: 503, body: 'baidu unavailable' }));
+  await page.route('https://sp0.baidu.com/**', (route) => route.fulfill({ status: 503, body: 'baidu fallback unavailable' }));
+
+  await createFund(page, '行情刷新失败保留旧数据验收 ETF', '510300');
+  await page.getByRole('button', { name: '刷新行情' }).click();
+  await expect(page.locator('.macd-summary')).toContainText('BOLL 数据不可用');
+
+  await page.getByRole('button', { name: '刷新行情' }).click();
+  await expect(page.locator('.macd-summary')).toContainText('本次行情刷新失败，以下仍为上次成功数据');
+  await expect(page.locator('.macd-summary')).toContainText('东方财富失败');
+  expect(quoteRequests).toBeGreaterThanOrEqual(2);
+});
