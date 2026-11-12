@@ -588,6 +588,25 @@ test('真实确认历史驱动 BOLL/MACD 完整详情、历史分页和窄屏滚
   await expect(page.locator('.macd-indicator-state .macd-period-values span').nth(2)).toHaveText(/^柱体\s+-?\d/);
   await expect(page.getByText(/最近一次交叉：/)).toBeVisible();
 
+  await expect(page.getByText(/上\/中\/下轨：/)).toBeVisible();
+  await expect(page.getByText(/带宽 /)).toBeVisible();
+  await expect(page.getByText(/历史分位 /)).toBeVisible();
+  await expect(page.getByText(/分位样本 /)).toBeVisible();
+  await expect(page.getByText(/带宽阶段 /)).toBeVisible();
+  await expect(page.getByText(/中轨方向 /)).toBeVisible();
+  await expect(page.getByText(/确认收盘位置 /)).toBeVisible();
+  await expect(page.getByText(/本根交叉：/)).toBeVisible();
+  await expect(page.getByText(/当前排列开始：/)).toBeVisible();
+  await expect(page.locator('.macd-momentum')).toBeVisible();
+
+  const stableLatestDate = await latestBollRow.locator('td').nth(0).textContent();
+  const stableLatestMacdDif = await latestMacdRow.locator('td').nth(2).textContent();
+  await page.getByRole('button', { name: '刷新行情' }).click();
+  await expect(latestBollRow.locator('td').nth(0)).toHaveText(stableLatestDate!);
+  await expect(latestMacdRow.locator('td').nth(2)).toHaveText(stableLatestMacdDif!);
+  await expect(page.getByText('K 线来源：东方财富 · 现价来源：东方财富')).toBeVisible();
+
+
   await expect(page.locator('.technical-history-scroll').nth(1).locator('tbody tr')).toHaveCount(20);
   await expect(page.getByText(/第 1 \/ 12 页 · 显示 20 根/)).toBeVisible();
   await expect(page.locator('.macd-period-card details')).toHaveCount(0);
