@@ -146,7 +146,7 @@
 - Playwright：43 项通过（1.6 分钟）。
 - 执行契约、Windows/Android 升级契约和 Android signing 脚本语法检查：通过。
 - 两项跳过测试是实时行情校准/验收测试；本轮没有声称完成实时数据源验收。
-- **BLOCKED**：Windows Tauri 原生构建、Android ARM64 原生构建、OPPO Find N2 外屏/内屏真机检查尚未执行。浏览器视口通过不能替代这些设备验收。
+- **BLOCKED**：Windows Tauri 原生构建与 Android ARM64 debug-only 原生构建已由 Native workflow Run 43162417531 完成；Windows 桌面实际操作、Android 安装/启动及 OPPO Find N2 外屏/内屏真机检查仍未执行。浏览器视口通过不能替代这些设备验收。
 - 第二层真实数值显示、第三层历史表格在有真实行情数据时的视觉核对，仍需使用真实设备/数据补验；不能仅凭静态代码和无行情状态的 E2E 断言其完整通过。
 
 阶段 0—3 的自动化实现与计算门槛已通过本轮 CI。阶段 4 的自动化部分通过，原生构建与真机部分保持 BLOCKED；整体不得标记为全部验收完成。
@@ -293,3 +293,14 @@
 - Android ARM64 signed release job：**SKIPPED**，原因是仓库变量 `ANDROID_RELEASE_SIGNING_ENABLED` 未启用；没有可用于覆盖升级的持久签名 APK。
 - 上述结果只更新原生构建项，不改变设备验收状态：Windows 桌面实际操作、Android 安装/启动、OPPO Find N2 外屏/内屏/横竖屏/输入法和真实行情下的技术详情核对继续 **BLOCKED**。不得将 CI 构建成功解释为设备验收通过。
 - 当前文档修改提交之后，仍需由后续 CI 对文档/代码 head 进行验证；本节记录的是 run 43162417531 对其实际构建提交的 job 结果，不宣称验证了本次文档更新提交。
+
+
+## 2026-11-12 前端 CI 后续复核（Run 43164060173）
+
+- GitHub Actions [Run 43164060173](https://github.com/just2512/fund-boll-ledger/actions/runs/43164060173) 已完成：
+  - **PASS：Unit tests and production build**，包括依赖锁定/补丁版本、执行契约与技术状态需求矩阵、Windows/Android 升级契约、Android signing 工具语法、单元测试、BOLL/MACD 历史复用 benchmark、TypeScript 检查和生产构建。
+  - **PASS：Browser end-to-end regression**，Playwright browser E2E job completed/success。
+- 该 run 关联提交 `e655841acc568ef88d424a2268832765eee43200`；其后的文档提交（包括 TEST_PLAN、验收记录更新）不属于该 run 的验证范围。因此只把该 run 作为该提交代码与测试的 CI 证据，不宣称验证了后续文档提交。
+- 本次未获得该 run 的 Playwright 用例数明细，不在文档中推断具体通过数量。
+- Android 持久签名 Release 仍因 `ANDROID_RELEASE_SIGNING_ENABLED` 未启用而 SKIPPED；debug-only APK 不可用于正式版覆盖升级。
+- **BLOCKED（由本地执行）**：Windows 安装后实际桌面操作、Android 安装/启动、OPPO Find N2 外屏/内屏/横竖屏/输入法及真实行情详情核对。云端任务不代替用户设备测试。
