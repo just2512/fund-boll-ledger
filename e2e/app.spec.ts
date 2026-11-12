@@ -534,6 +534,7 @@ test('真实确认历史驱动 BOLL/MACD 完整详情、历史分页和窄屏滚
   currentWeekMonday.setUTCDate(currentWeekMonday.getUTCDate() - ((currentWeekMonday.getUTCDay() + 6) % 7));
   currentWeekMonday.setUTCDate(currentWeekMonday.getUTCDate() - 7);
   const previousMonth = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 1, 1));
+  let historyMode: 'full' | 'insufficient' | 'short' = 'full';
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.route('https://push2.eastmoney.com/**', async (route) => {
@@ -546,10 +547,10 @@ test('真实确认历史驱动 BOLL/MACD 完整详情、历史分页和窄屏滚
     const url = new URL(route.request().url());
     const interval = url.searchParams.get('klt');
     const bars = interval === '101'
-      ? makeBars(240, 1, anchor)
+      ? makeBars(historyMode === 'full' ? 240 : historyMode === 'insufficient' ? 100 : 12, 1, anchor)
       : interval === '102'
-        ? makeBars(180, 7, currentWeekMonday)
-        : makeMonthlyBars(120, previousMonth);
+        ? makeBars(historyMode === 'full' ? 180 : historyMode === 'insufficient' ? 100 : 12, 7, currentWeekMonday)
+        : makeMonthlyBars(historyMode === 'full' ? 120 : historyMode === 'insufficient' ? 80 : 12, previousMonth);
     await route.fulfill({
       status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' },
       body: JSON.stringify({ data: { code: '510300', klines: bars } }),
@@ -563,6 +564,8 @@ test('真实确认历史驱动 BOLL/MACD 完整详情、历史分页和窄屏滚
   await expect(page.getByText('日线 · 指标计算依据')).toBeVisible();
   await expect(page.getByText(/公式版本：technical-formula-v1/)).toBeVisible();
   await expect(page.getByText(/EMA 初始化：快线\/慢线以首根确认收盘价为种子/)).toBeVisible();
+  await expect(page.getByText('K 线来源：东方财富 · 现价来源：东方财富')).toBeVisible();
+  await expect(page.getByText(/参数版本 reference-2026-11-09/)).toBeVisible();
   await expect(page.getByText(/EMA 种子日期：.*实际输入 240 根/)).toBeVisible();
   await expect(page.getByText(/观察窗口起点/).first()).toBeVisible();
   await expect(page.getByText('历史计算明细')).toBeVisible();
@@ -610,6 +613,20 @@ test('真实确认历史驱动 BOLL/MACD 完整详情、历史分页和窄屏滚
   expect(dimensions.document).toBeLessThanOrEqual(dimensions.viewport);
   expect(dimensions.tableScrollWidth).not.toBeNull();
   expect(dimensions.tableScrollWidth!).toBeGreaterThan(dimensions.tableClientWidth!);
+
+  historyMode = 'insufficient';
+  await page.getByRole('tab', { name: '日线' }).click();
+  await page.getByRole('button', { name: '刷新行情' }).click();
+  await expect(page.getByText('MACD 历史不足')).toBeVisible();
+  await expect(page.getByText(/EMA 种子日期：.*实际输入 100 根/)).toBeVisible();
+  await expect(page.getByText(/MACD 数据不可用/)).toHaveCount(0);
+
+  historyMode = 'short';
+  await page.getByRole('button', { name: '刷新行情' }).click();
+  await expect(page.locator('.technical-history-scroll').nth(0).locator('tbody tr')).toHaveCount(12);
+  await expect(page.locator('.technical-history-scroll').nth(1).locator('tbody tr')).toHaveCount(12);
+  await expect(page.getByText(/第 1 \/ 1 页 · 显示 12 根/)).toBeVisible();
+  await expect(page.getByText(/EMA 种子日期：.*实际输入 12 根/)).toBeVisible();
 });
 
 test('东方财富与腾讯都失败时百度自动兜底，三源都失败时保留手动价格', async ({ page }) => {
