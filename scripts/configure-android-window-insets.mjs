@@ -30,8 +30,12 @@ if (source.includes(marker)) {
 }
 
 const classPattern = /class MainActivity\s*:\s*TauriActivity\s*\(\s*\)\s*(?:\{\s*\})?/;
-if (!classPattern.test(source)) {
+const classMatch = source.match(classPattern);
+if (!classMatch || classMatch.index === undefined) {
   throw new Error('Generated MainActivity.kt does not match the expected TauriActivity class shape; refusing to rewrite it.');
+}
+if (source.slice(classMatch.index + classMatch[0].length).trimStart().startsWith('{')) {
+  throw new Error('Generated MainActivity.kt has a non-empty class body; refusing to discard existing native code.');
 }
 
 const packageMatch = source.match(/^package [^\r\n]+/m);
