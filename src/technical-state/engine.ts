@@ -266,7 +266,7 @@ export function describeTechnicalMultiTimeframeState(
     { label: '周线', snapshot: periods.weekly },
     { label: '月线', snapshot: periods.monthly },
   ];
-  const periods = ordered.map(({ label, snapshot }) => ({
+  const periodSummaries = ordered.map(({ label, snapshot }) => ({
     label,
     boll: bollPeriodSummary(snapshot),
     macd: macdPeriodSummary(snapshot),
@@ -275,7 +275,7 @@ export function describeTechnicalMultiTimeframeState(
     + '。MACD：' + ordered.map(({ label, snapshot }) => label + compactMacdSummary(snapshot)).join('；') + '。';
   return {
     summary,
-    periods,
+    periods: periodSummaries,
     detail: ordered.map(({ snapshot }) => describeTechnicalStateSnapshot(snapshot)).join('\n'),
   };
 }
