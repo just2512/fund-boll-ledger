@@ -201,6 +201,8 @@ export function describeTechnicalStateSnapshot(snapshot: TechnicalStateSnapshot)
 export interface TechnicalMultiTimeframeDescription {
   /** Concise factual overview; contains no inferred trading action. */
   summary: string;
+  /** Structured BOLL/MACD descriptions for each interval. */
+  periods: Array<{ label: string; boll: string; macd: string }>;
   /** One complete, as-of-specific description for each period. */
   detail: string;
 }
@@ -210,10 +212,11 @@ function bollPeriodSummary(snapshot: TechnicalStateSnapshot): string {
   if (boll.validity === 'INSUFFICIENT') return '历史不足' + (boll.reason ? '：' + boll.reason : '');
   if (boll.validity === 'INVALID') return '数据无效' + (boll.reason ? '：' + boll.reason : '');
   if (boll.validity === 'UNAVAILABLE') return '数据不可用' + (boll.reason ? '：' + boll.reason : '');
+  const unknown = snapshot.bollConfig ? '未确认' : '未配置';
   return [
-    '中轨' + bollMiddleLabel(boll.middleDirection),
-    '带宽' + bollBandwidthLabel(boll.bandwidthPhase),
-    '确认收盘' + bollPriceLocationLabel(boll.priceLocation),
+    '中轨' + (boll.middleDirection === 'unknown' ? unknown : bollMiddleLabel(boll.middleDirection)),
+    '带宽' + (boll.bandwidthPhase === 'unknown' ? unknown : bollBandwidthLabel(boll.bandwidthPhase)),
+    '确认收盘' + (boll.priceLocation === 'unknown' ? unknown : bollPriceLocationLabel(boll.priceLocation)),
   ].join('，');
 }
 
@@ -229,6 +232,27 @@ function macdPeriodSummary(snapshot: TechnicalStateSnapshot): string {
   ].join('，');
 }
 
+function compactBollSummary(snapshot: TechnicalStateSnapshot): string {
+  const boll = snapshot.boll;
+  if (boll.validity === 'INSUFFICIENT') return '历史不足';
+  if (boll.validity === 'INVALID') return '数据无效';
+  if (boll.validity === 'UNAVAILABLE') return '数据不可用';
+  return boll.priceLocation === 'unknown' ? '位置未确认' : '收盘' + bollPriceLocationLabel(boll.priceLocation);
+}
+
+function compactMacdSummary(snapshot: TechnicalStateSnapshot): string {
+  const macd = snapshot.macd;
+  if (macd.availability === 'insufficient-history') return '历史不足';
+  if (macd.availability === 'invalid-data') return '数据无效';
+  if (macd.availability === 'unavailable') return '数据不可用';
+  const arrangement = macd.arrangement === 'new-golden' ? '新金叉'
+    : macd.arrangement === 'new-death' ? '新死叉'
+      : macd.arrangement === 'bull-after-golden' || macd.arrangement === 'bull-history-unknown' ? '多头排列'
+        : macd.arrangement === 'bear-after-death' || macd.arrangement === 'bear-history-unknown' ? '空头排列'
+          : macd.arrangement === 'neutral' ? 'DIF/DEA 重合' : '排列未确认';
+  return arrangement + '、' + macdMomentumLabel(macd);
+}
+
 /**
  * Summarize each period as a self-contained unit. Indicator validity is
  * reported independently; no cross-period aggregation or trading direction
@@ -242,11 +266,16 @@ export function describeTechnicalMultiTimeframeState(
     { label: '周线', snapshot: periods.weekly },
     { label: '月线', snapshot: periods.monthly },
   ];
-  const summary = ordered.map(({ label, snapshot }) =>
-    label + '：BOLL ' + bollPeriodSummary(snapshot) + '；MACD ' + macdPeriodSummary(snapshot),
-  ).join('\n');
+  const periods = ordered.map(({ label, snapshot }) => ({
+    label,
+    boll: bollPeriodSummary(snapshot),
+    macd: macdPeriodSummary(snapshot),
+  }));
+  const summary = 'BOLL：' + ordered.map(({ label, snapshot }) => label + compactBollSummary(snapshot)).join('；')
+    + '。MACD：' + ordered.map(({ label, snapshot }) => label + compactMacdSummary(snapshot)).join('；') + '。';
   return {
     summary,
+    periods,
     detail: ordered.map(({ snapshot }) => describeTechnicalStateSnapshot(snapshot)).join('\n'),
   };
 }
