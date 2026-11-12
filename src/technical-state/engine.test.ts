@@ -106,7 +106,7 @@ describe('combined BOLL/MACD technical state engine', () => {
   it('summarizes BOLL and MACD independently across month, week and day without a composite trade direction', () => {
     const base = calculateTechnicalStateSnapshot(series());
     const monthly = { ...base, interval: 'monthly' as const, macd: { ...base.macd, interval: 'monthly' as const } };
-    const weekly = { ...base, interval: 'weekly' as const, macd: { ...base.macd, interval: 'weekly' as const, crossEvent: 'golden' as const } };
+    const weekly = { ...base, interval: 'weekly' as const, macd: { ...base.macd, interval: 'weekly' as const, crossEvent: 'golden' as const, arrangement: 'new-golden' as const } };
     const daily = { ...base, interval: 'daily' as const, macd: { ...base.macd, interval: 'daily' as const } };
     const description = describeTechnicalMultiTimeframeState({ monthly, weekly, daily });
     expect(description.summary).toContain('日线：BOLL');
