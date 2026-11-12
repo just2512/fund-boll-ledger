@@ -650,7 +650,7 @@ test('真实确认历史驱动 BOLL/MACD 完整详情、历史分页和窄屏滚
   await page.getByRole('button', { name: '刷新行情' }).click();
   await expect(page.getByText('MACD 历史不足', { exact: true })).toBeVisible();
   await expect(page.getByText(/EMA 种子日期：.*实际输入 100 根/)).toBeVisible();
-  await expect(page.getByText(/MACD 数据不可用/)).toHaveCount(0);
+  await expect(page.getByText(/MACD数据不可用/)).toHaveCount(0);
 
   historyMode = 'short';
   await page.getByRole('button', { name: '刷新行情' }).click();
@@ -1422,8 +1422,8 @@ test('K 线来源全部失败时，技术详情明确显示无确认历史和缺
   await expect(page.getByText('日线 · 指标计算依据')).toBeVisible();
   await expect(page.getByText('无可确认历史 K 线', { exact: true })).toBeVisible();
   await expect(page.getByText('K 线来源：未提供 · 现价来源：东方财富')).toBeVisible();
-  await expect(page.locator('.macd-period-overview')).toContainText('BOLL 数据不可用');
-  await expect(page.locator('.macd-period-overview')).toContainText('MACD 数据不可用');
+  await expect(page.locator('.macd-period-overview')).toContainText('BOLL数据不可用');
+  await expect(page.locator('.macd-period-overview')).toContainText('MACD数据不可用');
   await expect(page.locator('.macd-summary')).toContainText(/东方财富失败|腾讯失败|百度失败/);
 });
 
@@ -1463,7 +1463,7 @@ test('刷新失败但保留上次行情时，技术摘要明确标注旧数据',
 
   await createFund(page, '行情刷新失败保留旧数据验收 ETF', '510300');
   await page.getByRole('button', { name: '刷新行情' }).click();
-  await expect(page.locator('.macd-period-overview')).toContainText('BOLL 数据不可用');
+  await expect(page.locator('.macd-period-overview')).toContainText('BOLL数据不可用');
 
   await page.getByRole('button', { name: '刷新行情' }).click();
   await expect(page.locator('.macd-summary')).toContainText('本次行情刷新失败，以下仍为上次成功数据');
@@ -1485,7 +1485,7 @@ test('BOLL/MACD 技术状态不进入 JSON 备份', async ({ page }) => {
 
   await createFund(page, '技术状态隔离验收 ETF', '510300');
   await page.getByRole('button', { name: '刷新行情' }).click();
-  await expect(page.locator('.macd-period-overview')).toContainText('BOLL 数据不可用');
+  await expect(page.locator('.macd-period-overview')).toContainText('BOLL数据不可用');
 
   await page.getByRole('button', { name: '历史与备份' }).click();
   const jsonDownload = page.waitForEvent('download');
