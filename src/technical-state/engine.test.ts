@@ -100,8 +100,8 @@ describe('combined BOLL/MACD technical state engine', () => {
     const description = describeTechnicalStateSnapshot(snapshot);
     expect(description).toContain('日线');
     expect(description).toContain('BOLL(20,2)');
-    expect(description).toContain('带宽阶段 未知');
-    expect(description).toContain('中轨方向 未知');
+    expect(description).toContain('带宽阶段 未配置');
+    expect(description).toContain('中轨方向 未配置');
     expect(description).toContain('MACD(12,26,9)');
     expect(description).toContain('DIF/DEA');
     expect(description).toContain('不构成买卖方向或交易指令');
@@ -159,6 +159,7 @@ describe('combined BOLL/MACD technical state engine', () => {
     });
     expect(description.periods[0].boll).toContain('未确认');
     expect(description.periods[0].boll).not.toContain('未配置');
+    expect(describeTechnicalStateSnapshot(configuredUnknown)).toContain('带宽阶段 未确认');
     expect(description.periods[1].boll).toContain('未配置');
   });
 
