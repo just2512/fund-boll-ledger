@@ -19,6 +19,8 @@ if (-not (Test-Path "src-tauri/gen/android")) {
   cargo tauri android init --ci
   if ($LASTEXITCODE -ne 0) { throw "Android 工程初始化失败。" }
 }
+node "scripts/configure-android-window-insets.mjs"
+if ($LASTEXITCODE -ne 0) { throw "Android 系统栏安全区配置失败。" }
 cargo tauri icon public/icon.svg
 if ($LASTEXITCODE -ne 0) { throw "图标生成失败。" }
 if (-not $Debug) {
