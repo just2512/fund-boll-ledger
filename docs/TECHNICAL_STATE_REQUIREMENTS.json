@@ -247,7 +247,7 @@
       "id": "T-09",
       "area": "ui",
       "title": "现有价格对比模块内的 BOLL + MACD 描述展示",
-      "status": "IN_PROGRESS",
+      "status": "BLOCKED",
       "acceptance": [
         "不新增独立产品模块或页面",
         "在现有价格对比模块内展示按日/周/月组织的综合摘要",
@@ -262,10 +262,15 @@
           "commit": "d8f25f4a05cf8f1905a14793bd07c5f60516638e",
           "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/42736555527",
           "note": "现有价格对比模块的折叠交互、桌面/窄屏视口和BOLL参考配置文案断言通过最新Playwright E2E。物理设备专项不在本项CI证据中。"
+        },
+        {
+          "commit": "574f9163a83e505c690b90e2dcce9895cb3d7475",
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43144982080",
+          "note": "Playwright 浏览器 E2E 43 项通过；仅证明自动化浏览器视口与交互，不替代 Windows/Android 原生构建和 OPPO Find N2 真机验收。"
         }
       ],
-      "currentReview": "IN_PROGRESS：自动化 UI 已实现并有上一轮 43 项 E2E 通过证据；当前版本 E2E 与物理设备验收仍需完成。",
-      "blocker": "浏览器 E2E 正在验证周期切换和窄屏布局；OPPO Find N2 外屏/内屏真机验收尚未执行，不能据模拟器/浏览器视口宣称真机通过。"
+      "currentReview": "BLOCKED：浏览器自动化 43 项通过；真实桌面/Android 原生构建和 OPPO Find N2 真机交互尚无证据。",
+      "blocker": "自动化浏览器视口 E2E 已通过；但 Windows Tauri 原生构建、Android ARM64 构建及 OPPO Find N2 外屏/内屏真机验收尚未执行，不能以浏览器视口替代。"
     },
     {
       "id": "T-10",
