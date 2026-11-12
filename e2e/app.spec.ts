@@ -579,9 +579,9 @@ test('真实确认历史驱动 BOLL/MACD 完整详情、历史分页和窄屏滚
     await expect(latestMacdRow.locator('td').nth(column)).not.toHaveText('预热');
     await expect(latestMacdRow.locator('td').nth(column)).not.toHaveText('未知');
   }
-  await expect(page.locator('.macd-indicator-state .macd-period-values span').nth(0)).toHaveText(/^DIF\\s+-?\\d/);
-  await expect(page.locator('.macd-indicator-state .macd-period-values span').nth(1)).toHaveText(/^DEA\\s+-?\\d/);
-  await expect(page.locator('.macd-indicator-state .macd-period-values span').nth(2)).toHaveText(/^柱体\\s+-?\\d/);
+  await expect(page.locator('.macd-indicator-state .macd-period-values span').nth(0)).toHaveText(/^DIF\s+-?\d/);
+  await expect(page.locator('.macd-indicator-state .macd-period-values span').nth(1)).toHaveText(/^DEA\s+-?\d/);
+  await expect(page.locator('.macd-indicator-state .macd-period-values span').nth(2)).toHaveText(/^柱体\s+-?\d/);
   await expect(page.getByText(/最近一次交叉：/)).toBeVisible();
 
   await expect(page.locator('.technical-history-scroll').nth(1).locator('tbody tr')).toHaveCount(20);
