@@ -108,6 +108,49 @@ describe('combined BOLL/MACD technical state engine', () => {
     expect(description).toContain('状态阈值未配置');
   });
 
+  it('classifies overall technical bias using confirmed multi-timeframe hard gates without scores', () => {
+    const makePeriod = (
+      interval: 'daily' | 'weekly' | 'monthly',
+      middleDirection: 'up' | 'down' | 'flat' | 'turning-up' | 'turning-down' | 'unknown',
+      lineRelation: 'bullish' | 'bearish' | 'equal' | 'unknown',
+      zeroAxis: 'above' | 'below' | 'at-zero' | 'unknown',
+    ) => {
+      const base = calculateTechnicalStateSnapshot({ ...series(), interval }, bollStateConfigFor(interval));
+      return {
+        ...base,
+        boll: { ...base.boll, validity: 'VALID' as const, middleDirection },
+        macd: {
+          ...base.macd,
+          interval,
+          availability: 'ready' as const,
+          lineRelation,
+          zeroAxis,
+        },
+      };
+    };
+    const set = (daily: ReturnType<typeof makePeriod>, weekly: ReturnType<typeof makePeriod>, monthly: ReturnType<typeof makePeriod>) =>
+      describeTechnicalMultiTimeframeState({ daily, weekly, monthly }).overallTrend;
+    const bull = (period: 'daily' | 'weekly' | 'monthly') => makePeriod(period, 'up', 'bullish', 'above');
+    const bear = (period: 'daily' | 'weekly' | 'monthly') => makePeriod(period, 'down', 'bearish', 'below');
+    const flat = (period: 'daily' | 'weekly' | 'monthly') => makePeriod(period, 'flat', 'equal', 'above');
+
+    expect(set(bull('daily'), bull('weekly'), bull('monthly'))).toBe('多周期偏多');
+    expect(set(bear('daily'), bull('weekly'), bull('monthly'))).toBe('中期偏多（短线回调）');
+    expect(set(bull('daily'), bear('weekly'), bear('monthly'))).toBe('中期偏空（短线反弹）');
+    expect(set(bear('daily'), bear('weekly'), bear('monthly'))).toBe('多周期偏空');
+    expect(set(flat('daily'), flat('weekly'), flat('monthly'))).toBe('三周期震荡');
+    expect(set(bull('daily'), bull('weekly'), bear('monthly'))).toBe('多空分歧');
+
+    const earlyBullCross = makePeriod('daily', 'up', 'bullish', 'below');
+    expect(set(earlyBullCross, bull('weekly'), bull('monthly'))).toBe('中期偏多（短线分歧）');
+
+    const unknownDaily = {
+      ...bull('daily'),
+      macd: { ...bull('daily').macd, availability: 'insufficient-history' as const },
+    };
+    expect(set(unknownDaily, bull('weekly'), bull('monthly'))).toBe('待确认');
+  });
+
   it('builds one concise combined BOLL/MACD condition per period from the current confirmed bar', () => {
     const makeSnapshot = (interval: 'daily' | 'weekly' | 'monthly') => calculateTechnicalStateSnapshot(
       { ...series(), interval },

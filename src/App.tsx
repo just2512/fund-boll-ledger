@@ -511,6 +511,15 @@ export default function App() {
   };
 
 
+  const technicalDescription = currentQuoteState?.quote?.technicalState
+    ? describeTechnicalMultiTimeframeState(currentQuoteState.quote.technicalState)
+    : undefined;
+  const technicalDataPrefix = currentQuoteState?.status === 'error'
+    ? '上次成功数据：'
+    : currentQuoteState?.status === 'loading' && currentQuoteState.quote
+      ? '刷新中，暂显上次数据：'
+      : '';
+
   if (!hydrated) return <div className="loading-screen"><div className="brand-mark">阶</div><strong>基金阶梯账本</strong><p className="muted">正在读取本地账本……</p></div>;
 
   return <div className="app-shell">
@@ -522,7 +531,10 @@ export default function App() {
           <div><span>当前价格</span><strong>{selectedFund.prices.currentPrice || '—'}</strong></div>
           <div><span>报价来源</span><strong>{currentQuoteState?.quote?.source || '尚未刷新'}</strong></div>
           <div><span>行情时间</span><strong>{currentQuoteState?.quote?.quotedAt || '源端未提供'}</strong></div>
-          <div className="top-summary-technical"><span>技术状态</span><strong>{currentQuoteState?.quote?.technicalState ? (currentQuoteState.status === 'error' ? '上次成功数据：' : currentQuoteState.status === 'loading' ? '刷新中，暂显示上次数据：' : '') + describeTechnicalMultiTimeframeState(currentQuoteState.quote.technicalState).summary : '等待有效行情数据'}</strong></div>
+          <div className="top-summary-technical">{technicalDescription ? <>
+            <div><span>整体趋势</span><strong className="top-summary-overall-value">{technicalDataPrefix}{technicalDescription.overallTrend}</strong></div>
+            <div><span>技术条件</span><strong className="top-summary-conditions-value">{technicalDataPrefix}{technicalDescription.summary}</strong></div>
+          </> : <div><span>技术状态</span><strong className="top-summary-conditions-value">{currentQuoteState?.status === 'error' ? '行情数据不可用' : '等待有效行情数据'}</strong></div>}</div>
         </div>
       </details>
       <button type="button" className="top-summary-refresh" aria-label="顶部刷新" title="刷新行情" disabled={currentQuoteState?.status === 'loading' || !selectedFund.code.trim()} onClick={() => { if (topSummaryRef.current) topSummaryRef.current.open = false; void refreshMarketQuote(selectedFund); }}>{currentQuoteState?.status === 'loading' ? '…' : '↻'}</button>

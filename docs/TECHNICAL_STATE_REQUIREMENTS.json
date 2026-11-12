@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "baseline": "docs/TECHNICAL_STATE_ANALYSIS_IMPLEMENTATION_PLAN.md#scope-correction-2026-11-09",
-  "scope": "BOLL + MACD technical-state description inside the existing price-comparison module only. No strategy/backtest/order/fill/accounting work.",
+  "scope": "BOLL + MACD technical-state descriptions and a deterministic, score-free multi-timeframe technical trend label inside the existing price-comparison module only. The trend label is not a trade recommendation. No strategy/backtest/order/fill/accounting work.",
   "rule": "Do not add or remove requirements without explicit user authorization. PASS requires current code, corresponding tests, relevant CI and traceable evidence.",
   "requirements": [
     {
@@ -218,12 +218,16 @@
       "id": "T-07",
       "area": "multi-timeframe",
       "title": "日/周/月 BOLL + MACD 综合关系描述",
-      "status": "PASS",
+      "status": "IN_PROGRESS",
       "acceptance": [
-        "三个周期分别保留各自状态和确认日期",
-        "区分周期方向一致、分化和数据不足",
-        "不把周/月持续排列误写成本周期新交叉",
-        "综合描述只陈述事实，不生成交易方向"
+        "日、周、月各自的 BOLL/MACD 状态和确认日期分别保留",
+        "顶部技术条件摘要每周期仅显示带宽阶段、中轨方向和最新确认 K 线的 MACD 交叉事件",
+        "单周期偏多必须同时满足 BOLL 中轨向上/拐头向上、MACD DIF 高于 DEA、DIF 位于零轴上方",
+        "单周期偏空必须同时满足 BOLL 中轨向下/拐头向下、MACD DIF 低于 DEA、DIF 位于零轴下方",
+        "单周期震荡只在 BOLL 中轨走平且 DIF/DEA 重合时成立；有效但不对齐的状态标为分歧",
+        "整体偏向必须由周线与月线同向建立，日线只用于标注短线共振、回调、反弹、震荡或分歧",
+        "缺失、历史不足、无效、不可用、未配置或方向未知时整体输出待确认",
+        "趋势判断不使用分数、权重或金叉/死叉单独定方向；不输出买卖、仓位或交易指令"
       ],
       "evidence": [
         {
@@ -247,7 +251,8 @@
           "note": "合并后 main 前端 CI（run attempt 2）：单元测试/生产构建 job 与浏览器 E2E job 均 completed/success。E2E 首次 attempt 曾有 1 项既有空状态用例 30 秒超时；仅重跑失败的 Browser end-to-end regression job 后通过，首次失败保留，不视为产品缺陷。"
         }
       ],
-      "currentReview": "PASS：本轮 GitHub Actions 已通过相关单元测试、TypeScript 检查和生产构建；新增 UNAVAILABLE 状态、逐根历史序列、周期摘要及前缀重放测试均通过。"
+      "currentReview": "IN_PROGRESS：已获用户明确授权增加整体多空技术倾向；本轮新增硬条件判定、单测、E2E 和文档约束，等待当前提交 CI 验证后补充证据并转 PASS。",
+      "blocker": "多周期整体趋势判断的新实现与边界测试尚待本轮最新提交的单元测试、生产构建和 Playwright E2E 全部通过。"
     },
     {
       "id": "T-08",

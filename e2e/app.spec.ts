@@ -571,12 +571,14 @@ test('真实确认历史驱动 BOLL/MACD 完整详情、历史分页和窄屏滚
   await page.getByRole('button', { name: '顶部刷新' }).click();
   await expect(page.getByText('日线 · 指标计算依据')).toBeVisible();
   await page.locator('.top-summary > summary').click();
-  const topTechnicalSummary = page.locator('.top-summary-technical strong');
-  await expect(topTechnicalSummary).toContainText('日线：');
-  await expect(topTechnicalSummary).toContainText('周线：');
-  await expect(topTechnicalSummary).toContainText('月线：');
-  await expect(topTechnicalSummary).not.toContainText('DIF/DEA');
-  await expect(topTechnicalSummary).not.toContainText('BOLL：');
+  const topTrend = page.locator('.top-summary-overall-value');
+  const topConditions = page.locator('.top-summary-conditions-value');
+  await expect(topTrend).toContainText(/多周期偏多|多周期偏空|中期偏多（短线回调）|中期偏多（短线震荡）|中期偏多（短线分歧）|中期偏空（短线反弹）|中期偏空（短线震荡）|中期偏空（短线分歧）|三周期震荡|多空分歧|待确认/);
+  await expect(topConditions).toContainText('日线：');
+  await expect(topConditions).toContainText('周线：');
+  await expect(topConditions).toContainText('月线：');
+  await expect(topConditions).not.toContainText('DIF/DEA');
+  await expect(topConditions).not.toContainText('BOLL：');
   await page.locator('.top-summary > summary').click();
   await expect(page.getByText(/公式版本：technical-formula-v1/)).toBeVisible();
   await expect(page.getByText(/EMA 初始化：快线\/慢线以首根确认收盘价为种子/)).toBeVisible();
@@ -1483,7 +1485,8 @@ test('刷新失败但保留上次行情时，技术摘要明确标注旧数据',
   await expect(page.locator('.macd-summary')).toContainText('东方财富失败');
   await expect(page.locator('.top-summary-hint')).toContainText('上次成功行情');
   await page.locator('.top-summary > summary').click();
-  await expect(page.locator('.top-summary-technical strong')).toContainText('上次成功数据：');
+  await expect(page.locator('.top-summary-overall-value')).toContainText('上次成功数据：');
+  await expect(page.locator('.top-summary-conditions-value')).toContainText('上次成功数据：');
   expect(quoteRequests).toBeGreaterThanOrEqual(2);
 });
 
