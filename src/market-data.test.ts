@@ -165,7 +165,7 @@ describe('manual ETF market quote refresh', () => {
     expect(market.tradingDate).toBeUndefined();
     expect(market.boll).toBeUndefined();
     expect(market.bollError).toContain('可信交易日期');
-    expect(market.technicalState?.daily.validity).toBe('INVALID');
+    expect(market.technicalState?.daily.validity).toBe('UNAVAILABLE');
     expect(market.technicalState?.daily.reason).toContain('交易日期');
   });
   it('integrates confirmed BOLL and MACD states for daily, weekly, and monthly histories', async () => {
@@ -457,7 +457,7 @@ describe('BOLL(20,2)', () => {
     expect(market.bollError).toContain('百度失败');
     expect(market.weeklyBollRangeError).toContain('腾讯失败');
     expect(market.monthlyBollRangeError).toContain('腾讯失败');
-    expect(market.technicalState?.daily.validity).toBe('INVALID');
+    expect(market.technicalState?.daily.validity).toBe('UNAVAILABLE');
     expect(market.technicalState?.daily.reason).toContain('东方财富失败');
     expect(market.technicalState?.daily.reason).toContain('腾讯失败');
     expect(market.technicalState?.daily.reason).toContain('百度失败');
