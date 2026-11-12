@@ -211,7 +211,7 @@ export function describeTechnicalMultiTimeframeState(
   ];
   const summary = ordered.map(({ label, snapshot }) =>
     label + '：BOLL ' + bollPeriodSummary(snapshot) + '；MACD ' + macdPeriodSummary(snapshot),
-  ).join('。');
+  ).join('\\n');
   return {
     summary,
     detail: ordered.map(({ snapshot }) => describeTechnicalStateSnapshot(snapshot)).join('\n'),
