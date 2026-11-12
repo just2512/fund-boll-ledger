@@ -304,3 +304,13 @@
 - 本次未获得该 run 的 Playwright 用例数明细，不在文档中推断具体通过数量。
 - Android 持久签名 Release 仍因 `ANDROID_RELEASE_SIGNING_ENABLED` 未启用而 SKIPPED；debug-only APK 不可用于正式版覆盖升级。
 - **BLOCKED（由本地执行）**：Windows 安装后实际桌面操作、Android 安装/启动、OPPO Find N2 外屏/内屏/横竖屏/输入法及真实行情详情核对。云端任务不代替用户设备测试。
+
+
+## 2026-11-12 最新需求矩阵提交 CI 复核（Run 43164881293）
+
+- 验证提交：`a2a58eabd6eb70ad8025d333e5a1ce843d28c124`（需求矩阵 T-09 的 currentReview/blocker 与执行台账边界同步）。
+- GitHub Actions [Run 43164881293](https://github.com/just2512/fund-boll-ledger/actions/runs/43164881293)：两个 job 均 completed/success。
+  - **PASS：Unit tests and production build**。锁定依赖、补丁依赖、执行契约与 technical-state requirements matrix、Windows/Android 升级契约、Android signing 工具语法、单元测试、BOLL/MACD 历史复用 benchmark、TypeScript 检查和生产构建步骤全部成功。
+  - **PASS：Browser end-to-end regression**。Playwright browser E2E 步骤成功。
+- 本次 run 是对前一轮尚未被 CI 覆盖的需求矩阵/台账提交的后续验证；未取得 job 日志中的测试数量明细，因此不补写单测或 E2E 通过数量。
+- 本次 run 不改变外部验收边界：Windows 桌面实际安装/操作、Android 安装/启动及 OPPO Find N2 外屏/内屏/横竖屏/输入法/真实行情详情核对仍 **BLOCKED**；Android 持久签名 Release 仍 **SKIPPED**。浏览器 CI 与云端构建不得替代真机验收。
