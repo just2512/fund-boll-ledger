@@ -579,7 +579,10 @@ test('真实确认历史驱动 BOLL/MACD 完整详情、历史分页和窄屏滚
   await expect(page.getByText('历史计算明细')).toBeVisible();
   await expect(page.locator('.technical-history-scroll').nth(0).locator('tbody tr')).toHaveCount(20);
   await expect(page.locator('.technical-history-scroll').nth(0).getByRole('columnheader', { name: '通道位置 %' })).toBeVisible();
-  const latestBollRow = page.locator('.technical-history-scroll').nth(0).locator('tbody tr').last();
+  const bollHistoryTable = page.locator('.technical-history-scroll').nth(0);
+  await expect(bollHistoryTable).not.toContainText('未配置');
+  await expect(bollHistoryTable).not.toContainText('未知/未配置');
+  const latestBollRow = bollHistoryTable.locator('tbody tr').last();
   await expect(latestBollRow.locator('td').nth(9)).not.toHaveText('—');
   await expect(latestBollRow.locator('td').nth(10)).not.toHaveText('—');
   for (const column of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
