@@ -130,6 +130,31 @@ describe('combined BOLL/MACD technical state engine', () => {
     expect(description.detail).toContain('不构成买卖方向或交易指令');
   });
 
+  it('preserves MACD cross-history uncertainty in the compact summary', () => {
+    const base = calculateTechnicalStateSnapshot(series());
+    const daily = {
+      ...base,
+      interval: 'daily' as const,
+      macd: { ...base.macd, interval: 'daily' as const, arrangement: 'bull-history-unknown' as const },
+    };
+    const weekly = {
+      ...base,
+      interval: 'weekly' as const,
+      macd: { ...base.macd, interval: 'weekly' as const, arrangement: 'bear-history-unknown' as const },
+    };
+    const monthly = {
+      ...base,
+      interval: 'monthly' as const,
+      macd: { ...base.macd, interval: 'monthly' as const },
+    };
+
+    const description = describeTechnicalMultiTimeframeState({ daily, weekly, monthly });
+    expect(description.summary).toContain('多头排列（交叉历史不足）');
+    expect(description.summary).toContain('空头排列（交叉历史不足）');
+    expect(description.periods.find((period) => period.label === '日线')?.macd).toContain('交叉历史不足');
+    expect(description.periods.find((period) => period.label === '周线')?.macd).toContain('交叉历史不足');
+  });
+
   it('reports BOLL and MACD validity independently when one indicator lacks sufficient history', () => {
     const short = calculateTechnicalStateSnapshot(series('东方财富', 100));
     const full = calculateTechnicalStateSnapshot(series());
