@@ -161,6 +161,7 @@ export function describeTechnicalStateSnapshot(snapshot: TechnicalStateSnapshot)
   const period = INTERVAL_DESCRIPTION[snapshot.interval];
   const date = snapshot.asOfDate ? '截至 ' + snapshot.asOfDate : '日期未知';
   const boll = snapshot.boll;
+  const bollUnknown = snapshot.bollConfig ? '未确认' : '未配置';
   const bollText = boll.validity !== 'VALID'
     ? 'BOLL ' + boll.validity + (boll.reason ? '：' + boll.reason : '')
     : [
@@ -169,10 +170,10 @@ export function describeTechnicalStateSnapshot(snapshot: TechnicalStateSnapshot)
           formatTechnicalNumber(boll.middle) + '/' +
           formatTechnicalNumber(boll.lower),
         '带宽 ' + formatTechnicalNumber(boll.bandwidthPercent, 4) + '%',
-        '带宽阶段 ' + bollBandwidthLabel(boll.bandwidthPhase),
-        '中轨方向 ' + bollMiddleLabel(boll.middleDirection),
-        '确认收盘区间位置 ' + formatTechnicalNumber(boll.closeLocationPercent, 2) + '%（' +
-          bollPriceLocationLabel(boll.priceLocation) + '）',
+        '带宽阶段 ' + (boll.bandwidthPhase === 'unknown' ? bollUnknown : bollBandwidthLabel(boll.bandwidthPhase)),
+        '中轨方向 ' + (boll.middleDirection === 'unknown' ? bollUnknown : bollMiddleLabel(boll.middleDirection)),
+        '确认收盘区间位置 ' + (boll.closeLocationPercent === undefined ? bollUnknown : formatTechnicalNumber(boll.closeLocationPercent, 2) + '%') + '（' +
+          (boll.priceLocation === 'unknown' ? bollUnknown : bollPriceLocationLabel(boll.priceLocation)) + '）',
       ].join('；') + (boll.reason ? '；' + boll.reason : '');
 
   const macd = snapshot.macd;
