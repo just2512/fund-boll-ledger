@@ -562,12 +562,6 @@ test('真实确认历史驱动 BOLL/MACD 完整详情、历史分页和窄屏滚
   await createFund(page, '技术状态验收 ETF', '510300');
   await page.locator('.top-summary > summary').click();
   await expect(page.locator('.top-summary[open]')).toHaveCount(1);
-  const topTechnicalSummary = page.locator('.top-summary-technical strong');
-  await expect(topTechnicalSummary).toContainText('日线：');
-  await expect(topTechnicalSummary).toContainText('周线：');
-  await expect(topTechnicalSummary).toContainText('月线：');
-  await expect(topTechnicalSummary).not.toContainText('DIF/DEA');
-  await expect(topTechnicalSummary).not.toContainText('BOLL：');
   await page.keyboard.press('Escape');
   await expect(page.locator('.top-summary[open]')).toHaveCount(0);
   await page.locator('.top-summary > summary').click();
@@ -576,6 +570,14 @@ test('真实确认历史驱动 BOLL/MACD 完整详情、历史分页和窄屏滚
   await expect(page.locator('.top-summary[open]')).toHaveCount(0);
   await page.getByRole('button', { name: '顶部刷新' }).click();
   await expect(page.getByText('日线 · 指标计算依据')).toBeVisible();
+  await page.locator('.top-summary > summary').click();
+  const topTechnicalSummary = page.locator('.top-summary-technical strong');
+  await expect(topTechnicalSummary).toContainText('日线：');
+  await expect(topTechnicalSummary).toContainText('周线：');
+  await expect(topTechnicalSummary).toContainText('月线：');
+  await expect(topTechnicalSummary).not.toContainText('DIF/DEA');
+  await expect(topTechnicalSummary).not.toContainText('BOLL：');
+  await page.locator('.top-summary > summary').click();
   await expect(page.getByText(/公式版本：technical-formula-v1/)).toBeVisible();
   await expect(page.getByText(/EMA 初始化：快线\/慢线以首根确认收盘价为种子/)).toBeVisible();
   await expect(page.getByText('K 线来源：东方财富 · 现价来源：东方财富')).toBeVisible();
@@ -1479,6 +1481,9 @@ test('刷新失败但保留上次行情时，技术摘要明确标注旧数据',
   await page.getByRole('button', { name: '刷新行情' }).click();
   await expect(page.locator('.macd-summary')).toContainText('本次行情刷新失败，以下仍为上次成功数据');
   await expect(page.locator('.macd-summary')).toContainText('东方财富失败');
+  await expect(page.locator('.top-summary-hint')).toContainText('上次成功行情');
+  await page.locator('.top-summary > summary').click();
+  await expect(page.locator('.top-summary-technical strong')).toContainText('上次成功数据：');
   expect(quoteRequests).toBeGreaterThanOrEqual(2);
 });
 
