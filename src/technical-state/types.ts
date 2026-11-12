@@ -78,6 +78,23 @@ export type BollPriceLocation =
   | 'above-upper'
   | 'unknown';
 
+export interface BollHistoryPoint {
+  date: string;
+  close: number;
+  upper?: number;
+  middle?: number;
+  lower?: number;
+  bandwidthPercent?: number;
+  bandwidthPercentile?: number;
+  bandwidthSampleCount?: number;
+  bandwidthPhase: BollBandwidthPhase;
+  bandwidthPhaseStartDate?: string;
+  middleDirection: BollMiddleDirection;
+  middleDirectionStartDate?: string;
+  closeLocationPercent?: number;
+  priceLocation: BollPriceLocation;
+}
+
 export interface BollState {
   validity: TechnicalValidity;
   asOfDate?: string;
@@ -94,7 +111,9 @@ export interface BollState {
   bandwidthChange5?: number;
   middleChangePercent?: number;
   bandwidthPhase: BollBandwidthPhase;
+  bandwidthPhaseStartDate?: string;
   middleDirection: BollMiddleDirection;
+  middleDirectionStartDate?: string;
   /** Historical close relative to same-bar bands; never the live quote. */
   closeLocationPercent?: number;
   priceLocation: BollPriceLocation;
@@ -113,7 +132,9 @@ export interface TechnicalStateSnapshot {
   confirmedBarCount: number;
   excludedInProgressBar: boolean;
   boll: BollState;
+  bollHistory: BollHistoryPoint[];
   macd: MacdPeriodState;
+  macdHistory: import('../macd').MacdHistoryPoint[];
   validity: TechnicalValidity;
   reason?: string;
 }
