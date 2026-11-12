@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculateTechnicalStateSnapshot, describeTechnicalMultiTimeframeState, describeTechnicalStateSnapshot } from './engine';
+import { calculateTechnicalStateSnapshot, describeTechnicalMultiTimeframeState, describeTechnicalStateSnapshot, unavailableTechnicalState } from './engine';
 import { compareBatchWithReplay, hasNoFutureBars, replayConfirmedTechnicalSeries } from './history-replay';
 import { bollStateConfigFor } from './config';
 import type { ConfirmedTechnicalSeries, TechnicalBar } from './types';
@@ -174,6 +174,20 @@ describe('combined BOLL/MACD technical state engine', () => {
     expect(snapshot.macdHistory).toHaveLength(input.bars.length);
     expect(snapshot.bollHistory.map((point) => point.date)).toEqual(input.bars.map((bar) => bar.date));
     expect(snapshot.macdHistory.map((point) => point.date)).toEqual(input.bars.map((bar) => bar.date));
+  });
+
+  it('distinguishes unavailable source data from invalid indicator input', () => {
+    const snapshot = unavailableTechnicalState('daily', 'UNAVAILABLE', '缺少可信交易日期');
+    expect(snapshot.validity).toBe('UNAVAILABLE');
+    expect(snapshot.boll.validity).toBe('UNAVAILABLE');
+    expect(snapshot.macd.availability).toBe('unavailable');
+    const summary = describeTechnicalMultiTimeframeState({
+      daily: snapshot,
+      weekly: calculateTechnicalStateSnapshot(series()),
+      monthly: calculateTechnicalStateSnapshot(series()),
+    }).summary;
+    expect(summary).toContain('日线：BOLL 数据不可用');
+    expect(summary).toContain('MACD 数据不可用');
   });
 
 });
