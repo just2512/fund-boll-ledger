@@ -570,6 +570,20 @@ test('真实确认历史驱动 BOLL/MACD 完整详情、历史分页和窄屏滚
   const latestBollRow = page.locator('.technical-history-scroll').nth(0).locator('tbody tr').last();
   await expect(latestBollRow.locator('td').nth(9)).not.toHaveText('—');
   await expect(latestBollRow.locator('td').nth(10)).not.toHaveText('—');
+  for (const column of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
+    await expect(latestBollRow.locator('td').nth(column)).not.toHaveText('—');
+  }
+  const latestMacdRow = page.locator('.technical-history-scroll').nth(1).locator('tbody tr').last();
+  expect(await latestMacdRow.locator('td').nth(0).textContent()).toBe(await latestBollRow.locator('td').nth(0).textContent());
+  for (const column of [2, 3, 4, 5, 6, 7, 8]) {
+    await expect(latestMacdRow.locator('td').nth(column)).not.toHaveText('预热');
+    await expect(latestMacdRow.locator('td').nth(column)).not.toHaveText('未知');
+  }
+  await expect(page.locator('.macd-indicator-state .macd-period-values span').nth(0)).toHaveText(/^DIF\\s+-?\\d/);
+  await expect(page.locator('.macd-indicator-state .macd-period-values span').nth(1)).toHaveText(/^DEA\\s+-?\\d/);
+  await expect(page.locator('.macd-indicator-state .macd-period-values span').nth(2)).toHaveText(/^柱体\\s+-?\\d/);
+  await expect(page.getByText(/最近一次交叉：/)).toBeVisible();
+
   await expect(page.locator('.technical-history-scroll').nth(1).locator('tbody tr')).toHaveCount(20);
   await expect(page.getByText(/第 1 \/ 12 页 · 显示 20 根/)).toBeVisible();
   await expect(page.locator('.macd-period-card details')).toHaveCount(0);
