@@ -579,14 +579,18 @@ test('真实确认历史驱动 BOLL/MACD 完整详情、历史分页和窄屏滚
   await expect(page.getByText('月线 · 指标计算依据')).toBeVisible();
   await expect(page.getByText(/实际输入 120 根/)).toBeVisible();
 
-  const dimensions = await page.evaluate(() => ({
-    viewport: document.documentElement.clientWidth,
-    document: document.documentElement.scrollWidth,
-    table: document.querySelector('.technical-history-scroll') as HTMLElement | null,
-  }));
+  const dimensions = await page.evaluate(() => {
+    const table = document.querySelector('.technical-history-scroll') as HTMLElement | null;
+    return {
+      viewport: document.documentElement.clientWidth,
+      document: document.documentElement.scrollWidth,
+      tableScrollWidth: table?.scrollWidth ?? null,
+      tableClientWidth: table?.clientWidth ?? null,
+    };
+  });
   expect(dimensions.document).toBeLessThanOrEqual(dimensions.viewport);
-  expect(dimensions.table).not.toBeNull();
-  expect(dimensions.table!.scrollWidth).toBeGreaterThan(dimensions.table!.clientWidth);
+  expect(dimensions.tableScrollWidth).not.toBeNull();
+  expect(dimensions.tableScrollWidth!).toBeGreaterThan(dimensions.tableClientWidth!);
 });
 
 test('东方财富与腾讯都失败时百度自动兜底，三源都失败时保留手动价格', async ({ page }) => {
