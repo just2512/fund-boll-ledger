@@ -663,12 +663,13 @@ function MacdPeriodCard({ label, period, state, technical }: { label: string; pe
             <div className="technical-history-subheading">BOLL 历史值</div>
             <div className="table-scroll technical-history-scroll">
               <table>
-                <thead><tr><th>日期</th><th>收盘</th><th>上轨</th><th>中轨</th><th>下轨</th><th>带宽</th><th>分位</th><th>阶段</th><th>中轨</th><th>通道位置</th></tr></thead>
+                <thead><tr><th>日期</th><th>收盘</th><th>上轨</th><th>中轨</th><th>下轨</th><th>带宽</th><th>分位</th><th>阶段</th><th>中轨方向</th><th>通道位置 %</th><th>位置分类</th></tr></thead>
                 <tbody>{historyRows.map((row) => <tr key={'boll-' + row.date}>
                   <td>{row.date}</td><td>{bollNumber(row.boll?.close)}</td><td>{bollNumber(row.boll?.upper)}</td><td>{bollNumber(row.boll?.middle)}</td><td>{bollNumber(row.boll?.lower)}</td>
                   <td>{row.boll?.bandwidthPercent === undefined ? '—' : bollNumber(row.boll.bandwidthPercent, 4) + '%'}</td>
                   <td>{row.boll?.bandwidthPercentile === undefined ? '—' : bollNumber(row.boll.bandwidthPercentile, 1) + '%'}</td>
                   <td>{row.boll ? bollPhaseLabel(row.boll.bandwidthPhase) : '—'}</td><td>{row.boll ? bollMiddleLabel(row.boll.middleDirection) : '—'}</td>
+                  <td>{row.boll?.closeLocationPercent === undefined ? '—' : bollNumber(row.boll.closeLocationPercent, 2) + '%'}</td>
                   <td>{row.boll ? bollLocationLabel(row.boll.priceLocation) : '—'}</td>
                 </tr>)}</tbody>
               </table>
