@@ -1379,3 +1379,26 @@ test('历史页删除快照只影响目标条目', async ({ page }) => {
   await expect(page.locator('.snapshot-card', { hasText: '快照二' })).toBeVisible();
   await expect(page.locator('.snapshot-card')).toHaveCount(1);
 });
+
+
+test('K 线来源全部失败时，技术详情明确显示无确认历史和缺失来源', async ({ page }) => {
+  await page.route('https://push2.eastmoney.com/**', (route) => route.fulfill({
+    status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' },
+    body: JSON.stringify({ data: { f57: '510300', f58: '沪深300ETF', f43: '4.125', f60: '4.000', f86: currentMarketEpoch() } }),
+  }));
+  await page.route('https://push2his.eastmoney.com/**', (route) => route.fulfill({ status: 503, body: 'eastmoney kline unavailable' }));
+  await page.route('https://qt.gtimg.cn/**', (route) => route.fulfill({ status: 503, body: 'tencent quote unavailable' }));
+  await page.route('https://ifzq.gtimg.cn/**', (route) => route.fulfill({ status: 503, body: 'tencent kline unavailable' }));
+  await page.route('https://finance.pae.baidu.com/**', (route) => route.fulfill({ status: 503, body: 'baidu quote unavailable' }));
+  await page.route('https://sp0.baidu.com/**', (route) => route.fulfill({ status: 503, body: 'baidu kline unavailable' }));
+
+  await createFund(page, 'K线来源失败验收 ETF', '510300');
+  await page.getByRole('button', { name: '刷新行情' }).click();
+
+  await expect(page.getByText('日线 · 指标计算依据')).toBeVisible();
+  await expect(page.getByText('无可确认历史 K 线', { exact: true })).toBeVisible();
+  await expect(page.getByText('K 线来源：未提供 · 现价来源：东方财富')).toBeVisible();
+  await expect(page.getByText(/BOLL.*数据不可用|数据不可用.*BOLL/)).toBeVisible();
+  await expect(page.getByText(/MACD.*数据不可用|数据不可用.*MACD/)).toBeVisible();
+  await expect(page.getByText(/东方财富失败|腾讯失败|百度失败/).first()).toBeVisible();
+});
