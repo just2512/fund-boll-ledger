@@ -146,6 +146,23 @@ describe('combined BOLL/MACD technical state engine', () => {
     expect(summary).not.toContain('BOLL 有效');
   });
 
+  it('distinguishes a configured but unconfirmed BOLL state from missing configuration', () => {
+    const configured = calculateTechnicalStateSnapshot(series(), bollStateConfigFor('daily'));
+    const configuredUnknown = {
+      ...configured,
+      boll: { ...configured.boll, bandwidthPhase: 'unknown' as const, middleDirection: 'unknown' as const, priceLocation: 'unknown' as const },
+    };
+    const unconfigured = calculateTechnicalStateSnapshot(series());
+    const description = describeTechnicalMultiTimeframeState({
+      daily: configuredUnknown,
+      weekly: { ...unconfigured, interval: 'weekly' as const, macd: { ...unconfigured.macd, interval: 'weekly' as const } },
+      monthly: { ...unconfigured, interval: 'monthly' as const, macd: { ...unconfigured.macd, interval: 'monthly' as const } },
+    });
+    expect(description.periods[0].boll).toContain('未确认');
+    expect(description.periods[0].boll).not.toContain('未配置');
+    expect(description.periods[1].boll).toContain('未配置');
+  });
+
   it('keeps insufficient, unavailable and invalid MACD detail descriptions distinct', () => {
     const insufficient = calculateTechnicalStateSnapshot(series('东方财富', 100));
     const insufficientDetail = describeTechnicalStateSnapshot(insufficient);
