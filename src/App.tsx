@@ -570,7 +570,7 @@ function MacdPeriodCard({ label, period, state, technical }: { label: string; pe
   const [historyPage, setHistoryPage] = useState(0);
   const boll = technical?.boll;
   const bollConfig = technical?.bollConfig;
-  const bollStatus = !boll ? '待计算' : boll.validity === 'VALID' ? '有效' : boll.validity === 'INSUFFICIENT' ? '历史不足' : '数据无效';
+  const bollStatus = !boll ? '待计算' : boll.validity === 'VALID' ? '有效' : boll.validity === 'INSUFFICIENT' ? '历史不足' : boll.validity === 'UNAVAILABLE' ? '数据不可用' : '数据无效';
   const macdStatus = !state ? '待计算' : macdAvailabilityLabel(state);
   const coverage = technical
     ? (technical.historyStartDate ?? '—') + ' 至 ' + (technical.asOfDate ?? state?.asOfDate ?? '—') + ' · ' + technical.confirmedBarCount + ' 根确认 K 线'
