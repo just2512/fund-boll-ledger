@@ -38,7 +38,7 @@ describe('live multi-ETF BOLL historical calibration', () => {
           const originalFetch = globalThis.fetch;
           globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
             const url = input instanceof Request ? input.url : String(input);
-            if (url.includes('push2his.eastmoney.com')) return new Response('', { status: 503 });
+            if (url.includes('push2his.eastmoney.com') || url.includes('ifzq.gtimg.cn')) return new Response('', { status: 503 });
             return originalFetch(input, init);
           };
           try {
@@ -75,7 +75,7 @@ describe('live multi-ETF BOLL historical calibration', () => {
           const originalFetch = globalThis.fetch;
           globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
             const url = input instanceof Request ? input.url : String(input);
-            if (url.includes('push2.eastmoney.com/api/qt/stock/get?')) return new Response('', { status: 503 });
+            if (url.includes('push2.eastmoney.com/api/qt/stock/get?') || url.includes('qt.gtimg.cn')) return new Response('', { status: 503 });
             return originalFetch(input, init);
           };
           try {
