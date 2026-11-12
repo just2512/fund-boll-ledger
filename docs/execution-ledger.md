@@ -139,3 +139,13 @@ The frontend browser CI and multi-ETF live calibration are recorded in the requi
 
 
 - 需求矩阵同步：T-09 的 currentReview/blocker 已同步本轮 Native run 43162417531 与 Frontend Checks run 43164060173 的证据边界，并明确 Windows/Android/Find N2 的本地验收责任。该矩阵更新提交晚于 Run 43164799096 的 checkout；需由本次台账提交触发的后续 CI 再验证最新 JSON 矩阵，不能把 Run 43164799096 提前记为验证该 JSON 更新。
+
+
+## 2026-11-12 需求矩阵提交 CI 收口
+
+- 需求矩阵与台账边界提交：`a2a58eabd6eb70ad8025d333e5a1ce843d28c124`。
+- 后续 Frontend Checks [Run 43164881293](https://github.com/just2512/fund-boll-ledger/actions/runs/43164881293) 已完成，两个 job 均 completed/success：
+  - Unit tests and production build：执行契约与 technical-state requirements matrix 检查、依赖检查、升级契约、Android signing 工具语法、单元测试、BOLL/MACD benchmark、TypeScript 与生产构建均成功。
+  - Browser end-to-end regression：Playwright E2E 步骤成功。
+- 该 run 由上述需求矩阵/台账提交触发，补齐此前 Run 43164799096 未覆盖最新矩阵提交的证据缺口。未取得日志中的测试数量，不推断具体通过数。
+- 云端可执行的阶段 0—3 及阶段 4 自动化检查继续保持通过；设备验收不因此解除：Windows 桌面实际操作、Android 安装/启动、OPPO Find N2 外屏/内屏/横竖屏/输入法和真实行情技术详情仍由用户本地执行并保持 BLOCKED。Android 持久签名 Release 仍 SKIPPED。
