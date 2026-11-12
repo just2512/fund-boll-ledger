@@ -123,3 +123,16 @@ The frontend browser CI and multi-ETF live calibration are recorded in the requi
 - **BLOCKED：外部设备验收**。Windows 安装包尚无桌面实际操作证据；Android APK 尚无安装/启动证据；OPPO Find N2（PUG110）外屏、展开内屏、横竖屏、输入法和真实行情下 BOLL/MACD 详情检查尚未执行。此类操作依赖用户可接触的实体设备，云端 CI 无法代替。
 - 后续工作顺序：①取得并安装本次 Windows/Android artifact，先执行启动、备份恢复和账本回归；②在 Find N2 上按 `docs/NATIVE_APP_AND_DEVICE_TEST.md` 逐项验收；③记录设备型号/系统版本、artifact 文件名、实际结果及截图；④对发现的问题建立最小修复提交并重新跑 CI；⑤设备阻断清零后再评估 PR #4 合并，不以构建成功作为合并的唯一依据。
 - 本节记录的是 run 43162417531 实际 job 状态；不推断未返回的 artifact ID、文件大小或设备运行结果。
+
+
+## 23. 前端 CI 收尾与云端/本地验收边界（2026-11-12）
+
+- 最新复核的 Frontend Checks [Run 43164060173](https://github.com/just2512/fund-boll-ledger/actions/runs/43164060173) 已完成，两个 job 均为 completed/success：
+  - Unit tests and production build：依赖、执行契约/需求矩阵、Windows/Android 升级契约、Android signing 脚本语法、单元测试、BOLL/MACD 历史复用 benchmark、TypeScript、生产构建全部成功。
+  - Browser end-to-end regression：Playwright browser E2E job 成功。
+- 该 run 关联代码提交 `e655841acc568ef88d424a2268832765eee43200`。随后提交的文档更新未被该 run 覆盖；不得把 run 43164060173 标成这些后续文档提交的 CI 结果。
+- 本轮云端代码复核重新检查了 MACD EMA/交叉历史、160/160/100 根稳定发布门槛、BOLL(20,2) 总体标准差与版本化参考配置、同一确认序列复用、日期/收盘价对齐拒绝、BOLL/MACD 历史逐根字段，以及历史不足/不可用/无效状态区分。未发现足以支持修改公式、参数、行情源或账本结构的确定性缺陷，因此不做无依据算法改动。
+- **云端已完成**：现有单测/构建/benchmark/Playwright CI 收尾；README 与 TEST_PLAN 的信息架构描述同步；验收文档和本台账补记当前 CI 与原生构建证据边界。
+- **由用户本地执行**：下载并安装 Windows installer、Android ARM64 debug-only APK；检查启动、价格计算/交易账本/JSON 备份恢复回归；OPPO Find N2（PUG110）外屏/内屏、横竖屏、输入法、真实行情下 BOLL/MACD 详情和历史表格操作。结果需回填设备型号、系统版本、artifact 文件名、操作步骤、实际结果及截图。
+- Android 持久签名 Release 仍 SKIPPED；debug-only APK 不可覆盖正式版。安装前先导出 JSON 备份，避免本地 IndexedDB 数据丢失。
+- PR #4 仍保持 open、未合并；feature branch 相对 main ahead 130 / behind 0。当前没有授权或证据要求在本轮合并。
