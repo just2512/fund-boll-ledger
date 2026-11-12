@@ -46,6 +46,10 @@ describe('combined BOLL/MACD technical state engine', () => {
     expect(snapshot.boll.bandwidthPercentile).toBeDefined();
     expect(snapshot.boll.bandwidthPhase).not.toBe('unknown');
     expect(snapshot.boll.middleDirection).not.toBe('unknown');
+    expect(snapshot.boll.bandwidthPhaseStartDate).toBe(snapshot.bollHistory.at(-1)?.bandwidthPhaseStartDate);
+    expect(snapshot.boll.bandwidthPhaseObservationStartDate).toBe(snapshot.bollHistory.at(-1)?.bandwidthPhaseObservationStartDate);
+    expect(snapshot.boll.middleDirectionStartDate).toBe(snapshot.bollHistory.at(-1)?.middleDirectionStartDate);
+    expect(snapshot.boll.middleDirectionObservationStartDate).toBe(snapshot.bollHistory.at(-1)?.middleDirectionObservationStartDate);
     expect(snapshot.boll.reason).toBeUndefined();
   });
 
