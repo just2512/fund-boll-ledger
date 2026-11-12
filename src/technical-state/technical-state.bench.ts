@@ -17,7 +17,6 @@ function makeSeries(size: number): ConfirmedTechnicalSeries {
     interval: 'daily',
     asOfDate: bars[bars.length - 1].date,
     bars,
-    source: 'synthetic-benchmark',
     excludedInProgressBar: false,
   };
 }
