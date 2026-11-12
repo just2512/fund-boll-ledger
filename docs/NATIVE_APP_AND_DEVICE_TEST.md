@@ -25,9 +25,9 @@ PUG110 对应 ARM64 Android 设备，因此应使用 --target aarch64 生成的 
 
 ## Android 系统栏安全区
 
-Android 15/API 35 及以上在目标 SDK 35+ 时强制采用 edge-to-edge，状态栏可能覆盖 WebView 内容；仅依赖 CSS `env(safe-area-inset-top)` 不能替代原生窗口 inset。 此前样式表虽然定义了 `env(safe-area-inset-top)`，但后续 `.topbar` 固定 `padding-top` 规则覆盖了该值，且 Android WebView 不保证始终向 CSS 暴露系统状态栏 inset。Android 构建流程在 `cargo tauri android init` 后执行 `scripts/configure-android-window-insets.mjs`，对生成的 `MainActivity.kt` 增加 `WindowCompat` / `WindowInsetsCompat` 处理，将状态栏与 display cutout 安全区应用到 WebView 根内容视图。脚本具备幂等检查，生成文件不提交到仓库，每次原生构建均重新应用。
+Android 15/API 35 及以上在目标 SDK 35+ 时强制采用 edge-to-edge，状态栏可能覆盖 WebView 内容；仅依赖 CSS `env(safe-area-inset-top)` 不能替代原生窗口 inset。 此前样式表虽然定义了 `env(safe-area-inset-top)`，但后续 `.topbar` 固定 `padding-top` 规则覆盖了该值，且 Android WebView 不保证始终向 CSS 暴露系统状态栏 inset。Android 构建流程在 `cargo tauri android init` 后执行 `scripts/configure-android-window-insets.mjs`，对生成的 `MainActivity.kt` 增加 `WindowCompat` / `WindowInsetsCompat` 处理，将状态栏与 display cutout 的顶部/横向安全区，以及 navigation bar 的底部安全区应用到 WebView 根内容视图。脚本具备幂等检查，生成文件不提交到仓库，每次原生构建均重新应用。
 
-真机必须确认：状态栏不遮挡应用品牌栏、导出备份、导入备份按钮；状态栏高度变化、旋转横屏和折叠/展开后仍保持安全区；页面没有因重复 inset 产生双倍顶部留白。
+真机必须确认：状态栏不遮挡应用品牌栏、导出备份、导入备份按钮；状态栏和导航栏高度变化、手势导航/三键导航、旋转横屏和折叠/展开后，顶部与底部均保持安全区；页面没有因重复 inset 产生双倍留白。
 
 ## Windows 首次准备
 
