@@ -233,27 +233,57 @@ function macdPeriodSummary(snapshot: TechnicalStateSnapshot): string {
   ].join('，');
 }
 
-function compactBollSummary(snapshot: TechnicalStateSnapshot): string {
-  const boll = snapshot.boll;
-  if (boll.validity === 'INSUFFICIENT') return '历史数据不足';
-  if (boll.validity === 'INVALID') return '数据无效';
-  if (boll.validity === 'UNAVAILABLE') return '数据不可用';
-  return boll.priceLocation === 'unknown' ? (snapshot.bollConfig ? '收盘位置未确认' : '收盘位置未配置') : '收盘位于' + bollPriceLocationLabel(boll.priceLocation);
+function compactBandwidthLabel(value: BollState['bandwidthPhase']): string {
+  const labels: Record<BollState['bandwidthPhase'], string> = {
+    contracting: '收口',
+    'contracting-persistent': '持续收口',
+    expanding: '开口',
+    'expanding-persistent': '持续开口',
+    'contracting-to-expanding': '收口转开口',
+    'expanding-to-contracting': '开口转收口',
+    flat: '带宽走平',
+    unknown: '带宽未确认',
+  };
+  return labels[value];
 }
 
-function compactMacdSummary(snapshot: TechnicalStateSnapshot): string {
+function compactMiddleDirectionLabel(value: BollState['middleDirection']): string {
+  const labels: Record<BollState['middleDirection'], string> = {
+    up: '中轨向上',
+    down: '中轨向下',
+    flat: '中轨走平',
+    'turning-up': '中轨拐头向上',
+    'turning-down': '中轨拐头向下',
+    unknown: '中轨未确认',
+  };
+  return labels[value];
+}
+
+function compactBollConditions(snapshot: TechnicalStateSnapshot): string[] {
+  const boll = snapshot.boll;
+  if (boll.validity === 'INSUFFICIENT') return ['BOLL历史不足'];
+  if (boll.validity === 'INVALID') return ['BOLL数据无效'];
+  if (boll.validity === 'UNAVAILABLE') return ['BOLL不可用'];
+  if (!snapshot.bollConfig) return ['BOLL未配置'];
+  return [
+    compactBandwidthLabel(boll.bandwidthPhase),
+    compactMiddleDirectionLabel(boll.middleDirection),
+  ];
+}
+
+function compactMacdCondition(snapshot: TechnicalStateSnapshot): string {
   const macd = snapshot.macd;
-  if (macd.availability === 'insufficient-history') return '历史数据不足';
-  if (macd.availability === 'invalid-data') return '数据无效';
-  if (macd.availability === 'unavailable') return '数据不可用';
-  const arrangement = macd.arrangement === 'new-golden' ? '新金叉'
-    : macd.arrangement === 'new-death' ? '新死叉'
-      : macd.arrangement === 'bull-after-golden' ? '多头排列'
-        : macd.arrangement === 'bull-history-unknown' ? '多头排列（交叉历史不足）'
-          : macd.arrangement === 'bear-after-death' ? '空头排列'
-            : macd.arrangement === 'bear-history-unknown' ? '空头排列（交叉历史不足）'
-          : macd.arrangement === 'neutral' ? 'DIF/DEA 重合' : '排列未确认';
-  return arrangement + '、' + macdMomentumLabel(macd);
+  if (macd.availability === 'insufficient-history') return 'MACD历史不足';
+  if (macd.availability === 'unavailable') return 'MACD不可用';
+  if (macd.availability === 'invalid-data') return 'MACD数据无效';
+  if (macd.crossEvent === 'golden') return 'MACD金叉';
+  if (macd.crossEvent === 'death') return 'MACD死叉';
+  if (macd.crossEvent === 'none') return 'MACD无新交叉';
+  return 'MACD交叉未确认';
+}
+
+function compactTechnicalCondition(snapshot: TechnicalStateSnapshot): string {
+  return [...compactBollConditions(snapshot), compactMacdCondition(snapshot)].join('＋');
 }
 
 /**

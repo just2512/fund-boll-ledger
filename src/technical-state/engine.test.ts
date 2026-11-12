@@ -108,25 +108,37 @@ describe('combined BOLL/MACD technical state engine', () => {
     expect(description).toContain('状态阈值未配置');
   });
 
-  it('summarizes BOLL and MACD independently across month, week and day without a composite trade direction', () => {
-    const base = calculateTechnicalStateSnapshot(series());
-    const monthly = { ...base, interval: 'monthly' as const, macd: { ...base.macd, interval: 'monthly' as const } };
-    const weekly = { ...base, interval: 'weekly' as const, macd: { ...base.macd, interval: 'weekly' as const, crossEvent: 'golden' as const, arrangement: 'new-golden' as const } };
-    const daily = { ...base, interval: 'daily' as const, macd: { ...base.macd, interval: 'daily' as const } };
-    const description = describeTechnicalMultiTimeframeState({ monthly, weekly, daily });
-    expect(description.summary).toContain('BOLL：');
-    expect(description.summary).toContain('MACD：');
-    expect(description.summary).toContain('日、周、月线均');
-    expect(description.summary).toContain('周线');
-    expect(description.summary).toContain('新金叉');
+  it('builds one concise combined BOLL/MACD condition per period from the current confirmed bar', () => {
+    const makeSnapshot = (interval: 'daily' | 'weekly' | 'monthly') => calculateTechnicalStateSnapshot(
+      { ...series(), interval },
+      bollStateConfigFor(interval),
+    );
+    const dailyBase = makeSnapshot('daily');
+    const weeklyBase = makeSnapshot('weekly');
+    const monthlyBase = makeSnapshot('monthly');
+    const daily = {
+      ...dailyBase,
+      boll: { ...dailyBase.boll, bandwidthPhase: 'contracting' as const, middleDirection: 'up' as const },
+      macd: { ...dailyBase.macd, crossEvent: 'golden' as const },
+    };
+    const weekly = {
+      ...weeklyBase,
+      boll: { ...weeklyBase.boll, bandwidthPhase: 'expanding-persistent' as const, middleDirection: 'turning-down' as const },
+      macd: { ...weeklyBase.macd, crossEvent: 'death' as const },
+    };
+    const monthly = {
+      ...monthlyBase,
+      boll: { ...monthlyBase.boll, bandwidthPhase: 'flat' as const, middleDirection: 'flat' as const },
+      // A previous golden cross is history, not a new cross on the latest confirmed bar.
+      macd: { ...monthlyBase.macd, crossEvent: 'none' as const, lastCross: 'golden' as const },
+    };
+    const description = describeTechnicalMultiTimeframeState({ daily, weekly, monthly });
+    expect(description.summary).toBe(
+      '日线：收口＋中轨向上＋MACD金叉；周线：持续开口＋中轨拐头向下＋MACD死叉；月线：带宽走平＋中轨走平＋MACD无新交叉。',
+    );
+    expect(description.summary).not.toContain('MACD金叉后');
     expect(description.periods).toHaveLength(3);
-    expect(description.periods.find((period) => period.label === '周线')?.macd).toContain('新金叉');
-    expect(description.summary).not.toContain('BOLL 有效 3/3');
-    expect(description.summary).not.toContain('MACD 稳定可用 3/3');
-    expect(description.summary).not.toContain('无新交叉');
-    expect(description.detail).toContain('月线');
-    expect(description.detail).toContain('周线');
-    expect(description.detail).toContain('日线');
+    expect(description.periods.find((period) => period.label === '周线')?.macd).toContain('死叉');
     expect(description.detail).toContain('不构成买卖方向或交易指令');
   });
 
@@ -149,10 +161,11 @@ describe('combined BOLL/MACD technical state engine', () => {
     };
 
     const description = describeTechnicalMultiTimeframeState({ daily, weekly, monthly });
-    expect(description.summary).toContain('多头排列（交叉历史不足）');
-    expect(description.summary).toContain('空头排列（交叉历史不足）');
-    expect(description.periods.find((period) => period.label === '日线')?.macd).toContain('交叉历史不足');
-    expect(description.periods.find((period) => period.label === '周线')?.macd).toContain('交叉历史不足');
+    expect(description.summary).toContain('MACD交叉未确认');
+    expect(description.summary).not.toContain('多头排列（交叉历史不足）');
+    expect(description.summary).not.toContain('空头排列（交叉历史不足）');
+    expect(description.periods.find((period) => period.label === '日线')?.macd).toContain('多头排列（交叉历史不足）');
+    expect(description.periods.find((period) => period.label === '周线')?.macd).toContain('空头排列（交叉历史不足）');
   });
 
   it('reports BOLL and MACD validity independently when one indicator lacks sufficient history', () => {
@@ -186,6 +199,8 @@ describe('combined BOLL/MACD technical state engine', () => {
     expect(description.periods[0].boll).not.toContain('未配置');
     expect(describeTechnicalStateSnapshot(configuredUnknown)).toContain('带宽阶段 未确认');
     expect(description.periods[1].boll).toContain('未配置');
+    expect(description.summary).toContain('带宽未确认＋中轨未确认');
+    expect(description.summary).toContain('BOLL未配置');
   });
 
   it('keeps insufficient, unavailable and invalid MACD detail descriptions distinct', () => {
