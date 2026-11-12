@@ -162,10 +162,10 @@ describe('combined BOLL/MACD technical state engine', () => {
 
     const description = describeTechnicalMultiTimeframeState({ daily, weekly, monthly });
     expect(description.summary).toContain('MACD交叉未确认');
-    expect(description.summary).not.toContain('多头排列（交叉历史不足）');
-    expect(description.summary).not.toContain('空头排列（交叉历史不足）');
-    expect(description.periods.find((period) => period.label === '日线')?.macd).toContain('多头排列（交叉历史不足）');
-    expect(description.periods.find((period) => period.label === '周线')?.macd).toContain('空头排列（交叉历史不足）');
+    expect(description.summary).not.toContain('多头排列·交叉历史不足');
+    expect(description.summary).not.toContain('空头排列·交叉历史不足');
+    expect(description.periods.find((period) => period.label === '日线')?.macd).toContain('多头排列·交叉历史不足');
+    expect(description.periods.find((period) => period.label === '周线')?.macd).toContain('空头排列·交叉历史不足');
   });
 
   it('reports BOLL and MACD validity independently when one indicator lacks sufficient history', () => {
@@ -233,7 +233,7 @@ describe('combined BOLL/MACD technical state engine', () => {
       weekly: { ...full, interval: 'weekly' as const, macd: { ...full.macd, interval: 'weekly' as const } },
       monthly: unavailable,
     });
-    expect(description.summary).toContain('月线数据不可用');
+    expect(description.summary).toContain('月线：BOLL未配置＋MACD不可用');
     expect(description.periods.find((period) => period.label === '月线')?.macd).toContain('数据不可用：缺少可信行情日期');
   });
 
@@ -264,8 +264,7 @@ describe('combined BOLL/MACD technical state engine', () => {
       weekly: calculateTechnicalStateSnapshot(series()),
       monthly: calculateTechnicalStateSnapshot(series()),
     }).summary;
-    expect(summary).toContain('BOLL：日线数据不可用');
-    expect(summary).toContain('MACD：日线数据不可用');
+    expect(summary).toContain('日线：BOLL不可用＋MACD不可用');
   });
 
 });
