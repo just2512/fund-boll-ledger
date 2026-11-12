@@ -104,12 +104,12 @@
 - [x] `npm run test`
 - [x] `npm run build`
 - [x] `npx playwright test`
-- [BLOCKED] Windows Tauri 原生构建（当前执行环境无 Windows 原生构建器）。
+- [x] Windows Tauri 原生构建（Native workflow Run [43155823629](https://github.com/just2512/fund-boll-ledger/actions/runs/43155823629)，Windows desktop installer job 成功并上传 artifact；桌面窗口实际检查仍 BLOCKED）。
 - [BLOCKED] 桌面窗口实际检查默认日线详情、周期切换和历史表格。
 
 ### Android
 
-- [BLOCKED] Android ARM64 构建通过（当前执行环境无 Android ARM64 原生构建器）。
+- [x] Android ARM64 APK 构建与临时 debug 签名（Native workflow Run [43155823629](https://github.com/just2512/fund-boll-ledger/actions/runs/43155823629)，Build ARM64 APK、apksigner verify 和 artifact 上传均成功；该 APK 不可用于正式版覆盖升级）。
 - [BLOCKED] OPPO Find N2 外屏检查。
 - [BLOCKED] OPPO Find N2 展开内屏检查。
 - [BLOCKED] 竖屏、横屏、输入法弹出后页面可操作。
@@ -255,3 +255,13 @@
 - 首次真实校准 attempt 因百度直连 HTTP 403、CDN 代理超时失败；保留该失败记录，第二次 attempt 重新执行后通过。不得将首次失败删除或写成从未发生。
 
 - **PASS（持久化边界）**：Playwright Run [43154771624](https://github.com/just2512/fund-boll-ledger/actions/runs/43154771624) 中新增 E2E：行情刷新后 BOLL/MACD 技术状态可见，但 JSON 备份仅包含 funds、schemaVersion、snapshots、trades，不含 technicalState/formulaVersion。该测试验证导出边界；IndexedDB 持久化结构仍以 AppData 类型和存储调用链审计为依据。
+
+
+## 2026-11-12 原生构建复验（工作分支）
+
+- **PASS：Windows 原生构建**。Native App Build Run [43155823629](https://github.com/just2512/fund-boll-ledger/actions/runs/43155823629)，Windows desktop installer job 全步骤成功，artifact `fund-boll-ledger-windows-x64` 已上传（artifact ID `13917120140`，保留至 2026-11-26）。
+- **PASS：Android ARM64 smoke APK 构建与临时签名**。同一 run 的 ARM64 Rust/Gradle 构建、debug keystore 生成、zipalign、apksigner sign/verify 和 artifact 上传均成功；artifact `fund-boll-ledger-android-arm64-debug-only`（ID `13916337229`，保留至 2026-11-26）。
+- 失败原因与修复：前一 run [43154632857](https://github.com/just2512/fund-boll-ledger/actions/runs/43154632857) 中 APK 已编译、签名和验证成功，但复制目标文件名包含分支路径片段，父目录不存在导致 `cp` 失败。提交 [5604bcde85929144ee2b4ba9cae69790dafb78cc](https://github.com/just2512/fund-boll-ledger/commit/5604bcde85929144ee2b4ba9cae69790dafb78cc) 改为平面文件名；后续 run 43155823629 验证通过。
+- Android 持久签名 Release job 因 `ANDROID_RELEASE_SIGNING_ENABLED` 未启用而跳过；没有生成可覆盖升级的正式 APK。不得把 debug APK 当作升级包。
+- **BLOCKED：**Windows 安装后桌面窗口实际检查、Android 安装/启动和 OPPO Find N2 外屏/内屏/横竖屏/输入法真机检查仍未执行。CI 原生构建通过不等于设备验收通过。
+- 最新前端 CI [Run 537](https://github.com/just2512/fund-boll-ledger/actions/runs/43155831276) 在当前 head `5604bcde85929144ee2b4ba9cae69790dafb78cc` 上成功：单元测试/benchmark/类型检查/生产构建/执行契约 job 与 Playwright E2E job 均通过。
