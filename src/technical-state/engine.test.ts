@@ -177,7 +177,7 @@ describe('combined BOLL/MACD technical state engine', () => {
     };
     const description = describeTechnicalMultiTimeframeState({ daily, weekly, monthly });
     expect(description.summary).toBe(
-      '日线：收口＋中轨向上＋MACD金叉；周线：持续开口＋中轨拐头向下＋MACD死叉；月线：带宽走平＋中轨走平＋MACD无新交叉。',
+      '日线：收口＋中轨向上＋MACD金叉\n周线：持续开口＋中轨拐头向下＋MACD死叉\n月线：带宽走平＋中轨走平＋MACD无新交叉。',
     );
     expect(description.summary).not.toContain('MACD金叉后');
     expect(description.periods).toHaveLength(3);

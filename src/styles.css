@@ -250,7 +250,7 @@
 .top-summary-refresh{display:grid;align-self:flex-start;place-items:center;flex:0 0 38px;width:38px;height:38px;border:1px solid #d6e0e9;border-radius:50%;background:rgba(248,250,252,.88);color:#42536a;font-size:21px;line-height:1;cursor:pointer;transition:background .18s ease,border-color .18s ease}
 .top-summary-refresh:hover:not(:disabled){background:#edf3f8;border-color:#aebdce}
 .top-summary-refresh:disabled{opacity:.42;cursor:not-allowed}
-.top-summary-tray .top-summary-technical strong{white-space:normal;line-height:1.6}
+.top-summary-tray .top-summary-technical strong{white-space:pre-line;line-height:1.6}
 .macd-period-overview{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;min-width:0}
 .macd-overview-period{display:grid;align-content:start;gap:7px;min-width:0;padding:10px;border:1px solid #e3e9ef;border-radius:9px;background:#fff}
 .macd-overview-period>strong{font-size:12px;color:#273143}

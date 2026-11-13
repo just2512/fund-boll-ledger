@@ -363,7 +363,7 @@ export function describeTechnicalMultiTimeframeState(
   }));
   const summary = ordered
     .map(({ label, snapshot }) => label + '：' + compactTechnicalCondition(snapshot))
-    .join('；') + '。';
+    .join('\n') + '。';
   return {
     overallTrend: overallTechnicalTrend(periods),
     summary,
