@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "baseline": "docs/TECHNICAL_STATE_ANALYSIS_IMPLEMENTATION_PLAN.md#scope-correction-2026-11-09",
-  "scope": "BOLL + MACD technical-state description inside the existing price-comparison module only. No strategy/backtest/order/fill/accounting work.",
+  "scope": "BOLL + MACD technical-state descriptions and a deterministic, score-free multi-timeframe technical trend label inside the existing price-comparison module only. The trend label is not a trade recommendation. No strategy/backtest/order/fill/accounting work.",
   "rule": "Do not add or remove requirements without explicit user authorization. PASS requires current code, corresponding tests, relevant CI and traceable evidence.",
   "requirements": [
     {
@@ -220,10 +220,14 @@
       "title": "日/周/月 BOLL + MACD 综合关系描述",
       "status": "PASS",
       "acceptance": [
-        "三个周期分别保留各自状态和确认日期",
-        "区分周期方向一致、分化和数据不足",
-        "不把周/月持续排列误写成本周期新交叉",
-        "综合描述只陈述事实，不生成交易方向"
+        "日、周、月各自的 BOLL/MACD 状态和确认日期分别保留",
+        "顶部技术条件摘要每周期仅显示带宽阶段、中轨方向和最新确认 K 线的 MACD 交叉事件",
+        "单周期偏多必须同时满足 BOLL 中轨向上/拐头向上、MACD DIF 高于 DEA、DIF 位于零轴上方",
+        "单周期偏空必须同时满足 BOLL 中轨向下/拐头向下、MACD DIF 低于 DEA、DIF 位于零轴下方",
+        "单周期震荡只在 BOLL 中轨走平且 DIF/DEA 重合时成立；有效但不对齐的状态标为分歧",
+        "整体偏向必须由周线与月线同向建立，日线只用于标注短线共振、回调、反弹、震荡或分歧",
+        "缺失、历史不足、无效、不可用、未配置或方向未知时整体输出待确认",
+        "趋势判断不使用分数、权重或金叉/死叉单独定方向；不输出买卖、仓位或交易指令"
       ],
       "evidence": [
         {
@@ -245,9 +249,14 @@
           "commit": "0bd0d2ce8b960d9357ff48053c7dc2924080127c",
           "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43166497217",
           "note": "合并后 main 前端 CI（run attempt 2）：单元测试/生产构建 job 与浏览器 E2E job 均 completed/success。E2E 首次 attempt 曾有 1 项既有空状态用例 30 秒超时；仅重跑失败的 Browser end-to-end regression job 后通过，首次失败保留，不视为产品缺陷。"
+        },
+        {
+          "commit": "4ad95c268ca5a3e1f6b4e3cfdc43d364b3f564ac",
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43239044062",
+          "note": "多周期技术趋势硬条件和顶部趋势展示验收：137 passed / 2 skipped；engine.test.ts 17/17；Playwright 48/48；类型检查和生产构建通过。无评分/权重，金叉/死叉不单独决定整体方向。"
         }
       ],
-      "currentReview": "PASS：本轮 GitHub Actions 已通过相关单元测试、TypeScript 检查和生产构建；新增 UNAVAILABLE 状态、逐根历史序列、周期摘要及前缀重放测试均通过。"
+      "currentReview": "PASS：Frontend Checks Run 43239044062 对应提交 4ad95c268ca5a3e1f6b4e3cfdc43d364b3f564ac；137 项单测通过、2 项实时数据测试跳过，技术状态引擎 17/17，通过 Playwright 48/48；覆盖多周期偏多/偏空、短线回调/反弹、震荡、分歧、数据待确认和零轴不一致边界。Windows/Android 原生构建与真机验收另行跟踪。"
     },
     {
       "id": "T-08",
@@ -332,10 +341,30 @@
           "commit": "0bd0d2ce8b960d9357ff48053c7dc2924080127c",
           "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43166497217",
           "note": "合并后 main 前端 CI（run attempt 2）：单元测试/生产构建 job 与浏览器 E2E job 均 completed/success。E2E 首次 attempt 曾有 1 项既有空状态用例 30 秒超时；仅重跑失败的 Browser end-to-end regression job 后通过，首次失败保留，不视为产品缺陷。"
+        },
+        {
+          "commit": "b8757f4e7b61770708f4eb09e3ee191f4053ddb5",
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43346104071",
+          "note": "同步 main 后的 PR #6 准确 head 前端验收：14 个测试文件通过，137 passed / 2 skipped（2 项 live-data 测试跳过），technical-state engine 17/17，TypeScript/生产构建/benchmark/执行契约/升级契约通过，Playwright 48/48。"
+        },
+        {
+          "commit": "b8757f4e7b61770708f4eb09e3ee191f4053ddb5",
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43346104077",
+          "note": "同步 main 后的 PR #6 准确 head 原生云端验收：Windows desktop installer 与 Android ARM64 ephemeral-signed smoke APK 均构建并上传成功；Android system-bar Insets 动态补丁实际执行成功。Windows 和 Android 产物仅证明构建/上传，不证明本地安装运行。Android 持久签名 Release 因未启用 ANDROID_RELEASE_SIGNING_ENABLED 而 skipped。"
+        },
+        {
+          "commit": "60b1ebab97e5f455db77ca4ce995d1b4d0713dcb",
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43347936534",
+          "note": "最终 PR #6 文档 head 60b1ebab97e5f455db77ca4ce995d1b4d0713dcb 前端复验：Run 43347936534 completed/success；14 个测试文件通过、137 passed / 2 skipped，technical-state engine 17/17，Playwright 48/48，TypeScript/benchmark/生产构建/执行契约/需求矩阵/升级契约通过。"
+        },
+        {
+          "commit": "60b1ebab97e5f455db77ca4ce995d1b4d0713dcb",
+          "url": "https://github.com/just2512/fund-boll-ledger/actions/runs/43347936789",
+          "note": "最终 PR #6 文档 head 60b1ebab97e5f455db77ca4ce995d1b4d0713dcb 原生复验：Run 43347936789 completed/success；Windows installer 和 Android ARM64 ephemeral-signed Debug APK 均构建、签名验证并上传成功，Insets 脚本在 Android Debug job 中实际执行成功。Android persistent-signing Release skipped，因 ANDROID_RELEASE_SIGNING_ENABLED 未启用。"
         }
       ],
-      "currentReview": "BLOCKED：合并后 main 前端 CI Run 43166497217（提交 0bd0d2ce8b960d9357ff48053c7dc2924080127c，run attempt 2）中单元测试/生产构建与浏览器 E2E 均通过；首次 E2E attempt 的空状态用例超时已通过仅重跑失败 job 复验。Native run 43162417531 的 Windows installer 与 Android ARM64 debug-only APK 构建/上传成功，Android 持久签名 release skipped。Windows 桌面实际操作、Android 安装运行与 OPPO Find N2 外屏/内屏/横竖屏/输入法真机验收仍由用户本地执行，尚无设备证据。",
-      "blocker": "本地验收待执行：安装 Windows installer 和 Android ARM64 debug-only APK，验证启动、价格计算、账本与 JSON 备份恢复；在 OPPO Find N2（PUG110）检查外屏/内屏、横竖屏、输入法和真实行情下 BOLL/MACD 详情。Android debug APK 不可覆盖正式签名版；卸载或更换安装前先导出 JSON 备份。"
+      "currentReview": "BLOCKED（合并后本地验收）：最终 PR #6 head 60b1ebab 已通过前端完整 CI（Run 43347936534，137 passed / 2 skipped，technical-state engine 17/17，Playwright 48/48）和原生云端构建（Run 43347936789，Windows installer、Android ARM64 Debug APK 均 success）。Windows 本地安装/启动、账本与 JSON 恢复，Android 安装运行及 OPPO Find N2 外屏/内屏/横竖屏/输入法/真实行情设备检查按用户决定后置到 PR 合并后执行；不作为合并前置条件。Android 持久签名 Release 仍 SKIPPED。",
+      "blocker": "合并后执行（不作为 PR #6 合并前置条件）：①Windows installer 本地安装/启动、价格计算、账本持久化、JSON 备份恢复；②Android 在 OPPO Find N2（PUG110）安装运行，检查外屏/内屏、横竖屏、输入法、系统栏安全区和真实行情下 BOLL/MACD 详情；③配置持久签名密钥后生成并拉取 Android upgrade-compatible Release APK。当前云端 Debug APK 使用临时签名，不可覆盖升级既有正式签名版。"
     },
     {
       "id": "T-10",

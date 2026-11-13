@@ -161,6 +161,7 @@ export function describeTechnicalStateSnapshot(snapshot: TechnicalStateSnapshot)
   const period = INTERVAL_DESCRIPTION[snapshot.interval];
   const date = snapshot.asOfDate ? '截至 ' + snapshot.asOfDate : '日期未知';
   const boll = snapshot.boll;
+  const bollUnknown = snapshot.bollConfig ? '未确认' : '未配置';
   const bollText = boll.validity !== 'VALID'
     ? 'BOLL ' + boll.validity + (boll.reason ? '：' + boll.reason : '')
     : [
@@ -169,10 +170,10 @@ export function describeTechnicalStateSnapshot(snapshot: TechnicalStateSnapshot)
           formatTechnicalNumber(boll.middle) + '/' +
           formatTechnicalNumber(boll.lower),
         '带宽 ' + formatTechnicalNumber(boll.bandwidthPercent, 4) + '%',
-        '带宽阶段 ' + bollBandwidthLabel(boll.bandwidthPhase),
-        '中轨方向 ' + bollMiddleLabel(boll.middleDirection),
-        '确认收盘区间位置 ' + formatTechnicalNumber(boll.closeLocationPercent, 2) + '%（' +
-          bollPriceLocationLabel(boll.priceLocation) + '）',
+        '带宽阶段 ' + (boll.bandwidthPhase === 'unknown' ? bollUnknown : bollBandwidthLabel(boll.bandwidthPhase)),
+        '中轨方向 ' + (boll.middleDirection === 'unknown' ? bollUnknown : bollMiddleLabel(boll.middleDirection)),
+        '确认收盘区间位置 ' + (boll.closeLocationPercent === undefined ? bollUnknown : formatTechnicalNumber(boll.closeLocationPercent, 2) + '%') + '（' +
+          (boll.priceLocation === 'unknown' ? bollUnknown : bollPriceLocationLabel(boll.priceLocation)) + '）',
       ].join('；') + (boll.reason ? '；' + boll.reason : '');
 
   const macd = snapshot.macd;
@@ -199,8 +200,12 @@ export function describeTechnicalStateSnapshot(snapshot: TechnicalStateSnapshot)
 
 
 export interface TechnicalMultiTimeframeDescription {
+  /** Conservative, score-free technical bias derived from confirmed daily/weekly/monthly states. */
+  overallTrend: string;
   /** Concise factual overview; contains no inferred trading action. */
   summary: string;
+  /** Structured BOLL/MACD descriptions for each interval. */
+  periods: Array<{ label: string; boll: string; macd: string }>;
   /** One complete, as-of-specific description for each period. */
   detail: string;
 }
@@ -210,10 +215,11 @@ function bollPeriodSummary(snapshot: TechnicalStateSnapshot): string {
   if (boll.validity === 'INSUFFICIENT') return '历史不足' + (boll.reason ? '：' + boll.reason : '');
   if (boll.validity === 'INVALID') return '数据无效' + (boll.reason ? '：' + boll.reason : '');
   if (boll.validity === 'UNAVAILABLE') return '数据不可用' + (boll.reason ? '：' + boll.reason : '');
+  const unknown = snapshot.bollConfig ? '未确认' : '未配置';
   return [
-    '中轨' + bollMiddleLabel(boll.middleDirection),
-    '带宽' + bollBandwidthLabel(boll.bandwidthPhase),
-    '确认收盘' + bollPriceLocationLabel(boll.priceLocation),
+    '中轨' + (boll.middleDirection === 'unknown' ? unknown : bollMiddleLabel(boll.middleDirection)),
+    '带宽' + (boll.bandwidthPhase === 'unknown' ? unknown : bollBandwidthLabel(boll.bandwidthPhase)),
+    '确认收盘' + (boll.priceLocation === 'unknown' ? unknown : bollPriceLocationLabel(boll.priceLocation)),
   ].join('，');
 }
 
@@ -229,6 +235,114 @@ function macdPeriodSummary(snapshot: TechnicalStateSnapshot): string {
   ].join('，');
 }
 
+function compactBandwidthLabel(value: BollState['bandwidthPhase']): string {
+  const labels: Record<BollState['bandwidthPhase'], string> = {
+    contracting: '收口',
+    'contracting-persistent': '持续收口',
+    expanding: '开口',
+    'expanding-persistent': '持续开口',
+    'contracting-to-expanding': '收口转开口',
+    'expanding-to-contracting': '开口转收口',
+    flat: '带宽走平',
+    unknown: '带宽未确认',
+  };
+  return labels[value];
+}
+
+function compactMiddleDirectionLabel(value: BollState['middleDirection']): string {
+  const labels: Record<BollState['middleDirection'], string> = {
+    up: '中轨向上',
+    down: '中轨向下',
+    flat: '中轨走平',
+    'turning-up': '中轨拐头向上',
+    'turning-down': '中轨拐头向下',
+    unknown: '中轨未确认',
+  };
+  return labels[value];
+}
+
+function compactBollConditions(snapshot: TechnicalStateSnapshot): string[] {
+  const boll = snapshot.boll;
+  if (boll.validity === 'INSUFFICIENT') return ['BOLL历史不足'];
+  if (boll.validity === 'INVALID') return ['BOLL数据无效'];
+  if (boll.validity === 'UNAVAILABLE') return ['BOLL不可用'];
+  if (!snapshot.bollConfig) return ['BOLL未配置'];
+  return [
+    compactBandwidthLabel(boll.bandwidthPhase),
+    compactMiddleDirectionLabel(boll.middleDirection),
+  ];
+}
+
+function compactMacdCondition(snapshot: TechnicalStateSnapshot): string {
+  const macd = snapshot.macd;
+  if (macd.availability === 'insufficient-history') return 'MACD历史不足';
+  if (macd.availability === 'unavailable') return 'MACD不可用';
+  if (macd.availability === 'invalid-data') return 'MACD数据无效';
+  if (macd.crossEvent === 'golden') return 'MACD金叉';
+  if (macd.crossEvent === 'death') return 'MACD死叉';
+  if (macd.crossEvent === 'none') return 'MACD无新交叉';
+  return 'MACD交叉未确认';
+}
+
+function compactTechnicalCondition(snapshot: TechnicalStateSnapshot): string {
+  return [...compactBollConditions(snapshot), compactMacdCondition(snapshot)].join('＋');
+}
+
+type PeriodTechnicalBias = 'bullish' | 'bearish' | 'sideways' | 'mixed' | 'unknown';
+
+/**
+ * One timeframe is directionally aligned only when BOLL's confirmed middle-band
+ * direction, MACD's DIF/DEA relation, and DIF's zero-axis side agree.
+ * Bandwidth and the latest cross event are deliberately excluded: they describe
+ * volatility and a one-bar event, not the underlying trend by themselves.
+ */
+function classifyPeriodTechnicalBias(snapshot: TechnicalStateSnapshot): PeriodTechnicalBias {
+  const boll = snapshot.boll;
+  const macd = snapshot.macd;
+  if (boll.validity !== 'VALID' || !snapshot.bollConfig || macd.availability !== 'ready') return 'unknown';
+
+  const middle = boll.middleDirection;
+  const relation = macd.lineRelation;
+  const zeroAxis = macd.zeroAxis;
+  if (middle === 'unknown' || relation === 'unknown' || zeroAxis === 'unknown') return 'unknown';
+
+  if ((middle === 'up' || middle === 'turning-up') && relation === 'bullish' && zeroAxis === 'above') {
+    return 'bullish';
+  }
+  if ((middle === 'down' || middle === 'turning-down') && relation === 'bearish' && zeroAxis === 'below') {
+    return 'bearish';
+  }
+  if (middle === 'flat' && relation === 'equal') return 'sideways';
+  return 'mixed';
+}
+
+/**
+ * Weekly + monthly alignment defines the medium-term bias; daily is used as
+ * short-term confirmation or divergence. Missing/invalid inputs fail closed.
+ * No scores, weights, cross-event shortcuts, or trading instructions are used.
+ */
+function overallTechnicalTrend(periods: import('./types').TechnicalMultiTimeframeState): string {
+  const daily = classifyPeriodTechnicalBias(periods.daily);
+  const weekly = classifyPeriodTechnicalBias(periods.weekly);
+  const monthly = classifyPeriodTechnicalBias(periods.monthly);
+  if ([daily, weekly, monthly].includes('unknown')) return '待确认';
+
+  if (weekly === 'bullish' && monthly === 'bullish') {
+    if (daily === 'bullish') return '多周期偏多';
+    if (daily === 'bearish') return '中期偏多（短线回调）';
+    if (daily === 'sideways') return '中期偏多（短线震荡）';
+    return '中期偏多（短线分歧）';
+  }
+  if (weekly === 'bearish' && monthly === 'bearish') {
+    if (daily === 'bearish') return '多周期偏空';
+    if (daily === 'bullish') return '中期偏空（短线反弹）';
+    if (daily === 'sideways') return '中期偏空（短线震荡）';
+    return '中期偏空（短线分歧）';
+  }
+  if (daily === 'sideways' && weekly === 'sideways' && monthly === 'sideways') return '三周期震荡';
+  return '多空分歧';
+}
+
 /**
  * Summarize each period as a self-contained unit. Indicator validity is
  * reported independently; no cross-period aggregation or trading direction
@@ -242,11 +356,18 @@ export function describeTechnicalMultiTimeframeState(
     { label: '周线', snapshot: periods.weekly },
     { label: '月线', snapshot: periods.monthly },
   ];
-  const summary = ordered.map(({ label, snapshot }) =>
-    label + '：BOLL ' + bollPeriodSummary(snapshot) + '；MACD ' + macdPeriodSummary(snapshot),
-  ).join('\n');
+  const periodSummaries = ordered.map(({ label, snapshot }) => ({
+    label,
+    boll: bollPeriodSummary(snapshot),
+    macd: macdPeriodSummary(snapshot),
+  }));
+  const summary = ordered
+    .map(({ label, snapshot }) => label + '：' + compactTechnicalCondition(snapshot))
+    .join('；') + '。';
   return {
+    overallTrend: overallTechnicalTrend(periods),
     summary,
+    periods: periodSummaries,
     detail: ordered.map(({ snapshot }) => describeTechnicalStateSnapshot(snapshot)).join('\n'),
   };
 }

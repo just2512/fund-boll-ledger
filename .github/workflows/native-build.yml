@@ -6,6 +6,20 @@ on:
     paths:
       - 'src/**'
       - 'src-tauri/**'
+      - 'scripts/build-android.ps1'
+      - 'scripts/configure-android-window-insets.mjs'
+      - 'scripts/verify-upgrade-contract.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/native-build.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'src-tauri/**'
+      - 'scripts/build-android.ps1'
+      - 'scripts/configure-android-window-insets.mjs'
+      - 'scripts/verify-upgrade-contract.mjs'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/native-build.yml'
@@ -97,8 +111,10 @@ jobs:
         run: cargo tauri icon public/icon.svg
       - name: Initialize Android project
         run: cargo tauri android init --ci
-      - name: Apply edge-to-edge inset handling
-        run: bash scripts/apply-android-edge-to-edge.sh
+      - name: Configure Android system-bar insets
+        run: |
+          node --check scripts/configure-android-window-insets.mjs
+          node scripts/configure-android-window-insets.mjs
       - name: Warm Gradle distribution with transient-network retries
         shell: bash
         run: |
@@ -189,8 +205,10 @@ jobs:
         run: cargo tauri icon public/icon.svg
       - name: Initialize Android project
         run: cargo tauri android init --ci
-      - name: Apply edge-to-edge inset handling
-        run: bash scripts/apply-android-edge-to-edge.sh
+      - name: Configure Android system-bar insets
+        run: |
+          node --check scripts/configure-android-window-insets.mjs
+          node scripts/configure-android-window-insets.mjs
       - name: Configure persistent Android release signing
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}

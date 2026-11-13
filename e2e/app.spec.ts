@@ -560,18 +560,43 @@ test('真实确认历史驱动 BOLL/MACD 完整详情、历史分页和窄屏滚
   await page.route('https://ifzq.gtimg.cn/**', (route) => route.fulfill({ status: 503, body: 'fallback not expected' }));
 
   await createFund(page, '技术状态验收 ETF', '510300');
-  await page.getByRole('button', { name: '刷新行情' }).click();
+  await page.locator('.top-summary > summary').click();
+  await expect(page.locator('.top-summary[open]')).toHaveCount(1);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.top-summary[open]')).toHaveCount(0);
+  await page.locator('.top-summary > summary').click();
+  await expect(page.locator('.top-summary[open]')).toHaveCount(1);
+  await page.getByRole('heading', { name: '价格计算' }).click();
+  await expect(page.locator('.top-summary[open]')).toHaveCount(0);
+  await page.getByRole('button', { name: '顶部刷新' }).click();
   await expect(page.getByText('日线 · 指标计算依据')).toBeVisible();
+  await page.locator('.top-summary > summary').click();
+  const topTrend = page.locator('.top-summary-overall-value');
+  const topConditions = page.locator('.top-summary-conditions-value');
+  await expect(topTrend).toContainText(/多周期偏多|多周期偏空|中期偏多（短线回调）|中期偏多（短线震荡）|中期偏多（短线分歧）|中期偏空（短线反弹）|中期偏空（短线震荡）|中期偏空（短线分歧）|三周期震荡|多空分歧|待确认/);
+  await expect(topConditions).toContainText('日线：');
+  await expect(topConditions).toContainText('周线：');
+  await expect(topConditions).toContainText('月线：');
+  await expect(topConditions).not.toContainText('DIF/DEA');
+  await expect(topConditions).not.toContainText('BOLL：');
+  await page.locator('.top-summary > summary').click();
   await expect(page.getByText(/公式版本：technical-formula-v1/)).toBeVisible();
   await expect(page.getByText(/EMA 初始化：快线\/慢线以首根确认收盘价为种子/)).toBeVisible();
   await expect(page.getByText('K 线来源：东方财富 · 现价来源：东方财富')).toBeVisible();
   await expect(page.getByText(/参数版本 reference-2026-11-09/)).toBeVisible();
   await expect(page.getByText(/EMA 种子日期：.*实际输入 240 根/)).toBeVisible();
   await expect(page.getByText(/观察窗口起点/).first()).toBeVisible();
+  await expect(page.locator('.macd-period-overview .macd-overview-period')).toHaveCount(3);
+  await expect(page.locator('.technical-history-section')).not.toHaveAttribute('open', '');
+  await expect(page.locator('.technical-history-scroll').first()).toBeHidden();
+  await page.locator('.technical-history-section > summary').click();
   await expect(page.getByText('历史计算明细')).toBeVisible();
   await expect(page.locator('.technical-history-scroll').nth(0).locator('tbody tr')).toHaveCount(20);
   await expect(page.locator('.technical-history-scroll').nth(0).getByRole('columnheader', { name: '通道位置 %' })).toBeVisible();
-  const latestBollRow = page.locator('.technical-history-scroll').nth(0).locator('tbody tr').last();
+  const bollHistoryTable = page.locator('.technical-history-scroll').nth(0);
+  await expect(bollHistoryTable).not.toContainText('未配置');
+  await expect(bollHistoryTable).not.toContainText('未知/未配置');
+  const latestBollRow = bollHistoryTable.locator('tbody tr').last();
   await expect(latestBollRow.locator('td').nth(9)).not.toHaveText('—');
   await expect(latestBollRow.locator('td').nth(10)).not.toHaveText('—');
   for (const column of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
@@ -609,7 +634,7 @@ test('真实确认历史驱动 BOLL/MACD 完整详情、历史分页和窄屏滚
 
   await expect(page.locator('.technical-history-scroll').nth(1).locator('tbody tr')).toHaveCount(20);
   await expect(page.getByText(/第 1 \/ 12 页 · 显示 20 根/)).toBeVisible();
-  await expect(page.locator('.macd-period-card details')).toHaveCount(0);
+  await expect(page.locator('.macd-period-card details')).toHaveCount(1);
 
   await page.getByRole('button', { name: '更早 20 根' }).click();
   await expect(page.getByText(/第 2 \/ 12 页 · 显示 20 根/)).toBeVisible();
@@ -619,6 +644,7 @@ test('真实确认历史驱动 BOLL/MACD 完整详情、历史分页和窄屏滚
   await page.getByRole('tab', { name: '月线' }).click();
   await expect(page.getByText('月线 · 指标计算依据')).toBeVisible();
   await expect(page.getByText(/实际输入 120 根/)).toBeVisible();
+  await page.locator('.technical-history-section > summary').click();
 
   const dimensions = await page.evaluate(() => {
     const table = document.querySelector('.technical-history-scroll') as HTMLElement | null;
@@ -638,10 +664,11 @@ test('真实确认历史驱动 BOLL/MACD 完整详情、历史分页和窄屏滚
   await page.getByRole('button', { name: '刷新行情' }).click();
   await expect(page.getByText('MACD 历史不足', { exact: true })).toBeVisible();
   await expect(page.getByText(/EMA 种子日期：.*实际输入 100 根/)).toBeVisible();
-  await expect(page.getByText(/MACD 数据不可用/)).toHaveCount(0);
+  await expect(page.getByText(/MACD数据不可用/)).toHaveCount(0);
 
   historyMode = 'short';
   await page.getByRole('button', { name: '刷新行情' }).click();
+  await page.locator('.technical-history-section > summary').click();
   await expect(page.locator('.technical-history-scroll').nth(0).locator('tbody tr')).toHaveCount(12);
   await expect(page.locator('.technical-history-scroll').nth(1).locator('tbody tr')).toHaveCount(12);
   await expect(page.getByText(/第 1 \/ 1 页 · 显示 12 根/)).toBeVisible();
@@ -1409,9 +1436,10 @@ test('K 线来源全部失败时，技术详情明确显示无确认历史和缺
   await expect(page.getByText('日线 · 指标计算依据')).toBeVisible();
   await expect(page.getByText('无可确认历史 K 线', { exact: true })).toBeVisible();
   await expect(page.getByText('K 线来源：未提供 · 现价来源：东方财富')).toBeVisible();
-  await expect(page.locator('.macd-summary')).toContainText('BOLL 数据不可用');
-  await expect(page.locator('.macd-summary')).toContainText('MACD 数据不可用');
-  await expect(page.locator('.macd-summary')).toContainText(/东方财富失败|腾讯失败|百度失败/);
+  await expect(page.locator('.macd-period-overview')).toContainText('BOLL数据不可用');
+  await expect(page.locator('.macd-period-overview')).toContainText('MACD数据不可用');
+  await expect(page.locator('.macd-period-error')).toContainText(/东方财富失败.*腾讯失败.*百度失败/);
+  await expect(page.locator('.macd-summary')).not.toContainText(/东方财富失败|腾讯失败|百度失败/);
 });
 
 
@@ -1450,11 +1478,15 @@ test('刷新失败但保留上次行情时，技术摘要明确标注旧数据',
 
   await createFund(page, '行情刷新失败保留旧数据验收 ETF', '510300');
   await page.getByRole('button', { name: '刷新行情' }).click();
-  await expect(page.locator('.macd-summary')).toContainText('BOLL 数据不可用');
+  await expect(page.locator('.macd-period-overview')).toContainText('BOLL数据不可用');
 
   await page.getByRole('button', { name: '刷新行情' }).click();
   await expect(page.locator('.macd-summary')).toContainText('本次行情刷新失败，以下仍为上次成功数据');
   await expect(page.locator('.macd-summary')).toContainText('东方财富失败');
+  await expect(page.locator('.top-summary-hint')).toContainText('上次成功行情');
+  await page.locator('.top-summary > summary').click();
+  await expect(page.locator('.top-summary-overall-value')).toContainText('上次成功数据：');
+  await expect(page.locator('.top-summary-conditions-value')).toContainText('上次成功数据：');
   expect(quoteRequests).toBeGreaterThanOrEqual(2);
 });
 
@@ -1472,7 +1504,7 @@ test('BOLL/MACD 技术状态不进入 JSON 备份', async ({ page }) => {
 
   await createFund(page, '技术状态隔离验收 ETF', '510300');
   await page.getByRole('button', { name: '刷新行情' }).click();
-  await expect(page.locator('.macd-summary')).toContainText('BOLL 数据不可用');
+  await expect(page.locator('.macd-period-overview')).toContainText('BOLL数据不可用');
 
   await page.getByRole('button', { name: '历史与备份' }).click();
   const jsonDownload = page.waitForEvent('download');

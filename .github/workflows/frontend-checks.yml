@@ -32,6 +32,7 @@ jobs:
         run: |
           node --check scripts/configure-android-signing.mjs
           node --check scripts/export-android-signing-secrets.mjs
+          node --check scripts/configure-android-window-insets.mjs
       - name: Run unit tests
         run: npm run test
       - name: Benchmark BOLL/MACD history reuse

@@ -235,6 +235,26 @@ export default function App() {
   const [notification, setNotification] = useState('');
   const [lastBackupAt, setLastBackupAt] = useState<string | null>(null);
   const importInputRef = useRef<HTMLInputElement | null>(null);
+  const topSummaryWrapRef = useRef<HTMLDivElement | null>(null);
+  const topSummaryRef = useRef<HTMLDetailsElement | null>(null);
+
+  useEffect(() => {
+    const closeWhenOutside = (event: PointerEvent) => {
+      const wrapper = topSummaryWrapRef.current;
+      if (wrapper && !wrapper.contains(event.target as Node) && topSummaryRef.current) {
+        topSummaryRef.current.open = false;
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && topSummaryRef.current) topSummaryRef.current.open = false;
+    };
+    document.addEventListener('pointerdown', closeWhenOutside);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeWhenOutside);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -491,10 +511,34 @@ export default function App() {
   };
 
 
+  const technicalDescription = currentQuoteState?.quote?.technicalState
+    ? describeTechnicalMultiTimeframeState(currentQuoteState.quote.technicalState)
+    : undefined;
+  const technicalDataPrefix = currentQuoteState?.status === 'error'
+    ? '上次成功数据：'
+    : currentQuoteState?.status === 'loading' && currentQuoteState.quote
+      ? '刷新中，暂显上次数据：'
+      : '';
+
   if (!hydrated) return <div className="loading-screen"><div className="brand-mark">阶</div><strong>基金阶梯账本</strong><p className="muted">正在读取本地账本……</p></div>;
 
   return <div className="app-shell">
-    <header className="topbar"><div className="brand"><div className="brand-mark">阶</div><div><strong>基金阶梯账本</strong><span>手动记录 · 本地保存 · 不接交易接口</span></div></div>{selectedFund && <details className="top-summary"><summary><span className="top-summary-name">{selectedFund.name}</span><strong>{selectedFund.prices.currentPrice || '未录入现价'}</strong><span className="top-summary-hint">{currentQuoteState?.status === 'loading' ? '行情刷新中' : currentQuoteState?.quote ? currentQuoteState.quote.source + ' · ' + (currentQuoteState.quote.quotedAt || '源端未提供时间') : '展开行情摘要'}</span></summary><div className="top-summary-tray"><div><span>基金代码</span><strong>{selectedFund.code || '—'}</strong></div><div><span>当前价格</span><strong>{selectedFund.prices.currentPrice || '—'}</strong></div><div><span>报价来源</span><strong>{currentQuoteState?.quote?.source || '尚未刷新'}</strong></div><div><span>行情时间</span><strong>{currentQuoteState?.quote?.quotedAt || '源端未提供'}</strong></div><div className="top-summary-technical"><span>技术状态</span><strong>{currentQuoteState?.quote?.technicalState ? describeTechnicalMultiTimeframeState(currentQuoteState.quote.technicalState).summary : '等待有效行情数据'}</strong></div></div></details>}<div className="top-actions"><span className={`save-state ${persistenceStatus}`}><i/>{persistenceStatus === 'saving' ? '保存中' : persistenceStatus === 'saved' ? '已保存到本机' : persistenceStatus === 'error' ? '保存异常' : '读取中'}</span><button className="button ghost top-export" onClick={exportJson}>导出备份</button><button className="button ghost top-export" onClick={() => void handleImportClick()}>导入备份</button><input ref={importInputRef} type="file" accept="application/json,.json" hidden onChange={(e) => void handleImportFile(e.target.files?.[0])}/></div></header>
+    <header className="topbar"><div className="brand"><div className="brand-mark">阶</div><div><strong>基金阶梯账本</strong><span>手动记录 · 本地保存 · 不接交易接口</span></div></div>{selectedFund && <div className="top-summary-wrap" ref={topSummaryWrapRef}>
+      <details className="top-summary" ref={topSummaryRef}>
+        <summary><span className="top-summary-name">{selectedFund.name}</span><strong>{selectedFund.prices.currentPrice || '未录入现价'}</strong><span className="top-summary-hint">{currentQuoteState?.status === 'loading' ? currentQuoteState.quote ? '行情刷新中 · 显示上次数据' : '行情刷新中' : currentQuoteState?.status === 'error' && currentQuoteState.quote ? currentQuoteState.quote.source + ' · 上次成功行情' : currentQuoteState?.quote ? currentQuoteState.quote.source + ' · ' + (currentQuoteState.quote.quotedAt || '源端未提供时间') : '展开行情摘要'}</span></summary>
+        <div className="top-summary-tray">
+          <div><span>基金代码</span><strong>{selectedFund.code || '—'}</strong></div>
+          <div><span>当前价格</span><strong>{selectedFund.prices.currentPrice || '—'}</strong></div>
+          <div><span>报价来源</span><strong>{currentQuoteState?.quote?.source || '尚未刷新'}</strong></div>
+          <div><span>行情时间</span><strong>{currentQuoteState?.quote?.quotedAt || '源端未提供'}</strong></div>
+          <div className="top-summary-technical">{technicalDescription ? <>
+            <div><span>整体趋势</span><strong className="top-summary-overall-value">{technicalDataPrefix}{technicalDescription.overallTrend}</strong></div>
+            <div><span>技术条件</span><strong className="top-summary-conditions-value">{technicalDataPrefix}{technicalDescription.summary}</strong></div>
+          </> : <div><span>技术状态</span><strong className="top-summary-conditions-value">{currentQuoteState?.status === 'error' ? '行情数据不可用' : '等待有效行情数据'}</strong></div>}</div>
+        </div>
+      </details>
+      <button type="button" className="top-summary-refresh" aria-label="顶部刷新" title="刷新行情" disabled={currentQuoteState?.status === 'loading' || !selectedFund.code.trim()} onClick={() => { if (topSummaryRef.current) topSummaryRef.current.open = false; void refreshMarketQuote(selectedFund); }}>{currentQuoteState?.status === 'loading' ? '…' : '↻'}</button>
+    </div>}<div className="top-actions"><span className={`save-state ${persistenceStatus}`}><i/>{persistenceStatus === 'saving' ? '保存中' : persistenceStatus === 'saved' ? '已保存到本机' : persistenceStatus === 'error' ? '保存异常' : '读取中'}</span><button className="button ghost top-export" onClick={exportJson}>导出备份</button><button className="button ghost top-export" onClick={() => void handleImportClick()}>导入备份</button><input ref={importInputRef} type="file" accept="application/json,.json" hidden onChange={(e) => void handleImportFile(e.target.files?.[0])}/></div></header>
     {persistenceStatus === 'error' && <div className="storage-warning"><strong>本地保存异常：</strong>{persistenceError} 请先导出备份并检查浏览器权限。<button className="text-button" onClick={exportJson}>立即导出备份</button></div>}
     {backupReminder.due && <div className="storage-warning backup-reminder" role="status"><strong>本地备份提醒：</strong>{backupReminder.message} 账本仅保存在本机；导出后请将 JSON 文件另存到安全位置。<button className="text-button" onClick={exportJson}>立即导出完整 JSON</button></div>}
     <div className={`workspace ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}><aside className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}><div className="sidebar-header"><span className="sidebar-label">工作台</span><button type="button" className="sidebar-toggle" onClick={() => setSidebarCollapsed((old) => !old)} aria-label={sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'} title={sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'}>{sidebarCollapsed ? '☰' : '‹'}</button></div>{NAV_ITEMS.map((item) => <button key={item.id} className={`nav-item ${activePage === item.id ? 'selected' : ''}`} onClick={() => setActivePage(item.id)} title={sidebarCollapsed ? item.label : undefined} aria-label={item.label}><span className="nav-symbol">{item.id === 'calculator' ? '⌁' : item.id === 'ledger' ? '≡' : item.id === 'portfolio' ? '◫' : '↻'}</span><span><strong>{item.label}</strong><small>{item.caption}</small></span></button>)}<div className="sidebar-divider"/><div className="sidebar-funds-head"><span className="sidebar-label">我的基金</span><button className="round-add" onClick={() => { setEditingFundId(null); setShowFundForm(true); }} aria-label="新增基金">＋</button></div>{data.funds.length === 0 ? <div className="empty-funds">还没有基金档案。<br/>新增后即可开始计算。</div> : <div className="fund-list">{data.funds.map((fund) => <button key={fund.id} className={`fund-list-item ${fund.id === selectedFundId ? 'active' : ''}`} onClick={() => setSelectedFundId(fund.id)} aria-label={fund.name} title={sidebarCollapsed ? fund.name : undefined}><span className="fund-dot">{fund.name.slice(0, 1)}</span><span className="fund-list-text"><strong>{fund.name}</strong><small>{fund.code || fund.category}</small></span>{fund.id === selectedFundId && <span className="selected-mark">●</span>}</button>)}</div>}<button className="button outline full-width add-fund" onClick={() => { setEditingFundId(null); setShowFundForm(true); }}>＋ 新增基金</button><div className="sidebar-footer"><span>数据保存在当前浏览器设备</span><span>跨设备请使用备份导入导出</span></div></aside>
@@ -541,28 +585,28 @@ function macdCrossEventLabel(state: MacdPeriodState): string {
 function bollNumber(value: number | undefined, digits = 3): string {
   return value === undefined || !Number.isFinite(value) ? '未知' : value.toFixed(digits);
 }
-function bollPhaseLabel(value: TechnicalStateSnapshot['boll']['bandwidthPhase']): string {
+function bollPhaseLabel(value: TechnicalStateSnapshot['boll']['bandwidthPhase'], configured = false): string {
   const labels: Record<TechnicalStateSnapshot['boll']['bandwidthPhase'], string> = {
     contracting: '收窄', 'contracting-persistent': '持续收窄',
     expanding: '扩张', 'expanding-persistent': '持续扩张',
     'contracting-to-expanding': '由收窄转扩张',
     'expanding-to-contracting': '由扩张转收窄',
-    flat: '走平', unknown: '未知/未配置',
+    flat: '走平', unknown: configured ? '未确认' : '未配置',
   };
   return labels[value];
 }
-function bollMiddleLabel(value: TechnicalStateSnapshot['boll']['middleDirection']): string {
+function bollMiddleLabel(value: TechnicalStateSnapshot['boll']['middleDirection'], configured = false): string {
   const labels: Record<TechnicalStateSnapshot['boll']['middleDirection'], string> = {
     up: '向上', down: '向下', flat: '走平',
-    'turning-up': '向上拐头', 'turning-down': '向下拐头', unknown: '未知/未配置',
+    'turning-up': '向上拐头', 'turning-down': '向下拐头', unknown: configured ? '未确认' : '未配置',
   };
   return labels[value];
 }
-function bollLocationLabel(value: TechnicalStateSnapshot['boll']['priceLocation']): string {
+function bollLocationLabel(value: TechnicalStateSnapshot['boll']['priceLocation'], configured = false): string {
   const labels: Record<TechnicalStateSnapshot['boll']['priceLocation'], string> = {
     'below-lower': '下轨下方', 'near-lower': '接近下轨',
     'below-middle': '中轨下方', 'above-middle': '中轨上方',
-    'near-upper': '接近上轨', 'above-upper': '上轨上方', unknown: '未知',
+    'near-upper': '接近上轨', 'above-upper': '上轨上方', unknown: configured ? '未确认' : '未配置',
   };
   return labels[value];
 }
@@ -610,6 +654,7 @@ function MacdPeriodCard({ label, period, state, technical }: { label: string; pe
           <small>历史覆盖：{coverage}</small>
           <small>K 线来源：{source} · 现价来源：{quoteSource}</small>
           <small>{confirmation}</small>
+          {technical?.reason && (technical.validity === 'UNAVAILABLE' || technical.validity === 'INVALID') && <small className="macd-period-error">数据原因：{technical.reason}</small>}
         </div>
         <section className="boll-period-state">
           <div className="boll-period-state-head">
@@ -620,15 +665,15 @@ function MacdPeriodCard({ label, period, state, technical }: { label: string; pe
             <div className="boll-period-values">上/中/下轨：{bollNumber(boll.upper)}/{bollNumber(boll.middle)}/{bollNumber(boll.lower)}</div>
             <div className="boll-period-tags">
               <span>带宽 {bollNumber(boll.bandwidthPercent, 4)}%</span>
-              <span>历史分位 {boll.bandwidthPercentile === undefined ? '未知' : bollNumber(boll.bandwidthPercentile, 1) + '%'}</span>
-              <span>分位样本 {boll.bandwidthSampleCount ?? 0}/{bollConfig?.bandwidthRankLookback ?? '—'}</span>
-              <span>带宽阶段 {bollPhaseLabel(boll.bandwidthPhase)}</span>
-              <span>中轨方向 {bollMiddleLabel(boll.middleDirection)}</span>
-              <span>确认收盘位置 {boll.closeLocationPercent === undefined ? '未知' : bollNumber(boll.closeLocationPercent, 2) + '%'} · {bollLocationLabel(boll.priceLocation)}</span>
+              <span>历史分位 {boll.bandwidthPercentile === undefined ? (bollConfig ? '样本不足' : '未配置') : bollNumber(boll.bandwidthPercentile, 1) + '%'}</span>
+              <span>分位样本 {boll.bandwidthSampleCount ?? (bollConfig ? 0 : '未配置')}/{bollConfig?.bandwidthRankLookback ?? '—'}</span>
+              <span>带宽阶段 {bollPhaseLabel(boll.bandwidthPhase, Boolean(bollConfig))}</span>
+              <span>中轨方向 {bollMiddleLabel(boll.middleDirection, Boolean(bollConfig))}</span>
+              <span>确认收盘位置 {boll.closeLocationPercent === undefined ? (bollConfig ? '未确认' : '未配置') : bollNumber(boll.closeLocationPercent, 2) + '%'} · {bollLocationLabel(boll.priceLocation, Boolean(bollConfig))}</span>
             </div>
             <small className="boll-period-note">带宽阶段确认日期：{boll.bandwidthPhaseStartDate ?? '未知'} · 观察窗口起点：{boll.bandwidthPhaseObservationStartDate ?? '未知'}</small>
             <small className="boll-period-note">中轨方向确认日期：{boll.middleDirectionStartDate ?? '未知'} · 观察窗口起点：{boll.middleDirectionObservationStartDate ?? '未知'}</small>
-            {bollConfig && <small className="boll-period-note">分类配置：中轨回看 {bollConfig.middleDirectionLookback} 根；连续确认 {bollConfig.confirmationBars} 根；走平容差 {bollConfig.flatTolerancePercent}%；近轨距离为通道宽度的 {bollConfig.nearBandDistancePercent}%。</small>}
+            {bollConfig && <small className="boll-period-note">分类配置：中轨回看 {bollConfig.middleDirectionLookback} 根；连续确认 {bollConfig.confirmationBars} 根；走平容差 {bollConfig.flatTolerancePercent}%；近轨距离为通道宽度的 {bollConfig.nearBandDistancePercent}%。“未确认”表示最近观察窗口未满足状态确认条件，不代表参数缺失。</small>}
           </> : <p className="macd-period-message">{boll?.reason ?? '当前周期尚无可用 BOLL 计算结果。'}</p>}
         </section>
         <section className="macd-indicator-state">
@@ -655,11 +700,12 @@ function MacdPeriodCard({ label, period, state, technical }: { label: string; pe
             <small>当前排列开始：{arrangementStartDate ?? '未知'}</small>
           </div>
         </section>
-        <section className="technical-history-section">
-          <div className="technical-history-heading">
+        <details className="technical-history-section">
+          <summary className="technical-history-heading">
             <strong>历史计算明细</strong>
-            <span>{historyCount} 根已确认 K 线 · 默认最近 20 根</span>
-          </div>
+            <span>{historyCount} 根已确认 K 线 · 最近 20 根/页</span>
+            <span className="technical-history-hint">点击展开核对</span>
+          </summary>
           {historyCount === 0 ? <p className="macd-period-message">当前没有可展示的逐根历史计算结果。</p> : <>
             <div className="technical-history-subheading">BOLL 历史值</div>
             <div className="table-scroll technical-history-scroll">
@@ -667,11 +713,11 @@ function MacdPeriodCard({ label, period, state, technical }: { label: string; pe
                 <thead><tr><th>日期</th><th>收盘</th><th>上轨</th><th>中轨</th><th>下轨</th><th>带宽</th><th>分位</th><th>阶段</th><th>中轨方向</th><th>通道位置 %</th><th>位置分类</th></tr></thead>
                 <tbody>{historyRows.map((row) => <tr key={'boll-' + row.date}>
                   <td>{row.date}</td><td>{bollNumber(row.boll?.close)}</td><td>{bollNumber(row.boll?.upper)}</td><td>{bollNumber(row.boll?.middle)}</td><td>{bollNumber(row.boll?.lower)}</td>
-                  <td>{row.boll?.bandwidthPercent === undefined ? '—' : bollNumber(row.boll.bandwidthPercent, 4) + '%'}</td>
-                  <td>{row.boll?.bandwidthPercentile === undefined ? '—' : bollNumber(row.boll.bandwidthPercentile, 1) + '%'}</td>
-                  <td>{row.boll ? bollPhaseLabel(row.boll.bandwidthPhase) : '—'}</td><td>{row.boll ? bollMiddleLabel(row.boll.middleDirection) : '—'}</td>
-                  <td>{row.boll?.closeLocationPercent === undefined ? '—' : bollNumber(row.boll.closeLocationPercent, 2) + '%'}</td>
-                  <td>{row.boll ? bollLocationLabel(row.boll.priceLocation) : '—'}</td>
+                  <td>{row.boll?.upper === undefined ? '预热' : row.boll.bandwidthPercent === undefined ? '不可计算' : bollNumber(row.boll.bandwidthPercent, 4) + '%'}</td>
+                  <td>{row.boll?.bandwidthPercentile === undefined ? (row.boll?.upper === undefined ? '预热' : technical?.bollConfig ? '样本不足' : '未配置') : bollNumber(row.boll.bandwidthPercentile, 1) + '%'}</td>
+                  <td>{!row.boll ? '—' : row.boll.upper === undefined ? '预热' : bollPhaseLabel(row.boll.bandwidthPhase, Boolean(technical?.bollConfig))}</td><td>{!row.boll ? '—' : row.boll.upper === undefined ? '预热' : bollMiddleLabel(row.boll.middleDirection, Boolean(technical?.bollConfig))}</td>
+                  <td>{row.boll?.closeLocationPercent === undefined ? (row.boll?.upper === undefined ? '预热' : technical?.bollConfig ? '未确认' : '未配置') : bollNumber(row.boll.closeLocationPercent, 2) + '%'}</td>
+                  <td>{!row.boll ? '—' : row.boll.upper === undefined ? '预热' : bollLocationLabel(row.boll.priceLocation, Boolean(technical?.bollConfig))}</td>
                 </tr>)}</tbody>
               </table>
             </div>
@@ -698,7 +744,7 @@ function MacdPeriodCard({ label, period, state, technical }: { label: string; pe
               <button type="button" className="text-button" disabled={safePage === 0} onClick={() => setHistoryPage((page) => Math.max(0, page - 1))}>更新 20 根</button>
             </div>
           </>}
-        </section>
+        </details>
       </>}
     </div>
   </article>;
@@ -715,6 +761,13 @@ function MacdPanel({ state, technical, loading, error, stale }: { state?: MacdMu
   return <div className="macd-panel">
     <div className="macd-panel-head"><div><h3>BOLL + MACD 技术状态</h3><p>按日、周、月分别描述；只使用已确认 K 线，不生成交易方向</p></div><span className="macd-rule-label">描述性数据</span></div>
     <div className="macd-summary"><strong className="macd-tone-neutral">{summary}</strong></div>
+    {technicalDescription && <div className="macd-period-overview" aria-label="多周期技术状态概览">
+      {technicalDescription.periods.map((item) => <section className="macd-overview-period" key={item.label}>
+        <strong>{item.label}</strong>
+        <p><b>BOLL</b><span>{item.boll}</span></p>
+        <p><b>MACD</b><span>{item.macd}</span></p>
+      </section>)}
+    </div>}
     <div className="macd-period-selector" role="tablist" aria-label="选择技术状态周期">
       <button type="button" role="tab" aria-selected={activePeriod === 'daily'} className={activePeriod === 'daily' ? 'macd-period-tab active' : 'macd-period-tab'} onClick={() => setActivePeriod('daily')}>日线</button>
       <button type="button" role="tab" aria-selected={activePeriod === 'weekly'} className={activePeriod === 'weekly' ? 'macd-period-tab active' : 'macd-period-tab'} onClick={() => setActivePeriod('weekly')}>周线</button>
