@@ -97,6 +97,8 @@ jobs:
         run: cargo tauri icon public/icon.svg
       - name: Initialize Android project
         run: cargo tauri android init --ci
+      - name: Apply edge-to-edge inset handling
+        run: bash scripts/apply-android-edge-to-edge.sh
       - name: Warm Gradle distribution with transient-network retries
         shell: bash
         run: |
@@ -187,6 +189,8 @@ jobs:
         run: cargo tauri icon public/icon.svg
       - name: Initialize Android project
         run: cargo tauri android init --ci
+      - name: Apply edge-to-edge inset handling
+        run: bash scripts/apply-android-edge-to-edge.sh
       - name: Configure persistent Android release signing
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}

@@ -28,3 +28,6 @@ dist-android/
 
 # Android release signing material (never commit)
 src-tauri/gen/android/keystore.properties
+
+# Local ledger backup exports (user financial data — never commit)
+backup/
