@@ -149,3 +149,12 @@ The frontend browser CI and multi-ETF live calibration are recorded in the requi
   - Browser end-to-end regression：Playwright E2E 步骤成功。
 - 该 run 由上述需求矩阵/台账提交触发，补齐此前 Run 43164799096 未覆盖最新矩阵提交的证据缺口。未取得日志中的测试数量，不推断具体通过数。
 - 云端可执行的阶段 0—3 及阶段 4 自动化检查继续保持通过；设备验收不因此解除：Windows 桌面实际操作、Android 安装/启动、OPPO Find N2 外屏/内屏/横竖屏/输入法和真实行情技术详情仍由用户本地执行并保持 BLOCKED。Android 持久签名 Release 仍 SKIPPED。
+
+## 2026-11-13 PR #6 与 main 同步、Android Insets 收敛
+
+- 同步前 main：`bb54c71585f9ba9edac17379fec05aeb76a2520c`；同步前 PR #6 head：`33241722b974f6ce139fe079487aea9b11086cc0`。本次以 PR head 为第一父提交、main 为第二父提交创建合并同步提交，保留 PR 全部功能历史并消除 behind 提交。
+- Android Insets 统一由 `scripts/configure-android-window-insets.mjs` 在 `cargo tauri android init --ci` 后动态补丁生成的 Tauri `MainActivity.kt`。main 引入的静态替换方案（`scripts/android/MainActivity.kt` 与 `scripts/apply-android-edge-to-edge.sh`）不再进入合并树，避免两套监听器/补丁方案竞争。
+- Android Debug 与持久签名 Release 两个 job 均在 Android 工程初始化后执行同一 Insets 脚本；Release 不再漏掉安全区配置。正式签名仍由 `ANDROID_RELEASE_SIGNING_ENABLED` 和持久 keystore 条件控制，未配置时保持 SKIPPED。
+- 合并 main 时保留 `.gitignore` 的 `backup/`，防止本地账本 JSON 备份误入版本控制。
+- T-09 仍为 BLOCKED，但阻断范围已明确后置：Windows 安装包本地启动/账本/JSON 恢复，以及 OPPO Find N2 真机安装运行、外屏/内屏/横竖屏/输入法与真实行情检查均在 PR 合并后执行，不作为合并前置条件。
+- 本轮同步后的前端 CI、Windows installer、Android ARM64 Debug smoke APK 需以新同步提交重新验收；在结果返回前不得沿用旧 head 的绿色状态。正式签名 Release 因用户决定后置，当前不作为云端 CI 门禁。

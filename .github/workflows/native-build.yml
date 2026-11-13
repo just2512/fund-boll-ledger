@@ -205,6 +205,10 @@ jobs:
         run: cargo tauri icon public/icon.svg
       - name: Initialize Android project
         run: cargo tauri android init --ci
+      - name: Configure Android system-bar insets
+        run: |
+          node --check scripts/configure-android-window-insets.mjs
+          node scripts/configure-android-window-insets.mjs
       - name: Configure persistent Android release signing
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
