@@ -36,7 +36,7 @@ A requirement is PASS only when its current implementation, acceptance tests and
 
 ## Separate verification boundary
 
-The frontend browser CI and multi-ETF live calibration are recorded in the requirement matrix. `.github/workflows/native-build.yml` is manual-only; no Windows installer or Android APK was built in this execution, and no physical-device test is claimed. Trigger that workflow separately when native package artifacts are required.
+The frontend browser CI runs on PR updates. `.github/workflows/native-build.yml` runs for relevant PR paths and manual dispatch. The 2026-11-13 PR #6 synchronized head `b8757f4e7b61770708f4eb09e3ee191f4053ddb5` passed the Windows installer and Android ARM64 Debug smoke APK cloud builds (Native App Build Run [43346104077](https://github.com/just2512/fund-boll-ledger/actions/runs/43346104077)). These results prove successful packaging and upload, not local installation or physical-device operation. Windows local installation/launch, ledger and JSON recovery, Android installation/runtime and OPPO Find N2 physical-device checks remain post-merge tasks; Android persistent-signing Release was skipped because its signing configuration is not enabled.
 
 ## 2026-11-10 recovery checkpoint
 
@@ -157,4 +157,8 @@ The frontend browser CI and multi-ETF live calibration are recorded in the requi
 - Android Debug 与持久签名 Release 两个 job 均在 Android 工程初始化后执行同一 Insets 脚本；Release 不再漏掉安全区配置。正式签名仍由 `ANDROID_RELEASE_SIGNING_ENABLED` 和持久 keystore 条件控制，未配置时保持 SKIPPED。
 - 合并 main 时保留 `.gitignore` 的 `backup/`，防止本地账本 JSON 备份误入版本控制。
 - T-09 仍为 BLOCKED，但阻断范围已明确后置：Windows 安装包本地启动/账本/JSON 恢复，以及 OPPO Find N2 真机安装运行、外屏/内屏/横竖屏/输入法与真实行情检查均在 PR 合并后执行，不作为合并前置条件。
-- 本轮同步后的前端 CI、Windows installer、Android ARM64 Debug smoke APK 需以新同步提交重新验收；在结果返回前不得沿用旧 head 的绿色状态。正式签名 Release 因用户决定后置，当前不作为云端 CI 门禁。
+- **同步后准确提交验收：**前端 Frontend Checks [Run 43346104071](https://github.com/just2512/fund-boll-ledger/actions/runs/43346104071) 对应本提交，两个 job 均 completed/success：14 个测试文件通过、137 passed / 2 skipped（2 项 live-data 测试按既有设计跳过）、技术状态引擎 17/17、TypeScript 与生产构建成功，Playwright 48/48。
+- **原生云端构建：**Native App Build [Run 43346104077](https://github.com/just2512/fund-boll-ledger/actions/runs/43346104077) 对应本提交，Windows desktop installer 和 Android ARM64 ephemeral-signed Debug APK 两个 job 均 completed/success。Android 的工程初始化、`Configure Android system-bar insets`、Gradle 预热、ARM64 APK 编译、Debug 签名校验及 artifact 上传全部成功；Windows 升级契约、Tauri CLI、图标、测试/桌面构建与 artifact 上传全部成功。
+- **原生产物：**Windows `fund-boll-ledger-windows-x64`，artifact ID `14002402050`，SHA-256 `f993962bf28413301f73c142ffcc5641066fc25c2694cfe28aee2cfd729058fc`；Android `fund-boll-ledger-android-arm64-debug-only`，artifact ID `14002670865`，SHA-256 `f1ccb72ea9ffeecb7d18eccfc5cd3d8b027072ecb69c24d2b1be311bf2d6671b`。两个 artifact 均于 2026-11-27（UTC）到期，见 Native Run Artifacts。
+- **SKIPPED：**Android ARM64 signed release（upgrade-compatible）job 因 `ANDROID_RELEASE_SIGNING_ENABLED` 未启用而跳过；本轮不生成可覆盖升级正式版的安装包，持久签名配置与正式 APK 拉取按用户决定后置。
+- **合并后本地验收：**Windows 安装包安装/启动、账本操作和 JSON 备份恢复；Android 在 OPPO Find N2（PUG110）安装运行、外屏/内屏/横竖屏/输入法/系统栏安全区和真实行情下 BOLL/MACD 检查。以上仍保持未验收，不因云端构建成功而改为 PASS，且不作为本 PR 合并前置条件。
